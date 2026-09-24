@@ -1,0 +1,11 @@
+.git
+.next
+.openai
+.sites-runtime
+.vinext
+.wrangler
+build
+dist
+node_modules
+npm-debug.log
+.env*
