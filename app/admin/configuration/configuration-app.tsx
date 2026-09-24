@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
-import {Activity,ArrowLeft,Braces,CheckCircle2,CloudCog,Database,Globe2,KeyRound,LogOut,Radio,Route,ShieldCheck,Webhook} from 'lucide-react';
+import {ArrowLeft,Braces,CheckCircle2,CloudCog,Database,Globe2,KeyRound,LogOut,Radio,Route,ShieldCheck,Webhook} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
+import ApiConnections from './api-connections';
 
 const fields=[
  ['bookingId','booking.external_id'],
@@ -43,9 +44,7 @@ export default function ConfigurationApp(){
        <div className="mapping-preview"><div><Route/><div><strong>Initial field mapping</strong><p>Autocab fields will be translated into the shared Need A Cab Plus event schema.</p></div></div>{fields.map(([source,target])=><div className="mapping-row" key={source}><code>{source}</code><span>→</span><code>{target}</code></div>)}</div>
       </TabsContent>
       <TabsContent value="api">
-       <div className="config-section-title"><div className="config-icon"><Braces/></div><div><h3>Autocab API</h3><p>Completes booking, driver and vehicle data when a webhook does not contain everything required.</p></div><Status>Not connected</Status></div>
-       <div className="credential-list"><div><span>API base URL</span><strong>Waiting for Autocab details</strong><Globe2/></div><div><span>Account / tenant</span><strong>Not configured</strong><Activity/></div><div><span>API credentials</span><strong>Stored encrypted when connected</strong><KeyRound/></div></div>
-       <div className="config-note"><ShieldCheck/><p>No API key has been entered. Credentials will be stored only as protected server variables and will never be shown in booking or event logs.</p></div>
+       <ApiConnections/>
       </TabsContent>
       <TabsContent value="inbound">
        <div className="config-section-title"><div className="config-icon"><Radio/></div><div><h3>Need A Cab Inbound</h3><p>Receives events from approved external systems using the shared event schema.</p></div><Status tone="ready">Domain added</Status></div>

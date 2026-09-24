@@ -26,3 +26,32 @@ CREATE TABLE IF NOT EXISTS tariffs (
 INSERT INTO tariffs (id,base_pence,per_mile_pence,minimum_pence) VALUES
  ('saloon',300,180,600),('estate',400,210,750),('xl',500,260,900)
 ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS api_connections (
+  id uuid PRIMARY KEY,
+  name text NOT NULL,
+  provider text NOT NULL,
+  base_url text NOT NULL,
+  auth_type text NOT NULL CHECK (auth_type IN ('none','api_key','bearer','basic')),
+  api_key_header text NOT NULL DEFAULT 'x-api-key',
+  credentials_encrypted text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (provider,name)
+);
+
+CREATE TABLE IF NOT EXISTS api_endpoints (
+  id uuid PRIMARY KEY,
+  connection_id uuid NOT NULL REFERENCES api_connections(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  action_key text NOT NULL,
+  method text NOT NULL CHECK (method IN ('GET','POST','PUT','PATCH','DELETE')),
+  path text NOT NULL,
+  description text NOT NULL DEFAULT '',
+  enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (connection_id,action_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_endpoints_connection ON api_endpoints(connection_id);
