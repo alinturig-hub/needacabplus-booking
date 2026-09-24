@@ -1,0 +1,18 @@
+import {z} from 'zod';
+import {database} from '@/lib/database';
+import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
+import {vehicles} from '@/lib/vehicles';
+export const dynamic='force-dynamic';
+const payload=z.object({id:z.string().uuid(),name:z.string().trim().min(2).max(100),phone:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),pickup:z.string().trim().min(5).max(250),destination:z.string().trim().min(5).max(250),pickupNote:z.string().trim().max(300),vehicle:z.enum(['saloon','estate','xl']),acknowledged:z.literal(true)}).strict();
+export async function POST(request:Request){
+ if(!sameOrigin(request))return Response.json({error:'Invalid request origin.'},{status:403});
+ const user=await getChatGPTUser();if(!user)return Response.json({error:'Sign in to save a private test booking.'},{status:401});
+ let body;try{body=payload.parse(await request.json())}catch{return Response.json({error:'Check the addresses, name, phone number and test booking acknowledgement.'},{status:400})}
+ if(body.pickup.toLowerCase()===body.destination.toLowerCase())return Response.json({error:'Choose a different destination.'},{status:400});
+ try{const db=database();const fare=vehicles.find(v=>v.id===body.vehicle)!.demoPence;const existing=await db.prepare('SELECT id,user_id,status FROM bookings WHERE id=?').bind(body.id).first<{id:string;user_id:string;status:string}>();if(existing){if(existing.user_id!==user.userId)return Response.json({error:'Please start a new booking.'},{status:409});return Response.json({id:existing.id,status:existing.status})}
+ await db.prepare('INSERT INTO bookings (id,user_id,name,phone,pickup,destination,pickup_note,vehicle,fare_pence,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(body.id,user.userId,body.name,body.phone,body.pickup,body.destination,body.pickupNote,body.vehicle,fare,'test_confirmed',new Date().toISOString()).run();
+ return Response.json({id:body.id,status:'test_confirmed'},{status:201});}catch(error){return unavailable(error)}
+}
+export async function GET(){if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const result=await database().prepare('SELECT id,name,phone,pickup,destination,pickup_note,vehicle,fare_pence,status,created_at FROM bookings ORDER BY created_at DESC LIMIT 200').all();return Response.json({bookings:result.results},{headers:{'Cache-Control':'no-store'}})}catch(error){return unavailable(error)}}
+export async function PATCH(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});let body;try{body=z.object({id:z.string().uuid(),status:z.enum(['test_confirmed','test_completed','test_cancelled'])}).strict().parse(await request.json())}catch{return Response.json({error:'Invalid booking update.'},{status:400})}try{const result=await database().prepare('UPDATE bookings SET status=? WHERE id=?').bind(body.status,body.id).run();if(!result.meta.changes)return Response.json({error:'Booking not found.'},{status:404});return Response.json({ok:true})}catch(error){return unavailable(error)}}
