@@ -1,0 +1,1 @@
+ALTER TABLE `bookings` ADD `via_points` text DEFAULT '[]' NOT NULL;

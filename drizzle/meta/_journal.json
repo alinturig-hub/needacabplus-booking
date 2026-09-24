@@ -8,6 +8,13 @@
       "when": 1790248871846,
       "tag": "0000_windy_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790249468201,
+      "tag": "0001_cold_otto_octavius",
+      "breakpoints": true
     }
   ]
 }
