@@ -11,7 +11,7 @@ const connectionSchema=z.object({
 }).strict().superRefine((value,context)=>{if(value.authType==='api_key'||value.authType==='bearer'){if(!value.token)context.addIssue({code:'custom',message:'A token or API key is required',path:['token']})}if(value.authType==='basic'&&(!value.username||!value.password))context.addIssue({code:'custom',message:'Username and password are required',path:['username']})});
 
 const endpointSchema=z.object({
- type:z.literal('endpoint'),connectionId:z.string().uuid(),name:z.string().trim().min(2).max(100),actionKey:z.string().trim().regex(/^[a-z][a-z0-9_.-]{2,79}$/),method:z.enum(['GET','POST','PUT','PATCH','DELETE']),path:z.string().trim().min(1).max(500).refine(value=>value.startsWith('/')&&!value.startsWith('//'),'Path must start with /'),description:z.string().trim().max(500).default('')
+ type:z.literal('endpoint'),connectionId:z.string().uuid(),name:z.string().trim().min(2).max(100),actionKey:z.string().trim().regex(/^[a-z][a-z0-9_.-]{2,79}$/),method:z.enum(['GET','POST','PUT','PATCH','DELETE']),path:z.string().trim().min(1).max(500).refine(value=>value.startsWith('/')&&!value.startsWith('//'),'Path must start with /'),description:z.string().trim().max(500).default(''),requestExample:z.string().trim().min(2).max(100000).refine(value=>{try{JSON.parse(value);return true}catch{return false}},'Request example must be valid JSON')
 }).strict();
 
 export async function GET(){
@@ -20,7 +20,7 @@ export async function GET(){
   const db=database();
   const [connections,endpoints]=await Promise.all([
    db.query('SELECT id,name,provider,base_url,auth_type,api_key_header,created_at,updated_at FROM api_connections WHERE provider=$1 ORDER BY created_at',['autocab']),
-   db.query('SELECT id,connection_id,name,action_key,method,path,description,enabled,created_at,updated_at FROM api_endpoints ORDER BY name')
+   db.query('SELECT id,connection_id,name,action_key,method,path,description,request_example,enabled,created_at,updated_at FROM api_endpoints ORDER BY name')
   ]);
   return Response.json({connections:connections.rows,endpoints:endpoints.rows},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
@@ -40,7 +40,7 @@ export async function POST(request:Request){
   const body=endpointSchema.parse(raw);const id=randomUUID();
   const owner=await db.query('SELECT id FROM api_connections WHERE id=$1 AND provider=$2',[body.connectionId,'autocab']);
   if(!owner.rowCount)return Response.json({error:'Autocab connection not found.'},{status:404});
-  await db.query('INSERT INTO api_endpoints (id,connection_id,name,action_key,method,path,description) VALUES ($1,$2,$3,$4,$5,$6,$7)',[id,body.connectionId,body.name,body.actionKey,body.method,body.path,body.description]);
+  await db.query('INSERT INTO api_endpoints (id,connection_id,name,action_key,method,path,description,request_example) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',[id,body.connectionId,body.name,body.actionKey,body.method,body.path,body.description,JSON.stringify(JSON.parse(body.requestExample))]);
   return Response.json({id},{status:201});
  }catch(error){
   if(error instanceof z.ZodError)return Response.json({error:error.issues[0]?.message||'Check the API details.'},{status:400});

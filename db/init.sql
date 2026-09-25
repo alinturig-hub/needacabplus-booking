@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS api_endpoints (
   method text NOT NULL CHECK (method IN ('GET','POST','PUT','PATCH','DELETE')),
   path text NOT NULL,
   description text NOT NULL DEFAULT '',
+  request_example jsonb NOT NULL DEFAULT '{}'::jsonb,
   enabled boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -55,6 +56,8 @@ CREATE TABLE IF NOT EXISTS api_endpoints (
 );
 
 CREATE INDEX IF NOT EXISTS idx_api_endpoints_connection ON api_endpoints(connection_id);
+
+ALTER TABLE api_endpoints ADD COLUMN IF NOT EXISTS request_example jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS webhook_providers (
   id uuid PRIMARY KEY,
