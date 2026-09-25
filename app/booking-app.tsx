@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,CarFront,Check,CheckCircle2,Clock3,MapPin,Navigation,ShieldCheck,Users,Briefcase,Banknote,Plus,X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
@@ -20,7 +21,7 @@ export default function BookingApp(){
  async function book(){if(pending.current)return;pending.current=true;setBusy(true);setError('');requestId.current||=crypto.randomUUID();try{const r=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:requestId.current,pickup,destination,viaPoints,vehicle,name,phone,pickupNote:note,acknowledged:ack})});const data=await r.json() as {id:string;error?:string};if(!r.ok)throw new Error(data.error||'Unable to save your test booking.');setReference(data.id);next(4)}catch(e){setError(e instanceof Error?e.message:'Unable to save your test booking. Please try again.')}finally{pending.current=false;setBusy(false)}}
  function reset(){requestId.current='';setReference('');setViaPoints([]);setAck(false);next(0)}
  return <main className="booking-shell">
- <header className="brandbar"><a className="brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></a><a className="admin-link" href="/admin">Admin <ArrowRight size={16}/></a></header>
+ <header className="brandbar"><Link className="brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link><Link className="admin-link" href="/admin">Admin <ArrowRight size={16}/></Link></header>
  <section className="map-surface" aria-label="Plymouth area map"><iframe title="Map of Plymouth, area overview only" src="https://www.openstreetmap.org/export/embed.html?bbox=-4.19%2C50.35%2C-4.09%2C50.40&layer=mapnik"/><div className="map-city"><MapPin size={17}/> Plymouth · area overview</div></section>
  <section className="booking-panel"><div className="mobile-handle"/>
  <div className="panel-top">{stage>0&&stage<4?<button className="back-button" aria-label="Back to previous step" disabled={busy} onClick={()=>next((stage-1) as Stage)}><ArrowLeft size={21}/></button>:<span className="eyebrow">YOUR NEXT JOURNEY</span>}<span className="step-count">{stage===4?'COMPLETE':`0${stage+1} / 04`}</span></div>

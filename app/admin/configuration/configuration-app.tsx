@@ -14,7 +14,7 @@ export default function ConfigurationApp(){
   <header className="brandbar">
    <Link className="brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link>
    <nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Bookings</Link><Link className="active" href="/admin/configuration">Configuration</Link></nav>
-   <a className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</a>
+   <Link className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link>
   </header>
   <div className="admin-body configuration-body">
    <div className="admin-title"><div><span className="eyebrow">ADMINISTRATION</span><h1>Configuration.</h1><p className="muted">Connect Autocab and manage how booking events enter Need A Cab Plus.</p></div><Link className="text-link" href="/admin"><ArrowLeft size={16}/>Back to bookings</Link></div>
