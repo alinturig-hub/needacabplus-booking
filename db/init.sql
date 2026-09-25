@@ -125,5 +125,17 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   received_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE provider_webhooks ADD COLUMN IF NOT EXISTS received_count bigint NOT NULL DEFAULT 0;
+ALTER TABLE provider_webhooks ADD COLUMN IF NOT EXISTS last_received_at timestamptz;
+
+UPDATE provider_webhooks webhook SET
+ received_count=history.total,
+ last_received_at=history.latest
+FROM (
+ SELECT webhook_id,COUNT(*) AS total,MAX(received_at) AS latest
+ FROM webhook_events GROUP BY webhook_id
+) history
+WHERE webhook.id=history.webhook_id AND webhook.received_count=0;
+
 CREATE INDEX IF NOT EXISTS idx_webhook_events_received ON webhook_events(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_webhook ON webhook_events(webhook_id,received_at DESC);

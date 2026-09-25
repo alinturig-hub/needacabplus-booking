@@ -25,12 +25,10 @@ const updateSchema=z.discriminatedUnion('type',[
 
 export async function GET(){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
- try{const db=database();const [providers,webhooks,events]=await Promise.all([
+ try{const db=database();const [providers,webhooks]=await Promise.all([
   db.query("SELECT id,name,description,base_url,api_key_header,enabled,(api_key_encrypted <> '') AS has_api_key,created_at,updated_at FROM webhook_providers ORDER BY name"),
-  db.query('SELECT id,provider_id,name,description,event_type,event_url_suffix,event_filter_recipe,enabled,created_at,updated_at FROM provider_webhooks ORDER BY name'),
-  db.query(`SELECT e.id,e.provider_id,e.webhook_id,e.event_type,e.payload,e.received_at,w.name AS webhook_name
-   FROM webhook_events e JOIN provider_webhooks w ON w.id=e.webhook_id ORDER BY e.received_at DESC LIMIT 100`)
- ]);return Response.json({providers:providers.rows,webhooks:webhooks.rows,events:events.rows},{headers:{'Cache-Control':'no-store'}})}catch(error){return unavailable(error)}
+  db.query('SELECT id,provider_id,name,description,event_type,event_url_suffix,event_filter_recipe,enabled,received_count,last_received_at,created_at,updated_at FROM provider_webhooks ORDER BY name')
+ ]);return Response.json({providers:providers.rows,webhooks:webhooks.rows},{headers:{'Cache-Control':'no-store'}})}catch(error){return unavailable(error)}
 }
 
 export async function POST(request:Request){
