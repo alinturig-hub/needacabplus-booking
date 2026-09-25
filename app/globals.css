@@ -23,3 +23,4 @@
 @media(max-width:650px){.received-events summary{grid-template-columns:1fr}.received-events summary time{font-size:10px}}
 
 .generate-key{display:flex;align-items:center;gap:6px;margin-top:8px;border:0;background:transparent;color:#f2dd4a;font-size:11px;padding:3px 0}.generate-key svg{width:14px}.generate-key:hover{text-decoration:underline}
+.key-actions{display:flex;align-items:center;gap:16px}.generate-key:disabled{color:#727b75;cursor:not-allowed;text-decoration:none}
