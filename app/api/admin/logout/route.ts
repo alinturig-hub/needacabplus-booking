@@ -1,6 +1,6 @@
 import {clearAdminSession} from '@/lib/security';
 
-export async function GET(request:Request){
+export async function GET(){
  await clearAdminSession();
- return Response.redirect(new URL('/admin-login',request.url));
+ return Response.redirect('https://admin.needacabplus.app/admin-login',303);
 }
