@@ -84,6 +84,48 @@ CREATE INDEX IF NOT EXISTS idx_api_endpoints_connection ON api_endpoints(connect
 
 ALTER TABLE api_endpoints ADD COLUMN IF NOT EXISTS request_example jsonb NOT NULL DEFAULT '{}'::jsonb;
 
+CREATE TABLE IF NOT EXISTS autocab_drivers (
+  external_id text PRIMARY KEY,
+  callsign text,
+  first_name text,
+  last_name text,
+  display_name text NOT NULL DEFAULT '',
+  mobile text,
+  email text,
+  company text,
+  status text NOT NULL DEFAULT 'Active',
+  suspended boolean NOT NULL DEFAULT false,
+  capabilities jsonb NOT NULL DEFAULT '[]'::jsonb,
+  raw_payload jsonb NOT NULL,
+  synced_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_autocab_drivers_name ON autocab_drivers(display_name);
+CREATE INDEX IF NOT EXISTS idx_autocab_drivers_callsign ON autocab_drivers(callsign);
+
+CREATE TABLE IF NOT EXISTS autocab_vehicles (
+  external_id text PRIMARY KEY,
+  callsign text,
+  registration text,
+  make text,
+  model text,
+  colour text,
+  passenger_capacity integer,
+  vehicle_type text,
+  plate_number text,
+  company text,
+  status text NOT NULL DEFAULT 'Active',
+  suspended boolean NOT NULL DEFAULT false,
+  capabilities jsonb NOT NULL DEFAULT '[]'::jsonb,
+  raw_payload jsonb NOT NULL,
+  synced_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_autocab_vehicles_registration ON autocab_vehicles(registration);
+CREATE INDEX IF NOT EXISTS idx_autocab_vehicles_callsign ON autocab_vehicles(callsign);
+
 CREATE TABLE IF NOT EXISTS webhook_providers (
   id uuid PRIMARY KEY,
   name text NOT NULL UNIQUE,

@@ -13,7 +13,7 @@ export default function ConfigurationApp(){
  return <main className="admin-shell">
   <header className="brandbar">
    <Link className="brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link>
-   <nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Bookings</Link><Link className="active" href="/admin/configuration">Configuration</Link></nav>
+   <nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Bookings</Link><Link href="/admin/drivers">Drivers</Link><Link href="/admin/vehicles">Vehicles</Link><Link className="active" href="/admin/configuration">Configuration</Link></nav>
    <Link className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link>
   </header>
   <div className="admin-body configuration-body">
