@@ -55,3 +55,32 @@ CREATE TABLE IF NOT EXISTS api_endpoints (
 );
 
 CREATE INDEX IF NOT EXISTS idx_api_endpoints_connection ON api_endpoints(connection_id);
+
+CREATE TABLE IF NOT EXISTS webhook_providers (
+  id uuid PRIMARY KEY,
+  name text NOT NULL UNIQUE,
+  description text NOT NULL DEFAULT '',
+  base_url text NOT NULL,
+  api_key_header text NOT NULL DEFAULT 'x-api-key',
+  api_key_encrypted text NOT NULL DEFAULT '',
+  enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS provider_webhooks (
+  id uuid PRIMARY KEY,
+  provider_id uuid NOT NULL REFERENCES webhook_providers(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text NOT NULL DEFAULT '',
+  event_type text NOT NULL,
+  event_url_suffix text NOT NULL,
+  event_filter_recipe text NOT NULL DEFAULT '',
+  enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (provider_id,name),
+  UNIQUE (provider_id,event_type,event_url_suffix)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_webhooks_provider ON provider_webhooks(provider_id);

@@ -1,15 +1,9 @@
 'use client';
 import Link from 'next/link';
-import {ArrowLeft,Braces,CheckCircle2,CloudCog,Database,Globe2,KeyRound,LogOut,Radio,Route,ShieldCheck,Webhook} from 'lucide-react';
+import {ArrowLeft,Braces,CheckCircle2,CloudCog,KeyRound,LogOut,Radio,ShieldCheck,Webhook} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import ApiConnections from './api-connections';
-
-const fields=[
- ['bookingId','booking.external_id'],
- ['telephone','customer.phone'],
- ['pickup.address','journey.pickup.address'],
- ['destination.address','journey.destination.address'],
-];
+import WebhookProviders from './webhook-providers';
 
 function Status({children,tone='pending'}:{children:React.ReactNode;tone?:'pending'|'ready'}){
  return <span className={`config-status ${tone}`}><span/>{children}</span>;
@@ -38,10 +32,7 @@ export default function ConfigurationApp(){
      <Tabs defaultValue="webhook" className="integration-tabs">
       <TabsList><TabsTrigger value="webhook"><Webhook/>Webhook</TabsTrigger><TabsTrigger value="api"><Braces/>API</TabsTrigger><TabsTrigger value="inbound"><Radio/>Inbound</TabsTrigger></TabsList>
       <TabsContent value="webhook">
-       <div className="config-section-title"><div className="config-icon"><Webhook/></div><div><h3>Autocab Webhook</h3><p>Receives events sent by Autocab and stores the original payload.</p></div><Status tone="ready">Domain added</Status></div>
-       <div className="endpoint-box"><span>EVENT ENDPOINT</span><code>https://webhook.needacabplus.app/events/autocab</code><small>The receiver will validate, store and normalize each Autocab event.</small></div>
-       <div className="config-grid"><article><Globe2/><div><strong>Source authentication</strong><p>Signature or shared secret will be configured when Autocab credentials are available.</p></div><Status>Pending</Status></article><article><Database/><div><strong>Raw event storage</strong><p>Keep the original request for audit, diagnostics and replay.</p></div><Status>Pending build</Status></article></div>
-       <div className="mapping-preview"><div><Route/><div><strong>Initial field mapping</strong><p>Autocab fields will be translated into the shared Need A Cab Plus event schema.</p></div></div>{fields.map(([source,target])=><div className="mapping-row" key={source}><code>{source}</code><span>→</span><code>{target}</code></div>)}</div>
+       <WebhookProviders/>
       </TabsContent>
       <TabsContent value="api">
        <ApiConnections/>
