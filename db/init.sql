@@ -87,3 +87,18 @@ CREATE TABLE IF NOT EXISTS provider_webhooks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_provider_webhooks_provider ON provider_webhooks(provider_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_webhooks_suffix_unique ON provider_webhooks(event_url_suffix);
+
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id uuid PRIMARY KEY,
+  provider_id uuid NOT NULL REFERENCES webhook_providers(id) ON DELETE CASCADE,
+  webhook_id uuid NOT NULL REFERENCES provider_webhooks(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  payload jsonb NOT NULL,
+  content_type text NOT NULL DEFAULT '',
+  source_ip text NOT NULL DEFAULT '',
+  received_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_events_received ON webhook_events(received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_webhook ON webhook_events(webhook_id,received_at DESC);
