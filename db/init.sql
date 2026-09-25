@@ -126,6 +126,45 @@ CREATE TABLE IF NOT EXISTS autocab_vehicles (
 CREATE INDEX IF NOT EXISTS idx_autocab_vehicles_registration ON autocab_vehicles(registration);
 CREATE INDEX IF NOT EXISTS idx_autocab_vehicles_callsign ON autocab_vehicles(callsign);
 
+CREATE TABLE IF NOT EXISTS drivers (
+  id text PRIMARY KEY,
+  callsign text,
+  forename text,
+  surname text,
+  badge_number text,
+  licence_number text,
+  active boolean NOT NULL DEFAULT true,
+  first_seen timestamptz,
+  last_seen timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS driver_positions (
+  id bigserial PRIMARY KEY,
+  driver_id text REFERENCES drivers(id),
+  vehicle_id text,
+  vehicle_callsign text,
+  registration text,
+  plate_number text,
+  latitude double precision,
+  longitude double precision,
+  vehicle_status text,
+  booking_id bigint,
+  recorded_at timestamptz,
+  received_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_driver_positions_driver_recorded ON driver_positions(driver_id,recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_driver_positions_recorded ON driver_positions(recorded_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_driver_positions_track_unique
+  ON driver_positions(driver_id,COALESCE(vehicle_id,''),COALESCE(booking_id,-1),COALESCE(recorded_at,'epoch'::timestamptz));
+
+CREATE TABLE IF NOT EXISTS driver_shifts (
+  driver_id text PRIMARY KEY REFERENCES drivers(id),
+  started_at timestamptz,
+  ended_at timestamptz,
+  updated_at timestamptz
+);
+
 CREATE TABLE IF NOT EXISTS webhook_providers (
   id uuid PRIMARY KEY,
   name text NOT NULL UNIQUE,

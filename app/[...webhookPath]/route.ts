@@ -2,6 +2,7 @@ import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {database} from '@/lib/database';
 import {decryptCredentials} from '@/lib/credentials';
 import {saveAutocabBooking} from '@/lib/autocab-bookings';
+import {handlesDriverEvent,saveDriverEvent} from '@/lib/driver-events';
 import {bookingEvents} from '@/lib/booking-events';
 
 export const dynamic='force-dynamic';
@@ -32,11 +33,16 @@ export async function POST(request:Request,{params}:{params:Promise<{webhookPath
   const raw=await request.text();if(Buffer.byteLength(raw,'utf8')>MAX_BODY_BYTES)return json(413,{error:'Webhook payload is too large.'});
   let payload:unknown;try{payload=raw?JSON.parse(raw):{}}catch{return json(400,{error:'Webhook body must contain valid JSON.'})}
   const eventId=randomUUID();const sourceIp=(request.headers.get('x-forwarded-for')||'').split(',')[0].trim();
-  let booking:{saved:boolean;reason?:string;externalBookingId?:string;status?:string};
-  try{booking=await saveAutocabBooking(db,payload,item.event_type)}catch(error){console.error('Booking normalization failure',error);booking={saved:false,reason:'Payload stored; booking normalization failed'}}
+  let booking:{saved:boolean;reason?:string;externalBookingId?:string;status?:string}|undefined;
+  let driverEvent:{saved:boolean;reason?:string;tracks?:number;positions?:number;shift?:string;driverId?:string}|undefined;
+  if(handlesDriverEvent(item.event_type)){
+   try{driverEvent=await saveDriverEvent(db,payload,item.event_type)}catch(error){console.error('Driver event normalization failure',error);driverEvent={saved:false,reason:'Payload stored; driver event normalization failed'}}
+  }else{
+   try{booking=await saveAutocabBooking(db,payload,item.event_type)}catch(error){console.error('Booking normalization failure',error);booking={saved:false,reason:'Payload stored; booking normalization failed'}}
+  }
   await db.query('UPDATE provider_webhooks SET received_count=received_count+1,last_received_at=now(),updated_at=now() WHERE id=$1',[item.webhook_id]);
-  if(!booking.saved)await db.query('INSERT INTO webhook_events (id,provider_id,webhook_id,event_type,payload,content_type,source_ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)',[eventId,item.provider_id,item.webhook_id,item.event_type,JSON.stringify(payload),request.headers.get('content-type')||'',sourceIp]);
-  else bookingEvents.emit('booking',{eventId,eventType:item.event_type,externalBookingId:booking.externalBookingId,status:booking.status});
-  return json(202,{accepted:true,eventId,eventType:item.event_type,booking,receivedAt:new Date().toISOString()});
+  if(driverEvent){if(!driverEvent.saved)await db.query('INSERT INTO webhook_events (id,provider_id,webhook_id,event_type,payload,content_type,source_ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)',[eventId,item.provider_id,item.webhook_id,item.event_type,JSON.stringify(payload),request.headers.get('content-type')||'',sourceIp]);}
+  else if(booking){if(!booking.saved)await db.query('INSERT INTO webhook_events (id,provider_id,webhook_id,event_type,payload,content_type,source_ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)',[eventId,item.provider_id,item.webhook_id,item.event_type,JSON.stringify(payload),request.headers.get('content-type')||'',sourceIp]);else bookingEvents.emit('booking',{eventId,eventType:item.event_type,externalBookingId:booking.externalBookingId,status:booking.status});}
+  return json(202,{accepted:true,eventId,eventType:item.event_type,booking,driverEvent,receivedAt:new Date().toISOString()});
  }catch(error){console.error('Webhook intake failure',error);return json(500,{error:'Webhook could not be stored.'})}
 }
