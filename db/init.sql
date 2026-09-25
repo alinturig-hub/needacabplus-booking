@@ -15,6 +15,31 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at DESC);
 
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS external_booking_id text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS original_booking_id text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_type text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_type text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS priority integer;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS street_pickup boolean;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS customer_email text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS passengers integer;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS luggage integer;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pickup_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS destination_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS vias_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS driver_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS vehicle_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pricing_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS timeline_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes_data jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS raw_payload jsonb;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS last_event_type text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_id
+  ON bookings(external_booking_id) WHERE external_booking_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS tariffs (
   id text PRIMARY KEY CHECK (id IN ('saloon','estate','xl')),
   base_pence integer NOT NULL CHECK (base_pence >= 0),

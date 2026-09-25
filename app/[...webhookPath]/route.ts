@@ -1,6 +1,7 @@
 import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {database} from '@/lib/database';
 import {decryptCredentials} from '@/lib/credentials';
+import {saveAutocabBooking} from '@/lib/autocab-bookings';
 
 export const dynamic='force-dynamic';
 const MAX_BODY_BYTES=2_000_000;
@@ -31,6 +32,8 @@ export async function POST(request:Request,{params}:{params:Promise<{webhookPath
   let payload:unknown;try{payload=raw?JSON.parse(raw):{}}catch{return json(400,{error:'Webhook body must contain valid JSON.'})}
   const eventId=randomUUID();const sourceIp=(request.headers.get('x-forwarded-for')||'').split(',')[0].trim();
   await db.query('INSERT INTO webhook_events (id,provider_id,webhook_id,event_type,payload,content_type,source_ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)',[eventId,item.provider_id,item.webhook_id,item.event_type,JSON.stringify(payload),request.headers.get('content-type')||'',sourceIp]);
-  return json(202,{accepted:true,eventId,eventType:item.event_type,receivedAt:new Date().toISOString()});
+  let booking:{saved:boolean;reason?:string;externalBookingId?:string;status?:string};
+  try{booking=await saveAutocabBooking(db,payload,item.event_type)}catch(error){console.error('Booking normalization failure',error);booking={saved:false,reason:'Payload stored; booking normalization failed'}}
+  return json(202,{accepted:true,eventId,eventType:item.event_type,booking,receivedAt:new Date().toISOString()});
  }catch(error){console.error('Webhook intake failure',error);return json(500,{error:'Webhook could not be stored.'})}
 }
