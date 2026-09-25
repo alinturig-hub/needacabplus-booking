@@ -15,13 +15,38 @@ export async function POST(request:Request){
  return Response.json({id:body.id,status:'Booked'},{status:201});}catch(error){return unavailable(error)}
 }
 
-export async function GET(){
+export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
- try{const result=await database().query(`SELECT id,external_booking_id,original_booking_id,name,phone,customer_email,passengers,luggage,
+ try{
+  const searchParams=new URL(request.url).searchParams;
+  const page=Math.max(1,Number.parseInt(searchParams.get('page')||'1',10)||1);
+  const requestedSize=Number.parseInt(searchParams.get('pageSize')||'20',10);
+  const pageSize=[10,20,50,100].includes(requestedSize)?requestedSize:20;
+  const search=(searchParams.get('search')||'').trim().slice(0,120);
+  const status=(searchParams.get('status')||'').trim().slice(0,60);
+  const source=(searchParams.get('source')||'').trim().slice(0,100);
+  const payment=(searchParams.get('payment')||'').trim().slice(0,100);
+  const values:string[]=[];const conditions:string[]=[];
+  if(search){values.push(`%${search}%`);const index=values.length;conditions.push(`(COALESCE(external_booking_id,'') ILIKE $${index} OR COALESCE(original_booking_id,'') ILIKE $${index} OR name ILIKE $${index} OR phone ILIKE $${index} OR pickup ILIKE $${index} OR destination ILIKE $${index} OR COALESCE(driver_data::text,'') ILIKE $${index} OR COALESCE(vehicle_data::text,'') ILIKE $${index})`)}
+  if(status){values.push(status);conditions.push(`status=$${values.length}`)}
+  if(source){values.push(source);conditions.push(`source=$${values.length}`)}
+  if(payment){values.push(payment);conditions.push(`payment_type=$${values.length}`)}
+  const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';
+  const db=database();
+  const [countResult,summaryResult,sourceResult,paymentResult]=await Promise.all([
+   db.query<{total:string}>(`SELECT COUNT(*)::text AS total FROM bookings ${where}`,values),
+   db.query<{status:string;total:string}>('SELECT status,COUNT(*)::text AS total FROM bookings GROUP BY status'),
+   db.query<{source:string}>('SELECT DISTINCT source FROM bookings WHERE source IS NOT NULL AND source<>\'\' ORDER BY source'),
+   db.query<{payment_type:string}>('SELECT DISTINCT payment_type FROM bookings WHERE payment_type IS NOT NULL AND payment_type<>\'\' ORDER BY payment_type')
+  ]);
+  const total=Number(countResult.rows[0]?.total||0);const totalPages=Math.max(1,Math.ceil(total/pageSize));const safePage=Math.min(page,totalPages);
+  const dataValues:[...string[],number,number]=[...values,pageSize,(safePage-1)*pageSize];
+  const result=await db.query(`SELECT id,external_booking_id,original_booking_id,name,phone,customer_email,passengers,luggage,
   pickup,destination,via_points,pickup_note,pickup_data,destination_data,vias_data,driver_data,vehicle_data,pricing_data,timeline_data,notes_data,
   booking_type,source,payment_type,priority,street_pickup,vehicle,fare_pence,status,last_event_type,raw_payload,created_at,updated_at
-  FROM bookings ORDER BY updated_at DESC,created_at DESC LIMIT 500`);
-  return Response.json({bookings:result.rows},{headers:{'Cache-Control':'no-store'}})
+  FROM bookings ${where} ORDER BY updated_at DESC,created_at DESC LIMIT $${values.length+1} OFFSET $${values.length+2}`,dataValues);
+  const summary=Object.fromEntries(summaryResult.rows.map(row=>[row.status,Number(row.total)]));
+  return Response.json({bookings:result.rows,total,page:safePage,pageSize,summary,sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
  }catch(error){return unavailable(error)}
 }
 
