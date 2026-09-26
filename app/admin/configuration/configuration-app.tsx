@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
-import {ArrowLeft,Braces,CheckCircle2,CloudCog,KeyRound,LogOut,Radio,ShieldCheck,Webhook} from 'lucide-react';
+import {ArrowLeft,BadgePoundSterling,Braces,CheckCircle2,CloudCog,CreditCard,KeyRound,LogOut,Radio,Route,ShieldCheck,Webhook} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
+import {DispatchSettings,PricingSettings,StripeSettings} from './operations-settings';
 
 function Status({children,tone='pending'}:{children:React.ReactNode;tone?:'pending'|'ready'}){
  return <span className={`config-status ${tone}`}><span/>{children}</span>;
@@ -18,7 +19,9 @@ export default function ConfigurationApp(){
   </header>
   <div className="admin-body configuration-body">
    <div className="admin-title"><div><span className="eyebrow">ADMINISTRATION</span><h1>Configuration.</h1><p className="muted">Connect Autocab and manage how booking events enter Need A Cab Plus.</p></div><Link className="text-link" href="/admin"><ArrowLeft size={16}/>Back to bookings</Link></div>
-   <div className="config-provider">
+   <Tabs defaultValue="integrations" className="configuration-tabs">
+    <TabsList><TabsTrigger value="integrations"><CloudCog/>Integrations</TabsTrigger><TabsTrigger value="dispatch"><Route/>Dispatch rules</TabsTrigger><TabsTrigger value="pricing"><BadgePoundSterling/>Price changes</TabsTrigger><TabsTrigger value="payments"><CreditCard/>Payments</TabsTrigger></TabsList>
+    <TabsContent value="integrations"><div className="config-provider">
     <aside className="provider-summary">
      <div className="provider-logo"><CloudCog size={31}/></div>
      <span className="eyebrow">DISPATCH INTEGRATION</span>
@@ -44,7 +47,11 @@ export default function ConfigurationApp(){
       </TabsContent>
      </Tabs>
     </section>
-   </div>
+    </div></TabsContent>
+    <TabsContent value="dispatch"><DispatchSettings/></TabsContent>
+    <TabsContent value="pricing"><PricingSettings/></TabsContent>
+    <TabsContent value="payments"><StripeSettings/></TabsContent>
+   </Tabs>
   </div>
  </main>;
 }

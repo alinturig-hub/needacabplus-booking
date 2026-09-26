@@ -220,3 +220,10 @@ WHERE webhook.id=history.webhook_id AND webhook.received_count=0;
 
 CREATE INDEX IF NOT EXISTS idx_webhook_events_received ON webhook_events(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_webhook ON webhook_events(webhook_id,received_at DESC);
+
+CREATE TABLE IF NOT EXISTS operations_settings (
+  id text PRIMARY KEY CHECK (id IN ('dispatch','pricing','stripe')),
+  settings jsonb NOT NULL DEFAULT '{}'::jsonb,
+  secrets_encrypted text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
