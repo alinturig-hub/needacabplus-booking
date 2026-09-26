@@ -12,7 +12,9 @@ export async function GET(){
    FROM driver_positions position JOIN drivers driver ON driver.id=position.driver_id
    WHERE position.recorded_at>=now()-make_interval(mins=>$1) AND position.latitude IS NOT NULL AND position.longitude IS NOT NULL
    ORDER BY position.driver_id,position.recorded_at DESC,position.id DESC
-  ) SELECT driver_id,callsign,forename,surname,latitude,longitude,vehicle_status,recorded_at FROM latest WHERE lower(vehicle_status)='clear' ORDER BY recorded_at DESC`,[minutes]);
-  return Response.json(result.rows.map(row=>({driverId:row.driver_id,callsign:row.callsign,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,latitude:row.latitude,longitude:row.longitude,vehicleStatus:row.vehicle_status,recordedAt:row.recorded_at?.toISOString?.()??row.recorded_at})),{headers:{'Cache-Control':'no-store'}});
+  ) SELECT latest.driver_id,latest.callsign,latest.forename,latest.surname,latest.latitude,latest.longitude,latest.vehicle_status,latest.recorded_at,ad.mobile AS phone
+  FROM latest LEFT JOIN autocab_drivers ad ON ad.external_id=latest.driver_id
+  WHERE lower(latest.vehicle_status)='clear' ORDER BY latest.recorded_at DESC`,[minutes]);
+  return Response.json(result.rows.map(row=>({driverId:row.driver_id,callsign:row.callsign as string|null,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,phone:(row.phone as string|null)||null,latitude:row.latitude as number,longitude:row.longitude as number,vehicleStatus:row.vehicle_status as string,recordedAt:(row.recorded_at?.toISOString?.()??row.recorded_at) as string})),{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
 }
