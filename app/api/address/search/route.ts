@@ -1,25 +1,24 @@
 import {z} from 'zod';
-import {AutocabApiError,AutocabConfigurationError,searchAddresses} from '@/lib/autocab-api';
+import {AutocabApiError,AutocabConfigurationError,resolveAddressPlaceId,searchAddresses} from '@/lib/autocab-api';
 import {unavailable} from '@/lib/security';
 
 export const dynamic='force-dynamic';
 const querySchema=z.string().trim().min(3).max(160);
-const photonSchema=z.object({features:z.array(z.object({geometry:z.object({coordinates:z.tuple([z.number(),z.number()])}),properties:z.record(z.unknown())}))});
-
-function value(properties:Record<string,unknown>,key:string){const item=properties[key];return typeof item==='string'?item.trim():''}
-function label(properties:Record<string,unknown>){
- const street=[value(properties,'housenumber'),value(properties,'street')].filter(Boolean).join(' '),name=value(properties,'name'),place=value(properties,'city')||value(properties,'town')||value(properties,'village')||value(properties,'district'),postcode=value(properties,'postcode');
- return [...new Set([name,street,place,postcode].filter(Boolean))].join(', ');
-}
+const suggestionSchema=z.object({address:z.string().trim().min(1),fullAddress:z.record(z.unknown()).nullable().optional(),placeID:z.string().nullable().optional(),customAddressID:z.union([z.string(),z.number()]).nullable().optional()});
 
 export async function GET(request:Request){
  try{
   const query=querySchema.parse(new URL(request.url).searchParams.get('q')||'');
-  const photonUrl=new URL('/api','https://photon.komoot.io');photonUrl.searchParams.set('q',`${query}, Plymouth, UK`);photonUrl.searchParams.set('lat','50.3755');photonUrl.searchParams.set('lon','-4.1427');photonUrl.searchParams.set('zoom','12');photonUrl.searchParams.set('lang','en');photonUrl.searchParams.set('limit','6');
-  const geocodeResponse=await fetch(photonUrl,{headers:{Accept:'application/geo+json'},next:{revalidate:3600}});
-  if(!geocodeResponse.ok)return Response.json({error:'Map address search is temporarily unavailable.'},{status:502});
-  const geocoded=photonSchema.parse(await geocodeResponse.json());
-  const resolved=await Promise.allSettled(geocoded.features.map(async feature=>{const [longitude,latitude]=feature.geometry.coordinates,text=label(feature.properties);if(!text)return null;const addresses=await searchAddresses(text,1,latitude,longitude),address=addresses[0];return address?{address:String(address.text||text),fullAddress:address,placeID:null,customAddressID:address.id||null}:null}));
+  const lookupOrigin=(process.env.MAP_ADDRESS_LOOKUP_ORIGIN||'https://webapp.needacab.uk').replace(/\/$/,'');
+  const searchResponse=await fetch(`${lookupOrigin}/api/address/lookup?text=${encodeURIComponent(query)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+  if(!searchResponse.ok)return Response.json({error:'Map address search is temporarily unavailable.'},{status:502});
+  const suggestions=z.array(suggestionSchema).parse(await searchResponse.json()).slice(0,8);
+  const resolved=await Promise.allSettled(suggestions.map(async suggestion=>{
+   let address:Record<string,unknown>|undefined;
+   if(suggestion.placeID)address=await resolveAddressPlaceId(suggestion.placeID);
+   else if(suggestion.fullAddress){const coordinate=suggestion.fullAddress.coordinate as {latitude?:unknown;longitude?:unknown}|undefined,latitude=Number(coordinate?.latitude),longitude=Number(coordinate?.longitude);if(Number.isFinite(latitude)&&Number.isFinite(longitude))address=(await searchAddresses(suggestion.address,1,latitude,longitude))[0]}
+   return address?{address:String(address.text||suggestion.address),fullAddress:address,placeID:suggestion.placeID||null,customAddressID:address.id||suggestion.customAddressID||null}:null;
+  }));
   const items=resolved.flatMap(result=>result.status==='fulfilled'&&result.value?[result.value]:[]);
   return Response.json({items},{headers:{'Cache-Control':'no-store'}});
  }catch(error){if(error instanceof z.ZodError)return Response.json({items:[]});if(error instanceof AutocabConfigurationError)return Response.json({error:error.message},{status:503});if(error instanceof AutocabApiError)return Response.json({error:error.message},{status:502});return unavailable(error)}

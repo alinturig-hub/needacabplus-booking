@@ -61,6 +61,12 @@ export async function searchAddresses(query:string,companyId=1,latitude?:number,
  return Object.keys(root).length?[root]:[];
 }
 
+export async function resolveAddressPlaceId(placeId:string){
+ const payload=await call('address.search',{query:{placeId}}),address=record(payload);
+ if(!Object.keys(address).length)throw new AutocabApiError('Autocab returned an empty address for the selected place.');
+ return address;
+}
+
 export async function syncDrivers(){
  const payload=await call('drivers.list'),items=listFrom(payload,['drivers','driverList']);
  if(!items.length)throw new AutocabApiError('Autocab returned no driver records. Check that drivers.list points to the driver list endpoint.');
