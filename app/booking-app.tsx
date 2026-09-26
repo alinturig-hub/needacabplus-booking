@@ -11,7 +11,7 @@ import {vehicles,money} from '@/lib/vehicles';
 import type {Customer} from '@/lib/customer-auth';
 
 type Stage=0|1|2|3|4;
-type AddressChoice={address:string;fullAddress:Record<string,unknown>|null;placeID:string|null;customAddressID:number|null};
+type AddressChoice={address:string;fullAddress:Record<string,unknown>|null;placeID:string|null;customAddressID:string|number|null};
 export default function BookingApp({customer}:{customer:Customer|null}){
  const [stage,setStage]=useState<Stage>(0),[pickup,setPickup]=useState(''),[destination,setDestination]=useState(''),[viaPoints,setViaPoints]=useState<string[]>([]),[vehicle,setVehicle]=useState('saloon'),[name,setName]=useState(customer?.fullName||''),[phone,setPhone]=useState(customer?.phone||''),[note,setNote]=useState(''),[ack,setAck]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[reference,setReference]=useState('');
  const [walletState,setWalletState]=useState<'loading'|'ready'|'empty'|'unavailable'>(customer?'loading':'empty');

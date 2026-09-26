@@ -24,7 +24,7 @@ function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
  return [];
 }
 
-async function call(actionKey:string){
+async function call(actionKey:string,options?:{query?:Record<string,string|number>;body?:JsonRecord}){
  const result=await database().query<EndpointRow>(`SELECT connection.base_url,connection.auth_type,connection.api_key_header,connection.credentials_encrypted,endpoint.method,endpoint.path,endpoint.request_example
   FROM api_endpoints endpoint JOIN api_connections connection ON connection.id=endpoint.connection_id
   WHERE connection.provider='autocab' AND endpoint.action_key=$1 AND endpoint.enabled=true
@@ -33,13 +33,14 @@ async function call(actionKey:string){
  if(!endpoint)throw new AutocabConfigurationError(`Add an enabled Autocab endpoint with action key “${actionKey}” in Configuration → API.`);
  const url=new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
  if(url.protocol!=='https:')throw new AutocabConfigurationError('The Autocab connection must use HTTPS.');
+ for(const [key,value] of Object.entries(options?.query||{}))url.searchParams.set(key,String(value));
  const headers=new Headers({Accept:'application/json'}),credentials=decryptCredentials(endpoint.credentials_encrypted);
  if(endpoint.auth_type==='api_key')headers.set(endpoint.api_key_header,credentials.token||'');
  if(endpoint.auth_type==='bearer')headers.set('Authorization',`Bearer ${credentials.token||''}`);
  if(endpoint.auth_type==='basic')headers.set('Authorization',`Basic ${Buffer.from(`${credentials.username||''}:${credentials.password||''}`).toString('base64')}`);
  const method=endpoint.method.toUpperCase(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
  const init:RequestInit={method,headers,signal:controller.signal,cache:'no-store'};
- if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(endpoint.request_example||{})}
+ if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(options?.body?{...record(endpoint.request_example),...options.body}:endpoint.request_example||{})}
  try{
   const response=await fetch(url,init);
   if(!response.ok)throw new AutocabApiError(`Autocab returned HTTP ${response.status} for ${actionKey}. Check the endpoint path and API permissions.`);
@@ -47,6 +48,14 @@ async function call(actionKey:string){
   if(!contentType.includes('json'))throw new AutocabApiError(`Autocab returned a non-JSON response for ${actionKey}.`);
   return await response.json() as unknown;
  }finally{clearTimeout(timer)}
+}
+
+export async function searchAddresses(query:string,companyId=1){
+ const payload=await call('address.search',{query:{text:query,companyId}});
+ if(Array.isArray(payload))return payload.map(record).filter(item=>Object.keys(item).length);
+ const root=record(payload);
+ for(const key of ['addresses','results','items','data']){const value=field(root,key);if(Array.isArray(value))return value.map(record).filter(item=>Object.keys(item).length)}
+ return Object.keys(root).length?[root]:[];
 }
 
 export async function syncDrivers(){
