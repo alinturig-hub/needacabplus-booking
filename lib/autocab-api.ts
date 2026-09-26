@@ -50,8 +50,11 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  }finally{clearTimeout(timer)}
 }
 
-export async function searchAddresses(query:string,companyId=1){
- const payload=await call('address.search',{query:{text:query,companyId}});
+export async function searchAddresses(query:string,companyId=1,latitude?:number,longitude?:number){
+ const parameters:Record<string,string|number>={text:query,companyId};
+ if(latitude!==undefined)parameters.latitude=latitude;
+ if(longitude!==undefined)parameters.longitude=longitude;
+ const payload=await call('address.search',{query:parameters});
  if(Array.isArray(payload))return payload.map(record).filter(item=>Object.keys(item).length);
  const root=record(payload);
  for(const key of ['addresses','results','items','data']){const value=field(root,key);if(Array.isArray(value))return value.map(record).filter(item=>Object.keys(item).length)}
