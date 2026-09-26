@@ -227,3 +227,29 @@ CREATE TABLE IF NOT EXISTS operations_settings (
   secrets_encrypted text NOT NULL DEFAULT '',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS customer_accounts (
+  id uuid PRIMARY KEY,
+  email text NOT NULL,
+  password_hash text NOT NULL,
+  full_name text NOT NULL,
+  phone text NOT NULL,
+  stripe_customer_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_accounts_email
+  ON customer_accounts(lower(email));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_accounts_stripe
+  ON customer_accounts(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS customer_sessions (
+  token_hash text PRIMARY KEY,
+  customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_sessions_customer
+  ON customer_sessions(customer_id,expires_at DESC);
