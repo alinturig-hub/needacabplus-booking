@@ -52,6 +52,7 @@
 .driver-live-icon{color:#f2dd4a;flex-shrink:0}
 .driver-live-count{font-size:13px;color:#c8d2cf}
 .driver-live-count strong{color:#f2dd4a;font-size:20px;font-weight:700;margin-right:4px}
+.map-live-chip{padding:5px 9px;font-size:10px;margin-left:4px}
 .driver-live-time{font-size:11px;color:#78918a;margin-left:auto}
 .driver-live-refresh{display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #3c4440;color:#c0cbc6;border-radius:8px;padding:6px 12px;font-size:12px;flex-shrink:0}
 .driver-live-refresh:hover{background:#232a27}
