@@ -65,7 +65,9 @@ export async function syncDrivers(){
     externalId,text(item,'callsign','callSign','driverCallsign'),firstName,lastName,displayName,text(item,'mobile','mobileNumber','telephoneNumber','phone'),text(item,'email','emailAddress'),company,status,suspended,JSON.stringify(array(item,'capabilities','driverCapabilities')),JSON.stringify(item)
    ]);saved++;
  }
- if(taxiCrmIds.length)await db.query("DELETE FROM autocab_drivers WHERE lower(trim(company)) LIKE 'taxicrm%' AND NOT (external_id=ANY($1::text[]))",[taxiCrmIds]);
+ // TaxiCRM returns the complete managed fleet. Remove records left behind by
+ // earlier direct Autocab imports as well as stale TaxiCRM records.
+ if(taxiCrmIds.length)await db.query("DELETE FROM autocab_drivers WHERE NOT (external_id=ANY($1::text[]))",[taxiCrmIds]);
  await db.query("DELETE FROM autocab_drivers WHERE company IS NULL OR NOT (lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%' OR lower(trim(company)) LIKE 'taxicrm%')");
  return {received:items.length,saved};
 }
@@ -85,7 +87,8 @@ export async function syncVehicles(){
     externalId,text(item,'callsign','callSign','vehicleCallsign'),text(item,'registration','registrationNumber','reg'),text(item,'make','manufacturer'),text(item,'model'),text(item,'colour','color'),integer(item,'passengerCapacity','passengers','passengerSize','seats'),text(item,'vehicleType','type'),text(item,'plateNumber','plate'),company,status,suspended,JSON.stringify(array(item,'capabilities','vehicleCapabilities')),JSON.stringify(item)
    ]);saved++;
  }
- if(taxiCrmIds.length)await db.query("DELETE FROM autocab_vehicles WHERE lower(trim(company)) LIKE 'taxicrm%' AND NOT (external_id=ANY($1::text[]))",[taxiCrmIds]);
+ // Keep the local fleet identical to TaxiCRM when it is the configured source.
+ if(taxiCrmIds.length)await db.query("DELETE FROM autocab_vehicles WHERE NOT (external_id=ANY($1::text[]))",[taxiCrmIds]);
  await db.query("DELETE FROM autocab_vehicles WHERE company IS NULL OR NOT (lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%' OR lower(trim(company)) LIKE 'taxicrm%')");
  return {received:items.length,saved};
 }
