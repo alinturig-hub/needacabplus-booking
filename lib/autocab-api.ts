@@ -27,7 +27,8 @@ function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
 async function call(actionKey:string){
  const result=await database().query<EndpointRow>(`SELECT connection.base_url,connection.auth_type,connection.api_key_header,connection.credentials_encrypted,endpoint.method,endpoint.path,endpoint.request_example
   FROM api_endpoints endpoint JOIN api_connections connection ON connection.id=endpoint.connection_id
-  WHERE connection.provider='autocab' AND endpoint.action_key=$1 AND endpoint.enabled=true LIMIT 1`,[actionKey]);
+  WHERE connection.provider='autocab' AND endpoint.action_key=$1 AND endpoint.enabled=true
+  ORDER BY endpoint.created_at DESC,connection.created_at DESC LIMIT 1`,[actionKey]);
  const endpoint=result.rows[0];
  if(!endpoint)throw new AutocabConfigurationError(`Add an enabled Autocab endpoint with action key “${actionKey}” in Configuration → API.`);
  const url=new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
