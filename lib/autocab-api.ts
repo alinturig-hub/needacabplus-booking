@@ -13,6 +13,7 @@ function text(source:JsonRecord,...names:string[]){const value=field(source,...n
 function bool(source:JsonRecord,...names:string[]){const value=field(source,...names);if(typeof value==='boolean')return value;if(typeof value==='number')return value!==0;if(typeof value==='string')return ['true','1','yes','suspended','inactive'].includes(value.toLowerCase());return false}
 function integer(source:JsonRecord,...names:string[]){const value=Number(field(source,...names));return Number.isFinite(value)?Math.trunc(value):null}
 function array(source:JsonRecord,...names:string[]){const value=field(source,...names);return Array.isArray(value)?value:[]}
+function managedCompany(value:string|null){const name=(value||'').trim().toLowerCase();return name.startsWith('taxi services (plymouth) ltd')||name.startsWith('plymouth taxi')}
 
 function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
  if(Array.isArray(payload))return payload.map(record).filter(item=>Object.keys(item).length);
@@ -52,15 +53,17 @@ export async function syncDrivers(){
  const db=database();let saved=0;
  for(const item of items){
   const externalId=text(item,'id','driverId','driverID','driverCode','callsign','callSign');if(!externalId)continue;
+  const company=text(item,'company','companyName');if(!managedCompany(company))continue;
   const firstName=text(item,'firstName','forename'),lastName=text(item,'lastName','surname');
   const displayName=text(item,'displayName','fullName','name')||[firstName,lastName].filter(Boolean).join(' ')||externalId;
   const suspended=bool(item,'suspended','isSuspended','disabled','isDisabled'),status=text(item,'status','driverStatus')||(suspended?'Suspended':'Active');
   await db.query(`INSERT INTO autocab_drivers (external_id,callsign,first_name,last_name,display_name,mobile,email,company,status,suspended,capabilities,raw_payload,synced_at,updated_at)
    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,now(),now())
    ON CONFLICT (external_id) DO UPDATE SET callsign=EXCLUDED.callsign,first_name=EXCLUDED.first_name,last_name=EXCLUDED.last_name,display_name=EXCLUDED.display_name,mobile=EXCLUDED.mobile,email=EXCLUDED.email,company=EXCLUDED.company,status=EXCLUDED.status,suspended=EXCLUDED.suspended,capabilities=EXCLUDED.capabilities,raw_payload=EXCLUDED.raw_payload,synced_at=now(),updated_at=now()`,[
-    externalId,text(item,'callsign','callSign','driverCallsign'),firstName,lastName,displayName,text(item,'mobile','mobileNumber','telephoneNumber','phone'),text(item,'email','emailAddress'),text(item,'company','companyName'),status,suspended,JSON.stringify(array(item,'capabilities','driverCapabilities')),JSON.stringify(item)
+    externalId,text(item,'callsign','callSign','driverCallsign'),firstName,lastName,displayName,text(item,'mobile','mobileNumber','telephoneNumber','phone'),text(item,'email','emailAddress'),company,status,suspended,JSON.stringify(array(item,'capabilities','driverCapabilities')),JSON.stringify(item)
    ]);saved++;
- }
+  }
+ await db.query("DELETE FROM autocab_drivers WHERE company IS NULL OR NOT (lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%')");
  return {received:items.length,saved};
 }
 
@@ -70,12 +73,14 @@ export async function syncVehicles(){
  const db=database();let saved=0;
  for(const item of items){
   const externalId=text(item,'id','vehicleId','vehicleID','vehicleCode','callsign','callSign','registration','registrationNumber');if(!externalId)continue;
+  const company=text(item,'company','companyName');if(!managedCompany(company))continue;
   const suspended=bool(item,'suspended','isSuspended','disabled','isDisabled'),status=text(item,'status','vehicleStatus')||(suspended?'Suspended':'Active');
   await db.query(`INSERT INTO autocab_vehicles (external_id,callsign,registration,make,model,colour,passenger_capacity,vehicle_type,plate_number,company,status,suspended,capabilities,raw_payload,synced_at,updated_at)
    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,now(),now())
    ON CONFLICT (external_id) DO UPDATE SET callsign=EXCLUDED.callsign,registration=EXCLUDED.registration,make=EXCLUDED.make,model=EXCLUDED.model,colour=EXCLUDED.colour,passenger_capacity=EXCLUDED.passenger_capacity,vehicle_type=EXCLUDED.vehicle_type,plate_number=EXCLUDED.plate_number,company=EXCLUDED.company,status=EXCLUDED.status,suspended=EXCLUDED.suspended,capabilities=EXCLUDED.capabilities,raw_payload=EXCLUDED.raw_payload,synced_at=now(),updated_at=now()`,[
-    externalId,text(item,'callsign','callSign','vehicleCallsign'),text(item,'registration','registrationNumber','reg'),text(item,'make','manufacturer'),text(item,'model'),text(item,'colour','color'),integer(item,'passengerCapacity','passengers','passengerSize','seats'),text(item,'vehicleType','type'),text(item,'plateNumber','plate'),text(item,'company','companyName'),status,suspended,JSON.stringify(array(item,'capabilities','vehicleCapabilities')),JSON.stringify(item)
+    externalId,text(item,'callsign','callSign','vehicleCallsign'),text(item,'registration','registrationNumber','reg'),text(item,'make','manufacturer'),text(item,'model'),text(item,'colour','color'),integer(item,'passengerCapacity','passengers','passengerSize','seats'),text(item,'vehicleType','type'),text(item,'plateNumber','plate'),company,status,suspended,JSON.stringify(array(item,'capabilities','vehicleCapabilities')),JSON.stringify(item)
    ]);saved++;
- }
+  }
+ await db.query("DELETE FROM autocab_vehicles WHERE company IS NULL OR NOT (lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%')");
  return {received:items.length,saved};
 }
