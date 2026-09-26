@@ -60,9 +60,10 @@
 .driver-live-fleet{display:flex;align-items:center;gap:5px;font-size:12px;color:#96a4a0;flex-shrink:0}
 .driver-live-fleet:hover{color:#f2dd4a}
 .driver-live-canvas{flex:1;min-height:0;background:#1e2422}
-.driver-map-marker{width:30px;height:30px;background:#f2dd4a;border:2.5px solid #fff;border-radius:50%;cursor:pointer;box-shadow:0 2px 10px #000b;display:flex;align-items:center;justify-content:center;transition:transform .15s}
-.driver-map-marker:hover,.driver-map-marker:focus{transform:scale(1.18)}
-.driver-map-marker span{font-size:9px;font-weight:800;color:#101313;line-height:1;pointer-events:none;max-width:26px;overflow:hidden;white-space:nowrap}
+.driver-map-marker{width:62px;height:50px;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;transition:transform .15s;filter:drop-shadow(0 3px 4px #0009)}
+.driver-map-marker:hover,.driver-map-marker:focus{transform:scale(1.16);z-index:2!important}
+.driver-map-marker img{position:absolute;inset:0 0 6px;width:62px;height:41px;object-fit:contain;pointer-events:none;user-select:none}
+.driver-map-marker span{position:relative;z-index:1;display:block;min-width:25px;max-width:52px;padding:3px 6px;background:#f2dd4a;border:1.5px solid #fff;border-radius:9px;box-shadow:0 2px 5px #0008;font-size:9px;font-weight:800;text-align:center;color:#101313;line-height:1;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .driver-popup{font-size:12px;line-height:1.6;min-width:150px;display:flex;flex-direction:column;gap:2px}
 .driver-popup strong{font-size:13px;display:block;margin-bottom:3px;color:#f5f5f2}
 .driver-popup span{color:#c0c9c5}

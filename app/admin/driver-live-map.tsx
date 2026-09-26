@@ -73,6 +73,7 @@ export default function DriverLiveMap(){
     const label=marker.getElement().querySelector('span');if(label)label.textContent=markerLabel(driver);
    }else{
     const el=document.createElement('div');el.className='driver-map-marker';
+    const car=document.createElement('img');car.src='/car-marker-clear.png';car.alt='';car.draggable=false;el.appendChild(car);
     const label=document.createElement('span');label.textContent=markerLabel(driver);el.appendChild(label);
     el.setAttribute('aria-label',driver.name||driver.callsign||driver.driverId);
     const popup=new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap'}).setDOMContent(makePopup(driver));
