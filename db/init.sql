@@ -283,3 +283,13 @@ CREATE TABLE IF NOT EXISTS customer_address_history (
 
 CREATE INDEX IF NOT EXISTS idx_customer_address_history_customer
   ON customer_address_history(customer_id,used_at DESC);
+
+-- Stripe customers belong to a particular sandbox/account configuration.
+CREATE TABLE IF NOT EXISTS customer_stripe_profiles (
+ customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,
+ configuration_key text NOT NULL,
+ stripe_customer_id text NOT NULL,
+ mode text NOT NULL CHECK (mode IN ('test','live')),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY (customer_id,configuration_key)
+);

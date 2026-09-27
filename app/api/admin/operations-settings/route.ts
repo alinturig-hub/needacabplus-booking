@@ -1,6 +1,7 @@
+import {validateStripeKeys,mergeStripeSecrets} from '@/lib/stripe-mode';
 import {z} from 'zod';
 import {database} from '@/lib/database';
-import {encryptCredentials} from '@/lib/credentials';
+import {encryptCredentials,decryptCredentials} from '@/lib/credentials';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 
 export const dynamic='force-dynamic';
@@ -28,7 +29,8 @@ export async function GET(){
   const data=await rows(),byId=new Map(data.map(item=>[item.id,item]));
   const dispatch={...dispatchDefaults,...byId.get('dispatch')?.settings};
   const pricing={...pricingDefaults,...byId.get('pricing')?.settings} as Record<string,unknown>;delete pricing.liveQuotes;
-  const stripe={...stripeDefaults,...byId.get('stripe')?.settings,secretKeyConfigured:Boolean(byId.get('stripe')?.secrets_encrypted),webhookSecretConfigured:Boolean(byId.get('stripe')?.secrets_encrypted)};
+  const stripeSecrets=byId.get('stripe')?.secrets_encrypted?decryptCredentials(byId.get('stripe')!.secrets_encrypted):{};
+  const stripe={...stripeDefaults,...byId.get('stripe')?.settings,secretKeyConfigured:Boolean(stripeSecrets.secretKey),webhookSecretConfigured:Boolean(stripeSecrets.webhookSecret)};
   return Response.json({dispatch,pricing,stripe,updatedAt:{dispatch:byId.get('dispatch')?.updated_at||null,pricing:byId.get('pricing')?.updated_at||null,stripe:byId.get('stripe')?.updated_at||null}},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
 }
@@ -45,13 +47,13 @@ export async function PUT(request:Request){
    return Response.json({ok:true});
   }
   if(section==='stripe'){
-   const body=stripeSchema.parse(raw),current=await database().query<{secrets_encrypted:string}>('SELECT secrets_encrypted FROM operations_settings WHERE id=$1',['stripe']);
-   const hasStored=Boolean(current.rows[0]?.secrets_encrypted),hasNew=Boolean(body.secretKey&&body.webhookSecret);
-   if(body.enabled&&!hasStored&&!hasNew)return Response.json({error:'Enter both the Stripe secret key and webhook signing secret before enabling payments.'},{status:400});
-   if(Boolean(body.secretKey)!==Boolean(body.webhookSecret))return Response.json({error:'Enter both Stripe secrets together, or leave both empty to keep the saved credentials.'},{status:400});
-   const {secretKey,webhookSecret}=body,settings={...body} as Record<string,unknown>;
+   const body=stripeSchema.parse(raw),current=await database().query<{secrets_encrypted:string;settings:{mode?:string}}>('SELECT secrets_encrypted,settings FROM operations_settings WHERE id=$1',['stripe']);
+   const row=current.rows[0],stored=row?.secrets_encrypted?decryptCredentials(row.secrets_encrypted):{};
+   const secrets=mergeStripeSecrets(body.mode,row?.settings.mode,stored,body);
+   if(body.enabled){try{validateStripeKeys(body.mode,body.publishableKey,secrets.secretKey)}catch(error){return Response.json({error:error instanceof Error?error.message:'Invalid Stripe keys.'},{status:400})}}
+   const settings={...body} as Record<string,unknown>;
    delete settings.section;delete settings.secretKey;delete settings.webhookSecret;
-   const encrypted=hasNew?encryptCredentials({secretKey,webhookSecret}):current.rows[0]?.secrets_encrypted||'';
+   const encrypted=secrets.secretKey||secrets.webhookSecret?encryptCredentials(secrets):'';
    await database().query(`INSERT INTO operations_settings (id,settings,secrets_encrypted,updated_at) VALUES ('stripe',$1::jsonb,$2,now()) ON CONFLICT(id) DO UPDATE SET settings=EXCLUDED.settings,secrets_encrypted=EXCLUDED.secrets_encrypted,updated_at=now()`,[JSON.stringify(settings),encrypted]);
    return Response.json({ok:true});
   }
