@@ -61,6 +61,14 @@ export async function searchAddresses(query:string,companyId=1,latitude?:number,
  return Object.keys(root).length?[root]:[];
 }
 
+export async function addressAtCoordinates(latitude:number,longitude:number,companyId=1){
+ const payload=await call('address.search',{query:{latitude,longitude,companyId}});
+ if(Array.isArray(payload))return payload.map(record).find(item=>Object.keys(item).length)||null;
+ const root=record(payload);
+ for(const key of ['addresses','results','items','data']){const value=field(root,key);if(Array.isArray(value)){const address=value.map(record).find(item=>Object.keys(item).length);if(address)return address}}
+ return Object.keys(root).length?root:null;
+}
+
 export async function resolveAddressPlaceId(placeId:string){
  const payload=await call('address.search',{query:{placeId}}),address=record(payload);
  if(!Object.keys(address).length)throw new AutocabApiError('Autocab returned an empty address for the selected place.');
