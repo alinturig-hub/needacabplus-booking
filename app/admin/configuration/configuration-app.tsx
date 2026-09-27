@@ -5,6 +5,7 @@ import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
 import {DispatchSettings,PricingSettings,StripeSettings} from './operations-settings';
+import QuoteSettings from './quote-settings';
 
 function Status({children,tone='pending'}:{children:React.ReactNode;tone?:'pending'|'ready'}){
  return <span className={`config-status ${tone}`}><span/>{children}</span>;
@@ -49,7 +50,7 @@ export default function ConfigurationApp(){
     </section>
     </div></TabsContent>
     <TabsContent value="dispatch"><DispatchSettings/></TabsContent>
-    <TabsContent value="pricing"><PricingSettings/></TabsContent>
+    <TabsContent value="pricing"><QuoteSettings/><PricingSettings/></TabsContent>
     <TabsContent value="payments"><StripeSettings/></TabsContent>
    </Tabs>
   </div>

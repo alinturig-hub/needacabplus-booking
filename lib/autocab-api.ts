@@ -24,7 +24,7 @@ function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
  return [];
 }
 
-async function call(actionKey:string,options?:{query?:Record<string,string|number>;body?:JsonRecord}){
+async function call(actionKey:string,options?:{query?:Record<string,string|number>;body?:JsonRecord;exactBody?:boolean}){
  const result=await database().query<EndpointRow>(`SELECT connection.base_url,connection.auth_type,connection.api_key_header,connection.credentials_encrypted,endpoint.method,endpoint.path,endpoint.request_example
   FROM api_endpoints endpoint JOIN api_connections connection ON connection.id=endpoint.connection_id
   WHERE connection.provider='autocab' AND endpoint.action_key=$1 AND endpoint.enabled=true
@@ -33,6 +33,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  if(!endpoint)throw new AutocabConfigurationError(`Add an enabled Autocab endpoint with action key “${actionKey}” in Configuration → API.`);
  const url=new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
  if(url.protocol!=='https:')throw new AutocabConfigurationError('The Autocab connection must use HTTPS.');
+ if(actionKey==='booking.quote'&&(endpoint.method.toUpperCase()!=='POST'||url.pathname.replace(/\/$/,'')!=='/booking/v1/quote'))throw new AutocabConfigurationError('Configure booking.quote as POST /booking/v1/quote.');
  for(const [key,value] of Object.entries(options?.query||{}))url.searchParams.set(key,String(value));
  const headers=new Headers({Accept:'application/json'}),credentials=decryptCredentials(endpoint.credentials_encrypted);
  if(endpoint.auth_type==='api_key')headers.set(endpoint.api_key_header,credentials.token||'');
@@ -40,7 +41,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  if(endpoint.auth_type==='basic')headers.set('Authorization',`Basic ${Buffer.from(`${credentials.username||''}:${credentials.password||''}`).toString('base64')}`);
  const method=endpoint.method.toUpperCase(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
  const init:RequestInit={method,headers,signal:controller.signal,cache:'no-store'};
- if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(options?.body?{...record(endpoint.request_example),...options.body}:endpoint.request_example||{})}
+ if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(options?.exactBody?options.body:options?.body?{...record(endpoint.request_example),...options.body}:endpoint.request_example||{})}
  try{
   const response=await fetch(url,init);
   if(!response.ok)throw new AutocabApiError(`Autocab returned HTTP ${response.status} for ${actionKey}. Check the endpoint path and API permissions.`);
@@ -49,6 +50,8 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
   return await response.json() as unknown;
  }finally{clearTimeout(timer)}
 }
+
+export async function bookingQuote(body:JsonRecord){return call('booking.quote',{body,exactBody:true})}
 
 export async function searchAddresses(query:string,companyId=1,latitude?:number,longitude?:number){
  const parameters:Record<string,string|number>={text:query,companyId};

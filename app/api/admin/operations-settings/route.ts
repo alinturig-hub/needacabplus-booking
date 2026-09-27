@@ -27,7 +27,7 @@ export async function GET(){
  try{
   const data=await rows(),byId=new Map(data.map(item=>[item.id,item]));
   const dispatch={...dispatchDefaults,...byId.get('dispatch')?.settings};
-  const pricing={...pricingDefaults,...byId.get('pricing')?.settings};
+  const pricing={...pricingDefaults,...byId.get('pricing')?.settings} as Record<string,unknown>;delete pricing.liveQuotes;
   const stripe={...stripeDefaults,...byId.get('stripe')?.settings,secretKeyConfigured:Boolean(byId.get('stripe')?.secrets_encrypted),webhookSecretConfigured:Boolean(byId.get('stripe')?.secrets_encrypted)};
   return Response.json({dispatch,pricing,stripe,updatedAt:{dispatch:byId.get('dispatch')?.updated_at||null,pricing:byId.get('pricing')?.updated_at||null,stripe:byId.get('stripe')?.updated_at||null}},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
@@ -41,7 +41,7 @@ export async function PUT(request:Request){
   if(section==='dispatch'||section==='pricing'){
    const body=section==='dispatch'?dispatchSchema.parse(raw):pricingSchema.parse(raw),settings={...body} as Record<string,unknown>;
    delete settings.section;
-   await database().query(`INSERT INTO operations_settings (id,settings,updated_at) VALUES ($1,$2::jsonb,now()) ON CONFLICT(id) DO UPDATE SET settings=EXCLUDED.settings,updated_at=now()`,[section,JSON.stringify(settings)]);
+   await database().query(`INSERT INTO operations_settings (id,settings,updated_at) VALUES ($1,$2::jsonb,now()) ON CONFLICT(id) DO UPDATE SET settings=operations_settings.settings || EXCLUDED.settings,updated_at=now()`,[section,JSON.stringify(settings)]);
    return Response.json({ok:true});
   }
   if(section==='stripe'){

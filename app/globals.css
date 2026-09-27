@@ -213,3 +213,6 @@ html[data-theme=light] .customer-map-engine .maplibregl-canvas{filter:none}
  .booking-shell .ride-sheet .vehicle-copy small{line-height:13px;margin-top:3px}
  .booking-shell .ride-sheet .fare small{line-height:11px;margin-top:3px}
 }
+
+/* Live Autocab quotes */
+.live-quote {display:grid;gap:16px;margin-top:14px}.live-quote label{display:grid;gap:8px}.quote-services{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quote-services button{padding:14px 10px;border:1px solid var(--border,#65706a);border-radius:16px;text-align:left;background:transparent;color:inherit}.quote-services button[aria-pressed=true]{border:2px solid #e7d83c}.quote-services strong,.quote-services small{display:block}.quote-services small,.live-quote>label small{font-size:12px;opacity:.75;margin-top:6px}.quote-vehicle{padding:12px;border:1px solid #6a726e;border-radius:12px;background:var(--background,#151a17);color:inherit;width:100%}.quote-breakdown{display:grid;gap:10px;padding:16px;border:1px solid #6a726e;border-radius:14px}.quote-breakdown>div{display:flex;justify-content:space-between;gap:12px}.quote-breakdown small{font-size:12px;opacity:.75}.operations-form fieldset{border:0;padding:0;min-width:0}.operations-form details{margin:20px 0}.operations-form details>summary{cursor:pointer;margin-bottom:16px}
