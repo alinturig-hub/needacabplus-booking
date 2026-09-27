@@ -34,7 +34,11 @@ export function fareBreakdown(basePence:number,percent:number){
 export function readFare(payload:unknown,path:string,unit:'gbp'|'pence'){
  let value:unknown=payload;
  for(const part of path.split('.'))value=value&&typeof value==='object'?Object.entries(value).find(([key])=>key.toLowerCase()===part.toLowerCase())?.[1]:undefined;
- if(typeof value!=='number'||!Number.isFinite(value)||value<=0)throw new QuoteError('Autocab quote response has no valid fare at the configured price field. Check the quote response mapping in admin.');
+ if(typeof value!=='number'||!Number.isFinite(value)||value<=0){
+  // Field names only: do not expose upstream amounts, identifiers or personal data.
+  const paths:string[]=[];const walk=(item:unknown,prefix:string,depth:number)=>{if(depth>5||paths.length>=25)return;if(item&&typeof item==='object'){for(const [key,nested] of Object.entries(item)){if(!/^[A-Za-z0-9_]+$/.test(key))continue;walk(nested,prefix?`${prefix}.${key}`:key,depth+1)}}else paths.push(`${prefix}:${typeof item}`)};walk(payload,'',0);
+  throw new QuoteError(`Autocab fare mapping needs configuration. Response fields: ${paths.join(', ')}`);
+ }
  const pence=unit==='gbp'?Math.round(value*100):value;
  return fareBreakdown(pence,0).basePence;
 }
