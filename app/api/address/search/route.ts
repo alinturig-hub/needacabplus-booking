@@ -1,9 +1,9 @@
 import {z} from 'zod';
-import {AutocabApiError,AutocabConfigurationError,resolveAddressPlaceId,searchAddresses} from '@/lib/autocab-api';
+import {AutocabApiError,AutocabConfigurationError,searchAddresses} from '@/lib/autocab-api';
 import {unavailable} from '@/lib/security';
 
 export const dynamic='force-dynamic';
-const querySchema=z.string().trim().min(3).max(160);
+const querySchema=z.string().trim().min(2).max(160);
 const suggestionSchema=z.object({address:z.string().trim().min(1),fullAddress:z.record(z.unknown()).nullable().optional(),placeID:z.string().nullable().optional(),customAddressID:z.union([z.string(),z.number()]).nullable().optional()});
 
 export async function GET(request:Request){
@@ -14,9 +14,9 @@ export async function GET(request:Request){
   if(!searchResponse.ok)return Response.json({error:'Map address search is temporarily unavailable.'},{status:502});
   const suggestions=z.array(suggestionSchema).parse(await searchResponse.json()).slice(0,8);
   const resolved=await Promise.allSettled(suggestions.map(async suggestion=>{
+   if(suggestion.placeID)return {address:suggestion.address,fullAddress:null,placeID:suggestion.placeID,customAddressID:suggestion.customAddressID||null};
    let address:Record<string,unknown>|undefined;
-   if(suggestion.placeID)address=await resolveAddressPlaceId(suggestion.placeID);
-   else if(suggestion.fullAddress){const coordinate=suggestion.fullAddress.coordinate as {latitude?:unknown;longitude?:unknown}|undefined,latitude=Number(coordinate?.latitude),longitude=Number(coordinate?.longitude);if(Number.isFinite(latitude)&&Number.isFinite(longitude))address=(await searchAddresses(suggestion.address,1,latitude,longitude))[0]}
+   if(suggestion.fullAddress){const coordinate=suggestion.fullAddress.coordinate as {latitude?:unknown;longitude?:unknown}|undefined,latitude=Number(coordinate?.latitude),longitude=Number(coordinate?.longitude);if(Number.isFinite(latitude)&&Number.isFinite(longitude))address=(await searchAddresses(suggestion.address,1,latitude,longitude))[0]}
    return address?{address:String(address.text||suggestion.address),fullAddress:address,placeID:suggestion.placeID||null,customAddressID:address.id||suggestion.customAddressID||null}:null;
   }));
   const items=resolved.flatMap(result=>result.status==='fulfilled'&&result.value?[result.value]:[]);

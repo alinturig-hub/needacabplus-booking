@@ -9,6 +9,7 @@ import {RadioGroup,RadioGroupItem} from '@/components/ui/radio-group';
 import {Checkbox} from '@/components/ui/checkbox';
 import {vehicles,money} from '@/lib/vehicles';
 import type {Customer} from '@/lib/customer-auth';
+import CustomerLiveMap from './customer-live-map';
 
 type Stage=0|1|2|3|4;
 type AddressChoice={address:string;fullAddress:Record<string,unknown>|null;placeID:string|null;customAddressID:string|number|null};
@@ -18,6 +19,7 @@ export default function BookingApp({customer}:{customer:Customer|null}){
  const [selectedAddresses,setSelectedAddresses]=useState<Record<string,AddressChoice>>({});
  const requestId=useRef(''),pending=useRef(false),heading=useRef<HTMLHeadingElement>(null);
  const selected=vehicles.find(v=>v.id===vehicle)!;
+ const pickupCoordinate=coordinate(selectedAddresses.pickup);
  const next=(s:Stage)=>{setError('');setStage(s)};
  useEffect(()=>{if(stage>0)heading.current?.focus()},[stage]);
  useEffect(()=>{if(!customer)return;let active=true;fetch('/api/customer/wallet',{cache:'no-store'}).then(async response=>{const data=await response.json() as {cards?:unknown[]};if(active)setWalletState(response.ok&&data.cards?.length?'ready':response.ok?'empty':'unavailable')}).catch(()=>{if(active)setWalletState('unavailable')});return()=>{active=false}},[customer]);
@@ -27,7 +29,7 @@ export default function BookingApp({customer}:{customer:Customer|null}){
  function reset(){requestId.current='';setReference('');setViaPoints([]);setSelectedAddresses({});setAck(false);next(0)}
  return <main className="booking-shell">
  <header className="brandbar"><Link className="brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link><Link className="admin-link" href={customer?'/account':'/customer-login'}>{customer?`Hi, ${customer.fullName.split(' ')[0]}`:'Sign in'}<ArrowRight size={16}/></Link></header>
- <section className="map-surface" aria-label="Plymouth area map"><iframe title="Map of Plymouth, area overview only" src="https://www.openstreetmap.org/export/embed.html?bbox=-4.19%2C50.35%2C-4.09%2C50.40&layer=mapnik"/><div className="map-city"><MapPin size={17}/> Plymouth · area overview</div></section>
+ <section className="map-surface" aria-label="Live map of available cars in Plymouth"><CustomerLiveMap pickup={pickupCoordinate}/></section>
  <section className="booking-panel"><div className="mobile-handle"/>
  <div className="panel-top">{stage>0&&stage<4?<button className="back-button" aria-label="Back to previous step" disabled={busy} onClick={()=>next((stage-1) as Stage)}><ArrowLeft size={21}/></button>:<span className="eyebrow">YOUR NEXT JOURNEY</span>}<span className="step-count">{stage===4?'COMPLETE':`0${stage+1} / 04`}</span></div>
  {stage===0&&<><h1 ref={heading} tabIndex={-1}>Where are<br/>we taking you?</h1><p className="muted">Plan your trip with Need A Cab Plus.</p><form onSubmit={e=>{e.preventDefault();routeNext()}}><div className="route-builder"><div className="route-fields"><label><span className="route-dot"/><span className="field-body"><span>Pick-up</span><AddressInput label="Pick-up" placeholder="Enter pick-up address" value={pickup} onChange={value=>{setPickup(value);setSelectedAddresses(all=>{const updated={...all};delete updated.pickup;return updated})}} onSelect={choice=>{setPickup(choice.address);setSelectedAddresses(all=>({...all,pickup:choice}))}}/></span></label>{viaPoints.map((via,index)=><div key={index} className="via-field"><div className="route-divider"/><label><span className="via-dot"/><span className="field-body"><span>Via point {index+1}</span><AddressInput label={`Via point ${index+1}`} placeholder="Add an intermediate stop" value={via} onChange={value=>{setViaPoints(all=>all.map((item,i)=>i===index?value:item));setSelectedAddresses(all=>{const updated={...all};delete updated[`via-${index}`];return updated})}} onSelect={choice=>{setViaPoints(all=>all.map((item,i)=>i===index?choice.address:item));setSelectedAddresses(all=>({...all,[`via-${index}`]:choice}))}}/></span><button type="button" className="remove-via" aria-label={`Remove via point ${index+1}`} onClick={()=>{setViaPoints(all=>all.filter((_,i)=>i!==index));setSelectedAddresses(all=>Object.fromEntries(Object.entries(all).filter(([key])=>!key.startsWith(`via-`))))}}><X size={17}/></button></label></div>)}<div className="route-divider"/><label><span className="route-square"/><span className="field-body"><span>Destination</span><AddressInput label="Destination" placeholder="Where to?" value={destination} onChange={value=>{setDestination(value);setSelectedAddresses(all=>{const updated={...all};delete updated.destination;return updated})}} onSelect={choice=>{setDestination(choice.address);setSelectedAddresses(all=>({...all,destination:choice}))}}/></span></label></div><button type="button" className="add-via" disabled={viaPoints.length>=3} aria-label="Add a via point" onClick={()=>setViaPoints(all=>[...all,''])}><Plus size={24}/></button></div>{viaPoints.length>0&&<p className="via-help">Up to 3 intermediate stops can be added.</p>}<div className="time-row"><Clock3 size={19}/><span>Ride now</span><span className="muted">Test journey</span></div><Button type="submit" className="primary-action">Choose a car <ArrowRight size={20}/></Button></form><div className="preview-note"><ShieldCheck size={18}/><span>Addresses and zones verified through the live map service</span></div></>}
@@ -41,9 +43,29 @@ export default function BookingApp({customer}:{customer:Customer|null}){
 }
 function RouteSummary({pickup,viaPoints,destination}:{pickup:string;viaPoints:string[];destination:string}){return <div className="route-summary"><div><span className="route-dot"/><span>{pickup}</span></div>{viaPoints.map((via,index)=><div key={index}><span className="via-dot"/><span><small>Via {index+1}</small>{via}</span></div>)}<div><span className="route-square"/><span>{destination}</span></div></div>}
 
+function coordinate(choice:AddressChoice|undefined){const point=choice?.fullAddress?.coordinate;if(!point||typeof point!=='object')return null;const value=point as {latitude?:unknown;longitude?:unknown},latitude=Number(value.latitude),longitude=Number(value.longitude);return Number.isFinite(latitude)&&Number.isFinite(longitude)?{latitude,longitude}:null}
+
 function AddressInput({label,placeholder,value,onChange,onSelect}:{label:string;placeholder:string;value:string;onChange:(value:string)=>void;onSelect:(choice:AddressChoice)=>void}){
- const [items,setItems]=useState<AddressChoice[]>([]),[open,setOpen]=useState(false),[loading,setLoading]=useState(false);const selected=useRef(false);
- useEffect(()=>{if(selected.current){selected.current=false;return}const query=value.trim();if(query.length<3)return;const controller=new AbortController(),timer=setTimeout(()=>{setLoading(true);fetch(`/api/address/search?q=${encodeURIComponent(query)}`,{signal:controller.signal}).then(async response=>{const data=await response.json() as {items?:AddressChoice[]};setItems(response.ok&&Array.isArray(data.items)?data.items:[]);setOpen(true)}).catch(()=>{}).finally(()=>setLoading(false))},500);return()=>{clearTimeout(timer);controller.abort()}},[value]);
- return <span className="address-search"><Input required minLength={5} maxLength={250} aria-label={label} placeholder={placeholder} autoComplete="off" value={value} onFocus={()=>items.length&&setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),120)} onChange={event=>{setItems([]);setOpen(false);onChange(event.target.value)}}/>{loading&&<span className="address-loading">Searching…</span>}{open&&items.length>0&&<span className="address-results">{items.map((item,index)=><button type="button" key={`${item.placeID||item.customAddressID||item.address}-${index}`} onMouseDown={event=>event.preventDefault()} onClick={()=>{selected.current=true;setOpen(false);setItems([]);onSelect(item)}}><MapPin size={16}/><span>{item.address}</span></button>)}</span>}</span>
+ const [items,setItems]=useState<AddressChoice[]>([]),[open,setOpen]=useState(false),[loading,setLoading]=useState(false),[resolving,setResolving]=useState(false),[message,setMessage]=useState('');const selected=useRef(false),sequence=useRef(0);
+ useEffect(()=>{
+  if(selected.current){selected.current=false;return}
+  const query=value.trim(),current=++sequence.current;
+  if(query.length<2)return;
+  const controller=new AbortController(),timer=setTimeout(async()=>{
+   setLoading(true);setMessage('');
+   try{const response=await fetch(`/api/address/search?q=${encodeURIComponent(query)}`,{signal:controller.signal,cache:'no-store'}),data=await response.json() as {items?:AddressChoice[]};if(current!==sequence.current)return;const next=response.ok&&Array.isArray(data.items)?data.items:[];setItems(next);setOpen(true);if(!next.length)setMessage('No addresses found')}
+   catch(error){if(error instanceof DOMException&&error.name==='AbortError')return;if(current===sequence.current){setItems([]);setOpen(true);setMessage('Address search is temporarily unavailable')}}
+   finally{if(current===sequence.current)setLoading(false)}
+  },180);
+  return()=>{clearTimeout(timer);controller.abort()}
+ },[value]);
+ async function choose(item:AddressChoice){
+  setOpen(false);setMessage('');
+  if(item.fullAddress||!item.placeID){selected.current=true;setItems([]);onSelect(item);return}
+  setResolving(true);
+  try{const response=await fetch(`/api/address/resolve?placeId=${encodeURIComponent(item.placeID)}`,{cache:'no-store'}),data=await response.json() as {item?:AddressChoice;error?:string};if(!response.ok||!data.item)throw new Error(data.error||'Unable to verify this address.');selected.current=true;setItems([]);onSelect(data.item)}
+  catch(error){setMessage(error instanceof Error?error.message:'Unable to verify this address.');setOpen(true)}finally{setResolving(false)}
+ }
+ return <span className="address-search"><Input required minLength={5} maxLength={250} aria-label={label} placeholder={placeholder} autoComplete="off" value={value} disabled={resolving} onFocus={()=>{if(items.length||message)setOpen(true)}} onBlur={()=>setTimeout(()=>setOpen(false),140)} onChange={event=>{sequence.current++;setItems([]);setOpen(false);setLoading(false);setMessage('');onChange(event.target.value)}}/>{(loading||resolving)&&<span className="address-loading">{resolving?'Checking…':'Searching…'}</span>}{open&&(items.length>0||message)&&<span className="address-results">{items.map((item,index)=><button type="button" disabled={resolving} key={`${item.placeID||item.customAddressID||item.address}-${index}`} onMouseDown={event=>event.preventDefault()} onClick={()=>void choose(item)}><MapPin size={16}/><span>{item.address}</span></button>)}{message&&<span className="address-empty">{message}</span>}</span>}</span>
 }
 
