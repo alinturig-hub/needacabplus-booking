@@ -30,6 +30,7 @@ test('prebook exact boundary, ASAP restriction and invalid dates',()=>{
 });
 test('fare mapping never guesses cost or substitutes a demo fare',()=>{
  assert.equal(readFare({price:6.7,cost:4},'price','gbp'),670);
+ assert.equal(readFare({outward:{price:6.7,cost:4},return:null},defaults.pricePath,defaults.priceUnit),670);
  assert.equal(readFare({Pricing:{Price:670}},'pricing.price','pence'),670);
  for(const payload of [{cost:6.7},{price:null},{price:-1},{price:0},{price:'£6.70'},{price:NaN},{price:Infinity},{price:10001}])assert.throws(()=>readFare(payload,'price','gbp'));
  assert.throws(()=>readFare({price:6.7},'price','pence'));

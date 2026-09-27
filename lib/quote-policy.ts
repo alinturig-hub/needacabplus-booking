@@ -8,7 +8,7 @@ export const quotePolicySchema=z.object({
  lowPercent:z.number().min(0).max(100).default(10),mediumPercent:z.number().min(0).max(100).default(15),highPercent:z.number().min(0).max(100).default(20),
  mediumRatio:z.number().positive().max(100).default(1),highRatio:z.number().positive().max(100).default(2),
  demandWindowMinutes:z.number().int().min(1).max(120).default(15),quoteValiditySeconds:z.number().int().min(60).max(600).default(180),
- pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('price'),
+ pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('outward.price'),
  priceUnit:z.enum(['gbp','pence']).default('gbp'),
  estateCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),xlCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),
 }).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'});
@@ -34,11 +34,7 @@ export function fareBreakdown(basePence:number,percent:number){
 export function readFare(payload:unknown,path:string,unit:'gbp'|'pence'){
  let value:unknown=payload;
  for(const part of path.split('.'))value=value&&typeof value==='object'?Object.entries(value).find(([key])=>key.toLowerCase()===part.toLowerCase())?.[1]:undefined;
- if(typeof value!=='number'||!Number.isFinite(value)||value<=0){
-  // Field names only: do not expose upstream amounts, identifiers or personal data.
-  const paths:string[]=[];const walk=(item:unknown,prefix:string,depth:number)=>{if(depth>5||paths.length>=25)return;if(item&&typeof item==='object'){for(const [key,nested] of Object.entries(item)){if(!/^[A-Za-z0-9_]+$/.test(key))continue;walk(nested,prefix?`${prefix}.${key}`:key,depth+1)}}else paths.push(`${prefix}:${typeof item}`)};walk(payload,'',0);
-  throw new QuoteError(`Autocab fare mapping needs configuration. Response fields: ${paths.join(', ')}`);
- }
+ if(typeof value!=='number'||!Number.isFinite(value)||value<=0)throw new QuoteError('Autocab did not return a usable passenger fare. Please try again or contact support.');
  const pence=unit==='gbp'?Math.round(value*100):value;
  return fareBreakdown(pence,0).basePence;
 }
