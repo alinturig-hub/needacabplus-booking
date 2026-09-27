@@ -1,4 +1,5 @@
 import {capabilityIds,matchDispatchRequirements} from '@/lib/dispatch-capabilities';
+import {bookingRequirements} from '@/lib/booking-requirements';
 import {z} from 'zod';
 import {database} from '@/lib/database';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
@@ -30,7 +31,7 @@ export async function POST(request:Request){
   const pickup=booking.pickup_data;
   if(!pickup||!validPoint(pickup)||!Number.isFinite(due))return Response.json({error:'This booking needs a valid pickup position and pickup time.'},{status:422});
   const raw=booking.raw_payload;
-  const detail={...(raw?.booking||raw?.metadata||raw?.data?.booking||raw?.data?.metadata||raw?.data||raw),...booking.dispatch_requirements};
+  const detail={...bookingRequirements(booking.dispatch_requirements),...bookingRequirements(raw)};
   if(capabilityIds(detail.capabilities)===null)return Response.json({error:'This booking has not supplied a readable capability list yet. Waiting for complete Autocab booking details; no vehicle will be assumed suitable.'},{status:422});
   const cars=await db.query(`WITH driver_latest AS (SELECT DISTINCT ON (driver_id) * FROM driver_positions ORDER BY driver_id,recorded_at DESC NULLS LAST,id DESC), latest AS (
    SELECT DISTINCT ON (vehicle_id) * FROM driver_latest WHERE vehicle_id IS NOT NULL ORDER BY vehicle_id,recorded_at DESC NULLS LAST,id DESC

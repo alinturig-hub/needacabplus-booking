@@ -1,7 +1,7 @@
 export function capabilityIds(value:unknown):string[]|null{
  if(!Array.isArray(value))return null;
  const result:string[]=[];
- for(const entry of value){const raw=entry&&typeof entry==='object'?(entry as Record<string,unknown>).id??(entry as Record<string,unknown>).capabilityId:entry;
+ for(const entry of value){const raw=entry&&typeof entry==='object'?Object.entries(entry).find(([key])=>key.toLowerCase()==='id')?.[1]??Object.entries(entry).find(([key])=>key.toLowerCase()==='capabilityid')?.[1]:entry;
   if((typeof raw!=='number'&&typeof raw!=='string')||!/^\d+$/.test(String(raw)))return null;
   result.push(String(Number(raw)));
  }

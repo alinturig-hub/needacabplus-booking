@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
+import {bookingRequirements} from './booking-requirements';
 
 type JsonObject=Record<string,unknown>;
 const object=(value:unknown):JsonObject|undefined=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonObject:undefined;
@@ -96,8 +97,7 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
    pickup?JSON.stringify(pickup):null,destination?JSON.stringify(destination):null,Array.isArray(vias)?JSON.stringify(vias):null,driver?JSON.stringify(driver):null,vehicle?JSON.stringify(vehicle):null,pricing?JSON.stringify(pricing):null,timeline?JSON.stringify(timeline):null,notes?JSON.stringify(notes):null,JSON.stringify(payload),eventType,
    name,phone,pickup?.address,destination?.address,Array.isArray(vias)?JSON.stringify(vias):null,text(notes?.driverNote),farePence
   ]);
- const requirements:JsonObject={};
- for(const field of ['capabilities','passengers','driverConstraints','vehicleConstraints']){const value=key(booking,field);if(value!==undefined&&value!==null)requirements[field]=value}
+ const requirements=bookingRequirements(payload);
  if(Object.keys(requirements).length)await db.query("UPDATE bookings SET dispatch_requirements=COALESCE(dispatch_requirements,'{}'::jsonb)||$2::jsonb WHERE external_booking_id=$1",[externalId,JSON.stringify(requirements)]);
  return {saved:true,externalBookingId:externalId,status};
 }
