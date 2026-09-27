@@ -253,3 +253,33 @@ CREATE TABLE IF NOT EXISTS customer_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_customer_sessions_customer
   ON customer_sessions(customer_id,expires_at DESC);
+
+CREATE TABLE IF NOT EXISTS customer_places (
+  id uuid PRIMARY KEY,
+  customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('home','work','favorite')),
+  name text NOT NULL DEFAULT '',
+  address text NOT NULL,
+  full_address jsonb NOT NULL,
+  place_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_places_home_work
+  ON customer_places(customer_id,kind) WHERE kind IN ('home','work');
+CREATE INDEX IF NOT EXISTS idx_customer_places_customer
+  ON customer_places(customer_id,updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS customer_address_history (
+  id uuid PRIMARY KEY,
+  customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  address text NOT NULL,
+  full_address jsonb NOT NULL,
+  place_id text,
+  used_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(customer_id,address)
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_address_history_customer
+  ON customer_address_history(customer_id,used_at DESC);

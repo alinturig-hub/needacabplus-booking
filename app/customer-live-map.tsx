@@ -1,41 +1,19 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
-import {Map as MapLibreMap,Marker} from 'maplibre-gl';
+/* eslint-disable @next/next/no-img-element -- map tiles and moving vehicle markers are runtime imagery */
+import {useEffect,useMemo,useRef,useState} from 'react';
 
 type Vehicle={id:string;label:string;latitude:number;longitude:number;recordedAt:string};
-type LiveMarker={marker:Marker;coordinate:[number,number];heading:number;frame:number|null};
 type Point={latitude:number;longitude:number}|null;
-const style={version:8 as const,sources:{osm:{type:'raster' as const,tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster' as const,source:'osm',paint:{'raster-saturation':-0.72,'raster-brightness-max':0.7,'raster-contrast':0.12}}]};
-const CENTER:[number,number]=[-4.143,50.374];
-function bearing(from:[number,number],to:[number,number]){const lon1=from[0]*Math.PI/180,lat1=from[1]*Math.PI/180,lon2=to[0]*Math.PI/180,lat2=to[1]*Math.PI/180,y=Math.sin(lon2-lon1)*Math.cos(lat2),x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(lon2-lon1);return(Math.atan2(y,x)*180/Math.PI+360)%360}
-function nearest(current:number,next:number){return current+((next-current+540)%360-180)}
+type Size={width:number;height:number};
+const DEFAULT_CENTER={longitude:-4.143,latitude:50.374},ZOOM=13,TILE=256,WORLD=TILE*2**ZOOM;
+function project(latitude:number,longitude:number){const sin=Math.sin(latitude*Math.PI/180);return{x:(longitude+180)/360*WORLD,y:(.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*WORLD}}
 
 export default function CustomerLiveMap({pickup}:{pickup:Point}){
- const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef<Map<string,LiveMarker>>(new Map()),pickupMarker=useRef<Marker|null>(null);
- const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false);
- useEffect(()=>{
-  if(!container.current||mapRef.current)return;
-  const currentMarkers=markers.current,map=new MapLibreMap({container:container.current,style,center:CENTER,zoom:12,attributionControl:{compact:true}});mapRef.current=map;
-  return()=>{currentMarkers.forEach(item=>{if(item.frame!==null)cancelAnimationFrame(item.frame);item.marker.remove()});currentMarkers.clear();pickupMarker.current?.remove();map.remove();mapRef.current=null};
- },[]);
- useEffect(()=>{
-  let active=true;fetch('/api/map/vehicles',{cache:'no-store'}).then(async response=>{if(response.ok&&active)setVehicles(await response.json() as Vehicle[])}).catch(()=>{});
-  const events=new EventSource('/api/map/vehicles/stream');events.addEventListener('connected',()=>setLive(true));const update=((event:MessageEvent<string>)=>{try{if(active)setVehicles(JSON.parse(event.data) as Vehicle[])}catch{}}) as EventListener;events.addEventListener('vehicles',update);events.onerror=()=>setLive(false);
-  return()=>{active=false;events.close()};
- },[]);
- useEffect(()=>{
-  const map=mapRef.current;if(!map)return;const current=markers.current,ids=new Set(vehicles.map(vehicle=>vehicle.id));
-  current.forEach((state,id)=>{if(!ids.has(id)){if(state.frame!==null)cancelAnimationFrame(state.frame);state.marker.remove();current.delete(id)}});
-  vehicles.forEach(vehicle=>{
-   const target:[number,number]=[vehicle.longitude,vehicle.latitude],existing=current.get(vehicle.id);
-   if(!existing){const element=document.createElement('div');element.className='customer-car-marker';const label=document.createElement('span');label.textContent=vehicle.label.slice(0,5);const car=document.createElement('img');car.src='/car-marker-live.png';car.alt='Available car';car.draggable=false;element.appendChild(label);element.appendChild(car);const marker=new Marker({element}).setLngLat(target).addTo(map);current.set(vehicle.id,{marker,coordinate:target,heading:0,frame:null});return}
-   const label=existing.marker.getElement().querySelector('span');if(label)label.textContent=vehicle.label.slice(0,5);const from:[number,number]=[...existing.coordinate];if(Math.abs(target[0]-from[0])+Math.abs(target[1]-from[1])<0.000001)return;
-   if(existing.frame!==null)cancelAnimationFrame(existing.frame);const start=performance.now(),fromHeading=existing.heading,toHeading=nearest(fromHeading,bearing(from,target)),image=existing.marker.getElement().querySelector('img');
-   const animate=(now:number)=>{const progress=Math.min(1,(now-start)/4200),eased=progress*progress*(3-2*progress);existing.coordinate=[from[0]+(target[0]-from[0])*eased,from[1]+(target[1]-from[1])*eased];existing.marker.setLngLat(existing.coordinate);existing.heading=fromHeading+(toHeading-fromHeading)*eased;if(image)image.style.transform=`rotate(${existing.heading}deg)`;existing.frame=progress<1?requestAnimationFrame(animate):null};existing.frame=requestAnimationFrame(animate);
-  });
- },[vehicles]);
- useEffect(()=>{
-  const map=mapRef.current;if(!map||!pickup)return;pickupMarker.current?.remove();const element=document.createElement('div');element.className='customer-pickup-marker';pickupMarker.current=new Marker({element,anchor:'center'}).setLngLat([pickup.longitude,pickup.latitude]).addTo(map);map.flyTo({center:[pickup.longitude,pickup.latitude],zoom:14,duration:700});
- },[pickup]);
- return <><div ref={container} className="customer-map-canvas"/><div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div></>;
+ const container=useRef<HTMLDivElement>(null),[size,setSize]=useState<Size>({width:0,height:0}),[vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false);
+ const center=pickup||DEFAULT_CENTER,centerPixel=project(center.latitude,center.longitude);
+ useEffect(()=>{const element=container.current;if(!element)return;const update=()=>setSize({width:element.clientWidth,height:element.clientHeight}),observer=new ResizeObserver(update);observer.observe(element);update();return()=>observer.disconnect()},[]);
+ useEffect(()=>{let active=true;fetch('/api/map/vehicles',{cache:'no-store'}).then(async response=>{if(response.ok&&active)setVehicles(await response.json() as Vehicle[])}).catch(()=>{});const events=new EventSource('/api/map/vehicles/stream'),update=((event:MessageEvent<string>)=>{try{if(active)setVehicles(JSON.parse(event.data) as Vehicle[])}catch{}}) as EventListener;events.addEventListener('connected',()=>setLive(true));events.addEventListener('vehicles',update);events.onerror=()=>setLive(false);return()=>{active=false;events.close()}},[]);
+ const tiles=useMemo(()=>{if(!size.width||!size.height)return[];const firstX=Math.floor((centerPixel.x-size.width/2)/TILE)-1,lastX=Math.floor((centerPixel.x+size.width/2)/TILE)+1,firstY=Math.floor((centerPixel.y-size.height/2)/TILE)-1,lastY=Math.floor((centerPixel.y+size.height/2)/TILE)+1,total=2**ZOOM,list:{key:string;url:string;left:number;top:number}[]=[];for(let y=firstY;y<=lastY;y++)for(let x=firstX;x<=lastX;x++){if(y<0||y>=total)continue;const tileX=((x%total)+total)%total;list.push({key:`${x}-${y}`,url:`https://tile.openstreetmap.org/${ZOOM}/${tileX}/${y}.png`,left:x*TILE-(centerPixel.x-size.width/2),top:y*TILE-(centerPixel.y-size.height/2)})}return list},[centerPixel.x,centerPixel.y,size]);
+ const position=(latitude:number,longitude:number)=>{const point=project(latitude,longitude);return{left:point.x-centerPixel.x+size.width/2,top:point.y-centerPixel.y+size.height/2}};
+ return <div ref={container} className="customer-map-canvas"><div className="customer-map-tiles">{tiles.map(tile=><img key={tile.key} src={tile.url} alt="" draggable={false} style={{left:tile.left,top:tile.top}}/>)}</div>{vehicles.map(vehicle=>{const point=position(vehicle.latitude,vehicle.longitude);if(point.left< -70||point.left>size.width+70||point.top< -70||point.top>size.height+70)return null;return <div className="customer-car-marker" key={vehicle.id} style={point}><span>{vehicle.label.slice(0,5)}</span><img src="/car-marker-live.png" alt="Available car" draggable={false}/></div>})}{pickup&&<div className="customer-pickup-marker" style={position(pickup.latitude,pickup.longitude)}/>}<div className="customer-map-attribution">© OpenStreetMap contributors</div><div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div></div>;
 }
