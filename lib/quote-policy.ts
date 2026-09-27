@@ -10,6 +10,7 @@ export const quotePolicySchema=z.object({
  demandWindowMinutes:z.number().int().min(1).max(120).default(15),quoteValiditySeconds:z.number().int().min(60).max(600).default(180),
  pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('outward.price'),
  priceUnit:z.enum(['gbp','pence']).default('gbp'),
+ saloonCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),
  estateCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),xlCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),
 }).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'});
 export type QuotePolicy=z.infer<typeof quotePolicySchema>;

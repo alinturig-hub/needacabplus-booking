@@ -1,25 +1,62 @@
 'use client';
+import Link from 'next/link';
+import Image from 'next/image';
 import {useEffect,useRef,useState} from 'react';
+import {Clock3,CreditCard,ChevronRight,Users,Zap} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {vehicles,money} from '@/lib/vehicles';
-import type {Service} from '@/lib/quote-policy';
-import type {FareQuote} from '@/lib/quotes';
-export type QuoteSelection={quote:FareQuote;token:string};
-export default function QuoteChooser({pickup,destination,vias,initial,onChoose}:{pickup:Record<string,unknown>|null;destination:Record<string,unknown>|null;vias:(Record<string,unknown>|null)[];initial:QuoteSelection|null;onChoose:(value:QuoteSelection)=>void}){
- const [service,setService]=useState<Service>(initial?.quote.service||'priority'),[scheduled,setScheduled]=useState(()=>{if(!initial?.quote.scheduledAt)return '';const date=new Date(initial.quote.scheduledAt);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)}),[vehicle,setVehicle]=useState(initial?.quote.vehicle||'saloon'),[config,setConfig]=useState<{enabled:boolean;minPrebookMinutes:number;vehicles:string[]}|null>(null),[offer,setOffer]=useState<QuoteSelection|null>(initial),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expired,setExpired]=useState(false);
- const request=useRef<AbortController|null>(null),sequence=useRef(0);
- useEffect(()=>{const controller=new AbortController();fetch('/api/quotes',{cache:'no-store',signal:controller.signal}).then(async r=>{const data=await r.json() as {enabled:boolean;minPrebookMinutes:number;vehicles:string[];error?:string};if(!r.ok)throw new Error(data.error);setConfig(data)}).catch(e=>{if(!controller.signal.aborted)setError(e.message)});return()=>{controller.abort();request.current?.abort()}},[]);
- useEffect(()=>{if(!offer)return;const timer=setTimeout(()=>setExpired(true),Math.max(0,Date.parse(offer.quote.expiresAt)-Date.now()));return()=>clearTimeout(timer)},[offer]);
- function invalidate(){sequence.current++;request.current?.abort();setOffer(null);setError('');setBusy(false);setExpired(false)}
- async function getFare(){invalidate();const current=sequence.current,controller=new AbortController();request.current=controller;setBusy(true);const timeout=setTimeout(()=>controller.abort(),25000);try{
-  const date=scheduled?new Date(scheduled):null;if(service==='guarantee'&&(!date||!Number.isFinite(date.getTime())))throw new Error('Choose your pick-up date and time.');
-  const r=await fetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({pickup,destination,vias,vehicle,service,scheduledAt:service==='guarantee'?date!.toISOString():null})}),data=await r.json() as QuoteSelection&{error?:string};if(!r.ok)throw new Error(data.error||'Unable to retrieve your fare.');if(current===sequence.current)setOffer(data);
- }catch(e){if(current===sequence.current)setError(controller.signal.aborted?'The quote took too long. Please try again.':e instanceof Error?e.message:'Unable to retrieve fare.')}finally{clearTimeout(timeout);if(current===sequence.current)setBusy(false)}}
- return <div className="live-quote"><div className="quote-services" role="group" aria-label="Taxi service"><button type="button" aria-pressed={service==='priority'} onClick={()=>{invalidate();setService('priority')}}><strong>Priority taxi</strong><small>ASAP · demand-based supplement</small></button><button type="button" aria-pressed={service==='guarantee'} onClick={()=>{invalidate();setService('guarantee')}}><strong>Guarantee taxi</strong><small>Prebook · fare + supplement</small></button></div>
- {service==='guarantee'&&<label>Pick-up date & time<Input type="datetime-local" value={scheduled} onChange={e=>{invalidate();setScheduled(e.target.value)}}/><small>Minimum {config?.minPrebookMinutes??30} minutes ahead. Times are shown in your device’s local timezone.</small></label>}
- <label>Vehicle<select className="quote-vehicle" value={vehicle} onChange={e=>{invalidate();setVehicle(e.target.value)}}>{vehicles.map(v=><option key={v.id} value={v.id} disabled={!config?.vehicles.includes(v.id)}>{v.name} · {v.passengers} seats{config&&!config.vehicles.includes(v.id)?' · unavailable':''}</option>)}</select></label>
- {error&&<p className="error-message" role="alert">{error}</p>}{config&&!config.enabled&&<p>Live fares are temporarily unavailable.</p>}
- {offer&&!expired?<><div className="quote-breakdown"><div><span>Autocab fare</span><strong>{money(offer.quote.basePence)}</strong></div>{<div><span>{offer.quote.service==='priority'?'Priority':'Guarantee'} · {offer.quote.percent}%</span><strong>{money(offer.quote.upliftPence)}</strong></div>}<div><span>Total</span><strong>{money(offer.quote.totalPence)}</strong></div><small>Valid until {new Date(offer.quote.expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}. Card only.</small></div><Button className="primary-action" onClick={()=>{if(Date.now()>=Date.parse(offer.quote.expiresAt)){setExpired(true);return}onChoose(offer)}}>Choose {service==='priority'?'Priority':'Guarantee'} · {money(offer.quote.totalPence)}</Button></>:<><p className="small-note">{expired?'Your fare expired. Get a new quote to continue.':'The fare is calculated for your route and pick-up time.'}</p><Button className="primary-action" disabled={!config?.enabled||busy} onClick={getFare}>{busy?'Getting Autocab fare…':expired?'Get a new quote':'Get live fare'}</Button></>}
- <p className="small-note">Real fare quote. Booking confirmation remains in test mode: no charge or driver request.</p></div>
+import type {PublicFareQuote} from '@/lib/quote-presentation';
+export type QuoteSelection={quote:PublicFareQuote;token:string};
+type Config={enabled:boolean;minPrebookMinutes:number;vehicles:string[]};
+const keyOf=(service:string,vehicle:string)=>`${service}:${vehicle}`;
+const localDate=(iso:string)=>{const date=new Date(iso);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};
+export default function QuoteChooser({pickup,destination,vias,initial,customer,paymentLabel,onChoose}:{pickup:Record<string,unknown>|null;destination:Record<string,unknown>|null;vias:(Record<string,unknown>|null)[];initial:QuoteSelection|null;customer:boolean;paymentLabel:string;onChoose:(value:QuoteSelection)=>void}){
+ const [selected,setSelected]=useState(initial?keyOf(initial.quote.service,initial.quote.vehicle):'priority:saloon'),[scheduled,setScheduled]=useState(initial?.quote.scheduledAt?localDate(initial.quote.scheduledAt):''),[config,setConfig]=useState<Config|null>(null),[offers,setOffers]=useState<Record<string,QuoteSelection>>(initial?{[keyOf(initial.quote.service,initial.quote.vehicle)]:initial}:{}),[errors,setErrors]=useState<Record<string,string>>({}),[loading,setLoading]=useState<Record<string,boolean>>({}),[configError,setConfigError]=useState(''),[revision,setRevision]=useState(0),[now,setNow]=useState(Date.now);
+ const cached=useRef(offers);
+ const routeKey=JSON.stringify({pickup,destination,vias});
+ const guaranteed=selected.startsWith('guarantee:');
+ const scheduledAt=scheduled&&Number.isFinite(new Date(scheduled).getTime())?new Date(scheduled).toISOString():null;
+ const dateValid=Boolean(scheduledAt&&Date.parse(scheduledAt)>=now+(config?.minPrebookMinutes??30)*60000);
+ useEffect(()=>{const controller=new AbortController();fetch('/api/quotes',{cache:'no-store',signal:controller.signal}).then(async r=>{const data=await r.json() as Config&{error?:string};if(!r.ok)throw new Error(data.error);setConfig(data)}).catch(e=>{if(!controller.signal.aborted)setConfigError(e.message)});return()=>controller.abort()},[revision]);
+ useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
+ useEffect(()=>{
+  if(!config?.enabled)return;let active=true;const controller=new AbortController();
+  const timer=setTimeout(async()=>{
+   const route=JSON.parse(routeKey);const allowed=config.vehicles;
+   const jobs=allowed.flatMap(vehicle=>[{vehicle,service:'priority' as const,scheduledAt:null as string|null},...(scheduledAt&&Date.parse(scheduledAt)>=Date.now()+config.minPrebookMinutes*60000?[{vehicle,service:'guarantee' as const,scheduledAt}]:[])]);
+   await Promise.all(jobs.map(async job=>{
+    const key=keyOf(job.service,job.vehicle),old=cached.current[key];
+    if(old&&old.quote.scheduledAt===job.scheduledAt&&Date.parse(old.quote.expiresAt)>Date.now())return;
+    if(!active)return;setLoading(all=>({...all,[key]:true}));setErrors(all=>({...all,[key]:''}));
+    try{const r=await fetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({...route,...job})}),data=await r.json() as QuoteSelection&{error?:string};if(!r.ok)throw new Error(data.error||'Fare unavailable. Please try again.');if(active){cached.current={...cached.current,[key]:data};setOffers(cached.current)}}
+    catch(e){if(active&&!controller.signal.aborted)setErrors(all=>({...all,[key]:e instanceof Error?e.message:'Fare unavailable.'}))}
+    finally{if(active)setLoading(all=>({...all,[key]:false}))}
+   }));clearTimeout(timeout);
+  },350);const timeout=setTimeout(()=>{if(active){controller.abort();setLoading({});setConfigError('Some fares took too long. Please retry.')}},25000);
+  return()=>{active=false;clearTimeout(timer);clearTimeout(timeout);controller.abort()};
+ },[config,routeKey,scheduledAt,revision]);
+ const current=offers[selected],valid=Boolean(current&&Date.parse(current.quote.expiresAt)>now&&(!guaranteed||(dateValid&&current.quote.scheduledAt===scheduledAt))&&!loading[selected]);
+ function retry(){setConfigError('');cached.current={};setOffers({});setRevision(v=>v+1)}
+ const available=vehicles.filter(v=>config?.vehicles.includes(v.id));
+ return <div className="ride-picker">
+  <div className="ride-time"><Clock3 size={17}/><span>{guaranteed?'Schedule your pick-up':'Ride now'}</span>{guaranteed&&<small>At least {config?.minPrebookMinutes??30} min ahead</small>}</div>
+  {guaranteed&&<label className="ride-schedule">Pick-up date & time<Input type="datetime-local" value={scheduled} onChange={e=>{setScheduled(e.target.value);setConfigError('')}}/><small>Your device’s local time</small></label>}
+  {configError&&<p className="error-message" role="alert">{configError}</p>}{config&&!config.enabled&&<p role="status">Rides are temporarily unavailable.</p>}
+  {!config&&!configError&&<p role="status">Finding your rides…</p>}
+  <div className="ride-options" role="group" aria-label="Choose a ride">{(['priority','guarantee'] as const).flatMap(service=>available.map(v=>{
+   const key=keyOf(service,v.id),offer=offers[key],ready=offer&&Date.parse(offer.quote.expiresAt)>now&&(service==='priority'||(dateValid&&offer.quote.scheduledAt===scheduledAt));
+   const title=`${service==='priority'?'Priority':'Guarantee'} ${v.id==='saloon'?'taxi':v.id==='estate'?'Estate':'XL'}`;
+   return <button type="button" key={key} className={`ride-option ${selected===key?'is-selected':''}`} aria-pressed={selected===key} onClick={()=>setSelected(key)}>
+    <span className="ride-car-art" aria-hidden="true"><Image src="/car-marker-live.png" width={35} height={63} unoptimized alt=""/></span><span className="ride-option-copy"><strong>{title} <span><Users size={13}/>{v.passengers}</span></strong><small>{service==='priority'?'As soon as possible':scheduledAt?new Date(scheduledAt).toLocaleString([], {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Reserve for later'}</small>{service==='priority'&&<span className="ride-option-badge"><Zap size={12}/>Priority</span>}</span>
+    <span className="ride-option-price">{loading[key]?'…':ready?money(offer.quote.totalPence):service==='guarantee'&&!dateValid?'Set time':errors[key]?'Unavailable':'—'}</span>
+   </button>
+  }))}</div>
+  {errors[selected]&&<p className="error-message" role="alert">{errors[selected]}</p>}
+  {guaranteed&&scheduled&&!dateValid&&<p role="alert" className="small-note">Choose a pick-up at least {config?.minPrebookMinutes??30} minutes from now.</p>}
+  <div className="ride-checkout"><Link className="ride-payment" href={customer?'/account':'/customer-login?returnTo=/'}><CreditCard size={22}/><span>{paymentLabel}</span><ChevronRight size={19}/></Link>
+   {configError||errors[selected]||(current&&!valid&&!loading[selected]&&(!guaranteed||dateValid))?<Button type="button" className="primary-action" onClick={retry}>Refresh fares</Button>:<Button type="button" className="primary-action" disabled={!valid} onClick={()=>{if(current&&Date.parse(current.quote.expiresAt)>Date.now())onChoose(current)}}>{loading[selected]?'Finding your fare…':guaranteed&&!dateValid?'Choose pick-up time':`Choose ${guaranteed?'Guarantee':'Priority'}`}</Button>}
+   <span className="ride-test-label">Booking preview · no charge</span>
+  </div>
+ </div>
 }
