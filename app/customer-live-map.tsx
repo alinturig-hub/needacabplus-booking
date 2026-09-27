@@ -1,32 +1,65 @@
 'use client';
-/* eslint-disable @next/next/no-img-element -- map tiles and moving vehicle markers are runtime imagery */
-import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import {Map as MapLibreMap,Marker,type StyleSpecification} from 'maplibre-gl';
 
-type Vehicle={id:string;label:string;latitude:number;longitude:number;recordedAt:string};
-type Point={latitude:number;longitude:number}|null;
-type Size={width:number;height:number};
-const DEFAULT_CENTER={longitude:-4.143,latitude:50.374},DEFAULT_ZOOM=13,TILE=256,MOVE_TIME=4200;
-function world(zoom:number){return TILE*2**zoom}
-function project(latitude:number,longitude:number,zoom:number){const size=world(zoom),sin=Math.sin(latitude*Math.PI/180);return{x:(longitude+180)/360*size,y:(.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*size}}
-function unproject(x:number,y:number,zoom:number){const size=world(zoom),longitude=x/size*360-180,n=Math.PI-2*Math.PI*y/size,latitude=180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n)));return{latitude,longitude}}
-function bearing(from:Vehicle,to:Vehicle){const y=Math.sin((to.longitude-from.longitude)*Math.PI/180)*Math.cos(to.latitude*Math.PI/180),x=Math.cos(from.latitude*Math.PI/180)*Math.sin(to.latitude*Math.PI/180)-Math.sin(from.latitude*Math.PI/180)*Math.cos(to.latitude*Math.PI/180)*Math.cos((to.longitude-from.longitude)*Math.PI/180);return Math.atan2(y,x)*180/Math.PI}
+type Coordinate={latitude:number;longitude:number};
+type Vehicle=Coordinate&{id:string;recordedAt:string};
+type LiveMarker={marker:Marker;position:[number,number];target:[number,number];time:number;heading:number;frame:number|null};
+const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
+const style:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]};
+function heading(from:[number,number],to:[number,number]){const rad=Math.PI/180,d=(to[0]-from[0])*rad;return Math.atan2(Math.sin(d)*Math.cos(to[1]*rad),Math.cos(from[1]*rad)*Math.sin(to[1]*rad)-Math.sin(from[1]*rad)*Math.cos(to[1]*rad)*Math.cos(d))/rad}
 
-function MovingVehicle({vehicle,left,top}:{vehicle:Vehicle;left:number;top:number}){
- const marker=useRef<HTMLDivElement>(null),image=useRef<HTMLImageElement>(null),display=useRef({left,top,vehicle}),frame=useRef<number|null>(null);
- useEffect(()=>{const start=performance.now(),from=display.current,to={left,top,vehicle},angle=bearing(from.vehicle,vehicle);if(frame.current)cancelAnimationFrame(frame.current);const tick=(now:number)=>{const progress=Math.min(1,(now-start)/MOVE_TIME),smooth=progress<.5?2*progress*progress:1-Math.pow(-2*progress+2,2)/2,currentLeft=from.left+(to.left-from.left)*smooth,currentTop=from.top+(to.top-from.top)*smooth;if(marker.current){marker.current.style.left=`${currentLeft}px`;marker.current.style.top=`${currentTop}px`}if(image.current&&Number.isFinite(angle)&&Math.abs(angle)>1)image.current.style.transform=`rotate(${angle}deg)`;display.current={left:currentLeft,top:currentTop,vehicle:{...vehicle,latitude:from.vehicle.latitude+(vehicle.latitude-from.vehicle.latitude)*smooth,longitude:from.vehicle.longitude+(vehicle.longitude-from.vehicle.longitude)*smooth}};if(progress<1)frame.current=requestAnimationFrame(tick)};frame.current=requestAnimationFrame(tick);return()=>{if(frame.current)cancelAnimationFrame(frame.current)}},[left,top,vehicle]);
- return <div ref={marker} className="customer-car-marker" style={{left,top}}><span>{vehicle.label.slice(0,5)}</span><img ref={image} src="/car-marker-live.png" alt={`Available car ${vehicle.label}`} draggable={false}/></div>
-}
-
-export default function CustomerLiveMap({pickup,picker=false,pickerPoint,userLocation,onPickerMove}:{pickup:Point;picker?:boolean;pickerPoint?:Point;userLocation?:Point;onPickerMove?:(point:{latitude:number;longitude:number})=>void}){
- const container=useRef<HTMLDivElement>(null),[size,setSize]=useState<Size>({width:0,height:0}),[vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[zoom,setZoom]=useState(DEFAULT_ZOOM);
- const [dragCenter,setDragCenter]=useState(pickerPoint||pickup||DEFAULT_CENTER),drag=useRef<{x:number;y:number;center:{x:number;y:number};point:{latitude:number;longitude:number}}|null>(null),pointers=useRef(new Map<number,{x:number;y:number}>()),pinch=useRef<{distance:number;zoom:number}|null>(null);
- const center=picker?dragCenter:(pickup||DEFAULT_CENTER),centerPixel=project(center.latitude,center.longitude,zoom);
- useEffect(()=>{const element=container.current;if(!element)return;const update=()=>setSize({width:element.clientWidth,height:element.clientHeight}),observer=new ResizeObserver(update);observer.observe(element);update();return()=>observer.disconnect()},[]);
- useEffect(()=>{let active=true;fetch('/api/map/vehicles',{cache:'no-store'}).then(async response=>{if(response.ok&&active)setVehicles(await response.json() as Vehicle[])}).catch(()=>{});const events=new EventSource('/api/map/vehicles/stream'),update=((event:MessageEvent<string>)=>{try{if(active)setVehicles(JSON.parse(event.data) as Vehicle[])}catch{}}) as EventListener;events.addEventListener('connected',()=>setLive(true));events.addEventListener('vehicles',update);events.onerror=()=>setLive(false);return()=>{active=false;events.close()}},[]);
- const tiles=useMemo(()=>{if(!size.width||!size.height)return[];const firstX=Math.floor((centerPixel.x-size.width/2)/TILE)-1,lastX=Math.floor((centerPixel.x+size.width/2)/TILE)+1,firstY=Math.floor((centerPixel.y-size.height/2)/TILE)-1,lastY=Math.floor((centerPixel.y+size.height/2)/TILE)+1,total=2**zoom,list:{key:string;url:string;left:number;top:number}[]=[];for(let y=firstY;y<=lastY;y++)for(let x=firstX;x<=lastX;x++){if(y<0||y>=total)continue;const tileX=((x%total)+total)%total;list.push({key:`${zoom}-${x}-${y}`,url:`https://tile.openstreetmap.org/${zoom}/${tileX}/${y}.png`,left:x*TILE-(centerPixel.x-size.width/2),top:y*TILE-(centerPixel.y-size.height/2)})}return list},[centerPixel.x,centerPixel.y,size,zoom]);
- const position=(latitude:number,longitude:number)=>{const point=project(latitude,longitude,zoom);return{left:point.x-centerPixel.x+size.width/2,top:point.y-centerPixel.y+size.height/2}};
- function pointerDown(event:ReactPointerEvent<HTMLDivElement>){event.currentTarget.setPointerCapture(event.pointerId);pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.current.size===2){const [a,b]=[...pointers.current.values()],distance=Math.hypot(a.x-b.x,a.y-b.y);pinch.current={distance,zoom};drag.current=null;return}if(picker)drag.current={x:event.clientX,y:event.clientY,center:centerPixel,point:center}}
- function pointerMove(event:ReactPointerEvent<HTMLDivElement>){if(!pointers.current.has(event.pointerId))return;pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.current.size>=2){const [a,b]=[...pointers.current.values()],distance=Math.hypot(a.x-b.x,a.y-b.y),start=pinch.current;if(start&&start.distance>0)setZoom(Math.max(11,Math.min(17,Math.round(start.zoom+Math.log2(distance/start.distance)))));return}if(!picker||!drag.current)return;const next=unproject(drag.current.center.x-(event.clientX-drag.current.x),drag.current.center.y-(event.clientY-drag.current.y),zoom);drag.current.point=next;setDragCenter(next)}
- function pointerUp(event:ReactPointerEvent<HTMLDivElement>){if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);pointers.current.delete(event.pointerId);if(pinch.current){if(pointers.current.size<2)pinch.current=null;drag.current=null;return}if(!picker||!drag.current)return;const point=drag.current.point;drag.current=null;onPickerMove?.(point)}
- return <div ref={container} className={`customer-map-canvas ${picker?'is-picking':''}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}><div className="customer-map-tiles">{tiles.map(tile=><img key={tile.key} src={tile.url} alt="" draggable={false} style={{left:tile.left,top:tile.top}}/>)}</div>{vehicles.map(vehicle=>{const point=position(vehicle.latitude,vehicle.longitude);if(point.left< -70||point.left>size.width+70||point.top< -70||point.top>size.height+70)return null;return <MovingVehicle key={vehicle.id} vehicle={vehicle} {...point}/>})}{pickup&&!picker&&<div className="customer-pickup-marker" style={position(pickup.latitude,pickup.longitude)}/>} {picker&&userLocation&&<div className="customer-location-marker" style={position(userLocation.latitude,userLocation.longitude)}><span/></div>}{picker&&<div className="map-picker-pin" aria-hidden="true"><span/></div>}<div className="customer-map-attribution">© OpenStreetMap contributors</div><div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div></div>;
+export default function CustomerLiveMap({pickup,destination,picker=false,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
+ const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>());
+ const callbacks=useRef({picker,onPickerMove,onPickerStart});
+ const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
+ useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart}},[picker,onPickerMove,onPickerStart]);
+ useEffect(()=>{
+  if(!container.current)return;
+  let map:MapLibreMap;
+  try{map=new MapLibreMap({container:container.current,style,center:DEFAULT_CENTER,zoom:13,minZoom:5,maxZoom:19,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});}catch{queueMicrotask(()=>setMapError(true));return}
+  mapRef.current=map;map.touchZoomRotate.disableRotation();map.touchPitch.disable();
+  // Only gestures request a new address. Resizing the sheet and moving the camera
+  // to a selected result must never start another reverse-geocoding request.
+  let gesture=false;
+  map.on('movestart',event=>{if(event.originalEvent){gesture=true;if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
+  map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
+  const observer=new ResizeObserver(()=>map.resize());observer.observe(container.current);
+  const cars=markers.current;
+  return()=>{observer.disconnect();cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
+ },[]);
+ useEffect(()=>{
+  let active=true,receivedStream=false;
+  const controller=new AbortController();
+  fetch('/api/map/vehicles',{cache:'no-store',signal:controller.signal}).then(async response=>{if(response.ok){const data=await response.json() as Vehicle[];if(active&&!receivedStream)setVehicles(data)}}).catch(()=>{});
+  const events=new EventSource('/api/map/vehicles/stream');
+  events.addEventListener('connected',()=>{if(active)setLive(true)});
+  events.addEventListener('vehicles',((event:MessageEvent<string>)=>{try{const data=JSON.parse(event.data) as Vehicle[];if(active&&Array.isArray(data)){receivedStream=true;setVehicles(data);setLive(true)}}catch{}}) as EventListener);
+  events.addEventListener('stream-error',()=>{if(active)setLive(false)});events.onerror=()=>{if(active)setLive(false)};
+  return()=>{active=false;controller.abort();events.close()};
+ },[]);
+ useEffect(()=>{
+  const map=mapRef.current;if(!map)return;const cars=markers.current;
+  const valid=new Map(vehicles.filter(v=>Number.isFinite(v.latitude)&&Number.isFinite(v.longitude)&&Math.abs(v.latitude)<=90&&Math.abs(v.longitude)<=180).map(v=>[v.id,v]));
+  for(const [id,car] of cars)if(!valid.has(id)){if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove();cars.delete(id)}
+  for(const vehicle of valid.values()){
+   const target:[number,number]=[vehicle.longitude,vehicle.latitude],time=Date.parse(vehicle.recordedAt),car=cars.get(vehicle.id);
+   if(!car){const element=document.createElement('div');element.className='customer-geographic-car';const image=document.createElement('img');image.src='/car-marker-live.png';image.alt='Available car';image.draggable=false;element.appendChild(image);cars.set(vehicle.id,{marker:new Marker({element,anchor:'center'}).setLngLat(target).addTo(map),position:target,target,time,heading:0,frame:null});continue}
+   // Camera pan/zoom never enters this effect. Only newer GPS samples animate.
+   if(time<car.time||(car.target[0]===target[0]&&car.target[1]===target[1]))continue;
+   if(car.frame!==null)cancelAnimationFrame(car.frame);
+   const from=car.position,start=performance.now(),duration=Math.max(700,Math.min(4200,time-car.time||1200)),fromHeading=car.heading,toHeading=fromHeading+((heading(from,target)-fromHeading+540)%360-180),image=car.marker.getElement().querySelector('img');
+   car.target=target;car.time=time;
+   const animate=(now:number)=>{const progress=Math.min(1,(now-start)/duration),eased=progress*progress*(3-2*progress);car.position=[from[0]+(target[0]-from[0])*eased,from[1]+(target[1]-from[1])*eased];car.marker.setLngLat(car.position);car.heading=fromHeading+(toHeading-fromHeading)*eased;if(image)image.style.transform=`rotate(${car.heading}deg)`;car.frame=progress<1?requestAnimationFrame(animate):null};
+   car.frame=requestAnimationFrame(animate);
+  }
+ },[vehicles]);
+ useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.jumpTo({center:[cameraTarget.longitude,cameraTarget.latitude]})},[cameraTarget]);
+ useEffect(()=>{
+  const map=mapRef.current;if(!map)return;const stops:Marker[]=[];
+  if(!picker)for(const [point,label,kind] of [[pickup,'Pick-up','pickup'],[destination,'Destination','destination']] as const){if(!point)continue;const el=document.createElement('div');el.className=`customer-stop-marker ${kind}`;el.setAttribute('aria-label',label);stops.push(new Marker({element:el}).setLngLat([point.longitude,point.latitude]).addTo(map))}
+  if(userLocation){const el=document.createElement('div');el.className='customer-gps-marker';el.setAttribute('aria-label','Your location');stops.push(new Marker({element:el}).setLngLat([userLocation.longitude,userLocation.latitude]).addTo(map))}
+  return()=>stops.forEach(marker=>marker.remove());
+ },[pickup,destination,picker,userLocation]);
+ return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }

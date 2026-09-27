@@ -123,3 +123,93 @@ html[data-theme=light] .customer-map-tiles{filter:none}
 /* Three-position phone sheet: expanded, compact and fully hidden */
 @media(max-width:700px){.map-surface.map-sheet-hidden{height:calc(100dvh - 70px)}.booking-panel:not(.map-picker-mode){position:fixed;z-index:6;left:0;right:0;top:80px;bottom:auto;width:100%;height:calc(100dvh - 80px);min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;margin:0;border-radius:26px 26px 0 0;transition:transform .28s ease;will-change:transform}.booking-panel:not(.map-picker-mode).sheet-expanded{transform:translateY(max(0px,var(--sheet-drag,0px)))}.booking-panel:not(.map-picker-mode).sheet-collapsed{transform:translateY(calc(52dvh - 130px + var(--sheet-drag,0px)))}.booking-panel:not(.map-picker-mode).sheet-hidden{transform:translateY(calc(100% - 36px + min(0px,var(--sheet-drag,0px))));overflow:hidden}.booking-panel:not(.map-picker-mode).sheet-dragging{transition:none}.booking-panel.sheet-hidden .mobile-handle{height:36px;margin-bottom:0}.booking-panel.sheet-hidden .panel-top,.booking-panel.sheet-hidden .panel-top~*{visibility:hidden}.booking-panel.map-picker-mode{top:auto;height:auto;transform:none}}
 @media(max-width:700px){.map-picker-active .map-picker-back{left:16px;top:16px}.booking-panel.map-picker-mode .address-results{top:auto;bottom:calc(100% + 6px);max-height:185px}.booking-panel.ride-sheet{position:fixed;z-index:6;left:0;right:0;top:auto;bottom:0;width:100%;height:auto;min-height:0;max-height:58dvh;overflow-y:auto;margin:0;border-radius:26px 26px 0 0;transform:none;transition:none}.booking-panel.ride-sheet .vehicle-list{margin-bottom:12px}}
+/* Stable map viewport and one-address picker. Geographic markers have no pixel transitions. */
+.customer-map-engine{position:absolute;inset:0}
+.customer-map-engine .maplibregl-canvas{filter:invert(.9) hue-rotate(175deg) saturate(.22) brightness(.8)}
+html[data-theme=light] .customer-map-engine .maplibregl-canvas{filter:none}
+.customer-geographic-car{width:28px;height:43px;pointer-events:none}
+.customer-geographic-car img{display:block;width:28px;height:43px;max-width:none;object-fit:contain;filter:drop-shadow(0 2px 3px #0007);transform-origin:center}
+.customer-stop-marker{width:15px;height:15px;border:4px solid #fff;background:#f2dd4a;box-shadow:0 1px 5px #0008;border-radius:50%}
+.customer-stop-marker.destination{border-radius:2px;background:#202523}
+.customer-gps-marker{width:17px;height:17px;border:3px solid #fff;border-radius:50%;background:#4285f4;box-shadow:0 0 0 7px #4285f433}
+.map-render-error{position:absolute;top:60px;left:15px;right:15px;background:#202523;padding:12px;border-radius:12px;font-size:12px}
+.picker-address-value{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;min-height:46px;background:var(--secondary);border:1px solid var(--border);border-radius:9px;text-align:left;font-size:13px;color:var(--foreground)}
+.picker-address-value span{flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.picker-address-value svg{flex-shrink:0}
+.picker-search-editor .address-results{position:relative;top:auto!important;bottom:auto!important;left:0;right:0;max-height:190px;box-shadow:none;margin-top:6px}
+.finish-address-search{display:block;margin:0 0 8px auto;background:transparent;border:0;color:var(--foreground);font-size:12px;text-decoration:underline}
+.booking-panel h1:focus{outline:none}
+.ride-footer{position:sticky;bottom:-1px;background:var(--background);padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:2}
+@media(max-width:700px){
+ .booking-shell{height:var(--booking-viewport-height,100dvh);min-height:0;display:flex;flex-direction:column;overflow:hidden}
+ .booking-shell .brandbar{height:54px;min-height:54px;padding:0 16px;flex-shrink:0}
+ .booking-shell .brandmark{width:30px;height:30px;font-size:21px;border-radius:9px}
+ .booking-shell .brandmark span{font-size:14px;margin-top:3px}
+ .booking-shell .brand{font-size:10px;gap:7px}.booking-shell .theme-toggle{width:30px;height:30px}
+ .booking-shell .map-surface,.booking-shell .map-surface.map-picker-active,.booking-shell .map-surface.map-sheet-hidden{position:relative;top:auto;bottom:auto;left:auto;right:auto;flex:1 1 0;height:auto;min-height:75px;width:100%}
+ .booking-shell .booking-panel:not(.map-picker-mode),.booking-shell .booking-panel.ride-sheet{position:relative;top:auto;bottom:auto;left:auto;right:auto;flex:0 0 auto;width:100%;height:clamp(150px,calc(var(--booking-viewport-height,100dvh)*.55 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 115px));max-height:none;min-height:0;transform:none;margin:0;padding:0 16px max(10px,env(safe-area-inset-bottom));border-radius:22px 22px 0 0;overflow-y:auto;overscroll-behavior:contain;transition:none;will-change:auto;z-index:6}
+ .booking-shell .booking-panel.sheet-expanded{height:clamp(180px,calc(var(--booking-viewport-height,100dvh)*.84 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 115px))}
+ .booking-shell .booking-panel.sheet-hidden{height:clamp(125px,calc(var(--booking-viewport-height,100dvh)*.25 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 115px));overflow-y:auto}
+ .booking-panel.sheet-hidden .panel-top,.booking-panel.sheet-hidden .panel-top~*{visibility:visible}
+ .booking-shell .booking-panel.details-sheet{height:75%;overflow:auto}
+ .booking-shell .booking-panel.map-picker-mode{position:relative;top:auto;bottom:auto;left:auto;right:auto;height:auto;min-height:0;max-height:70%;flex:0 0 auto;margin:0;padding:8px 16px max(12px,env(safe-area-inset-bottom));overflow-y:auto;transform:none;border-radius:22px 22px 0 0;z-index:6}
+ .booking-shell .mobile-handle{position:sticky;top:0;z-index:4;display:block;touch-action:none;width:100%;height:25px;margin:0;border:0;border-radius:0;background:var(--background)}
+ .booking-shell .mobile-handle:after{content:'';position:absolute;left:calc(50% - 20px);top:9px;width:40px;height:4px;border-radius:4px;background:#7b837f}
+ .booking-shell .panel-top{min-height:24px}.booking-shell .eyebrow,.booking-shell .step-count{font-size:9px}
+ .booking-shell .back-button{width:27px;height:27px}
+ .booking-shell .trip-instruction{font-size:12px!important;margin:7px 0 10px!important}
+ .booking-shell .route-fields{padding:3px 10px}.booking-shell .field-body{padding:5px 0}
+ .booking-shell .field-body>span{font-size:10px}.booking-shell .field-body input{font-size:16px!important;height:31px}
+ .booking-shell .route-builder{gap:8px}.booking-shell .add-via{width:30px;height:30px;min-width:30px;margin-top:12px;padding:6px}
+ .booking-shell .place-shortcuts{gap:7px;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .booking-shell .place-shortcuts>*:last-child{grid-column:auto}.booking-shell .place-shortcuts>a,.booking-shell .place-shortcuts>button,.booking-shell .place-button-wrap>button:first-child{min-height:54px;padding:8px 6px;gap:5px}
+ .booking-shell .place-shortcuts span{font-size:11px}.booking-shell .place-shortcuts svg{width:16px;height:16px}
+ .booking-shell .preview-note,.booking-shell .route-continue-note{display:none}
+ .booking-shell.address-editing .booking-panel.sheet-expanded{height:calc(var(--booking-viewport-height,100dvh) - 115px)}
+ .booking-shell.address-editing .address-results{position:relative;top:auto;left:0;right:0;max-height:210px;margin-top:6px;box-shadow:none;border:0;padding:0}
+ .booking-shell .map-picker-active .map-picker-locate{right:14px;bottom:28px;width:36px;height:36px}
+ .booking-shell .map-picker-active .map-picker-back{top:12px;left:12px;width:36px;height:36px}
+ .booking-shell .map-picker-copy h1{font-size:18px;letter-spacing:-.3px;margin:4px 0}
+ .booking-shell .map-picker-copy p{font-size:12px;margin:0 0 10px}
+ .booking-shell .map-picker-confirm{min-height:44px;height:44px;font-size:14px;margin-top:10px}
+ .booking-shell .ride-sheet h1{font-size:20px;letter-spacing:-.4px;margin:5px 0 7px}
+ .booking-shell .ride-sheet .time-row{margin:7px 0;font-size:12px}
+ .booking-shell .ride-sheet .route-summary{padding:8px 10px;margin:8px 0}
+ .booking-shell .ride-sheet .route-summary>div{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .booking-shell .ride-sheet .route-summary>div+div{margin-top:4px}
+ .booking-shell .ride-sheet .route-summary>div>span:last-child{overflow:hidden;text-overflow:ellipsis}
+ .booking-shell .ride-sheet .vehicle-list{gap:6px;margin:8px 0}
+ .booking-shell .ride-sheet .vehicle-option{min-height:58px;gap:9px;padding:8px 9px;border-radius:10px}
+ .booking-shell .ride-sheet .vehicle-option.selected{padding:7px 8px}
+ .booking-shell .ride-sheet .car-icon{width:38px;min-width:38px}
+ .booking-shell .ride-sheet .vehicle-copy strong{font-size:14px}.booking-shell .ride-sheet .vehicle-copy>span{display:none}
+ .booking-shell .ride-sheet .vehicle-copy small{font-size:10px;margin-top:3px}
+ .booking-shell .ride-sheet .fare strong{font-size:16px}.booking-shell .ride-sheet .fare small{font-size:9px}
+ .booking-shell .ride-sheet .notice{font-size:10px;margin:0 0 6px;line-height:1.3;padding:0;border:0;background:transparent}
+ .booking-shell .ride-sheet .primary-action{min-height:44px;font-size:14px}
+ .booking-shell .customer-map-live{top:9px;right:10px;font-size:10px;padding:6px 9px}
+}
+.customer-map-canvas .customer-map-engine{position:absolute;inset:0;width:100%;height:100%}
+.map-picker-pin{width:32px;height:41px;filter:drop-shadow(0 3px 4px #0006)}.map-picker-pin:before{display:none}.map-picker-pin svg{display:block;max-width:none}
+#journey-address-results>.address-results{position:relative;top:auto;left:0;right:0;max-height:none;box-shadow:none;border:0;margin-top:10px;padding:0}
+.ride-preview-note{font-size:10px;line-height:1.3;margin:0 0 6px;color:var(--muted-foreground)}
+@media(max-width:700px){
+ .booking-shell .ride-sheet .panel-top{position:absolute;top:26px;left:16px;right:16px;pointer-events:none}
+ .booking-shell .ride-sheet .panel-top button{pointer-events:auto}
+ .booking-shell .ride-sheet h1{margin:4px 40px 10px;font-size:18px;line-height:27px}
+ .booking-shell .ride-sheet .car-icon{height:34px}
+ .booking-shell.address-editing .map-surface{flex:0 0 0;min-height:0}
+ .booking-shell.address-editing .booking-panel.sheet-expanded{height:calc(var(--booking-viewport-height,100dvh) - 54px)}
+ .booking-shell.address-editing .panel-top,.booking-shell.address-editing .trip-instruction,.booking-shell.address-editing .address-history{display:none}
+ .booking-shell.address-editing .route-fields .field-body>span:first-child{display:none}
+ .booking-shell.address-editing .route-fields label{align-items:center}
+ .booking-shell.address-editing .field-body{padding:3px 0}
+ .booking-shell.address-editing #journey-address-results>.address-results{max-height:none;margin-top:8px}
+}
+.picker-address-value{height:54px;min-height:54px}
+@media(max-width:700px){
+ .booking-shell .booking-panel.ride-sheet.sheet-collapsed{height:clamp(150px,calc(max(430px, var(--booking-viewport-height,100dvh)*.58) - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 130px))}
+ .booking-shell .ride-sheet .vehicle-copy strong,.booking-shell .ride-sheet .fare strong{line-height:18px}
+ .booking-shell .ride-sheet .vehicle-copy small{line-height:13px;margin-top:3px}
+ .booking-shell .ride-sheet .fare small{line-height:11px;margin-top:3px}
+}

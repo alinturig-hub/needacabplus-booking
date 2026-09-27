@@ -16,5 +16,9 @@ export async function clearDrivers(){
 
 export async function publicClearVehicles(){
  const drivers=await clearDrivers();
- return drivers.map(driver=>({id:driver.vehicleId||driver.driverId,label:driver.vehicleCallsign||driver.plateNumber||driver.callsign||'',latitude:driver.latitude,longitude:driver.longitude,recordedAt:driver.recordedAt}));
+ // Keep operational callsigns in the admin feed only. Latest sample wins when
+ // several driver records refer to the same vehicle.
+ const vehicles=new Map<string,{id:string;latitude:number;longitude:number;recordedAt:string}>();
+ for(const driver of drivers){const id=driver.vehicleId||driver.driverId;if(!vehicles.has(id))vehicles.set(id,{id,latitude:driver.latitude,longitude:driver.longitude,recordedAt:driver.recordedAt})}
+ return [...vehicles.values()];
 }
