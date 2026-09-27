@@ -3,13 +3,15 @@ import {FormEvent,useCallback,useEffect,useState} from 'react';
 import {BadgePoundSterling,Clock3,CreditCard,KeyRound,Plus,Route,Save,ShieldCheck,Trash2} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
+import {DispatchSimulator} from './dispatch-simulator';
+import {simulationDefaults,type SimulationRules} from '@/lib/dispatch-simulation';
 
-type Dispatch={enabled:boolean;automaticDispatch:boolean;selectionStrategy:'nearest'|'longest_waiting'|'balanced';initialRadiusMiles:number;radiusStepMiles:number;maximumRadiusMiles:number;offerTimeoutSeconds:number;maximumOffers:number;scheduledLeadMinutes:number;requireOnShift:boolean;excludeSuspended:boolean};
+type Dispatch={simulation:SimulationRules;enabled:boolean;automaticDispatch:boolean;selectionStrategy:'nearest'|'longest_waiting'|'balanced';initialRadiusMiles:number;radiusStepMiles:number;maximumRadiusMiles:number;offerTimeoutSeconds:number;maximumOffers:number;scheduledLeadMinutes:number;requireOnShift:boolean;excludeSuspended:boolean};
 type PriceRule={id:string;name:string;enabled:boolean;days:number[];startTime:string;endTime:string;adjustmentType:'percentage'|'fixed';adjustmentValue:number;priority:number};
 type Pricing={enabled:boolean;globalAdjustmentPercent:number;rules:PriceRule[]};
 type Stripe={enabled:boolean;mode:'test'|'live';publishableKey:string;currency:string;captureMethod:'automatic'|'manual';statementDescriptor:string;secretKeyConfigured:boolean;webhookSecretConfigured:boolean;secretKey:string;webhookSecret:string};
 type SettingsResponse={dispatch:Dispatch;pricing:Pricing;stripe:Omit<Stripe,'secretKey'|'webhookSecret'>;error?:string};
-const dispatchInitial:Dispatch={enabled:false,automaticDispatch:false,selectionStrategy:'nearest',initialRadiusMiles:2,radiusStepMiles:1,maximumRadiusMiles:8,offerTimeoutSeconds:25,maximumOffers:5,scheduledLeadMinutes:20,requireOnShift:true,excludeSuspended:true};
+const dispatchInitial:Dispatch={simulation:simulationDefaults,enabled:false,automaticDispatch:false,selectionStrategy:'nearest',initialRadiusMiles:2,radiusStepMiles:1,maximumRadiusMiles:8,offerTimeoutSeconds:25,maximumOffers:5,scheduledLeadMinutes:20,requireOnShift:true,excludeSuspended:true};
 const pricingInitial:Pricing={enabled:false,globalAdjustmentPercent:0,rules:[]};
 const stripeInitial:Stripe={enabled:false,mode:'test',publishableKey:'',currency:'gbp',captureMethod:'automatic',statementDescriptor:'NEED A CAB PLUS',secretKeyConfigured:false,webhookSecretConfigured:false,secretKey:'',webhookSecret:''};
 const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -19,16 +21,10 @@ function Toggle({checked,onChange,label}:{checked:boolean;onChange:(checked:bool
 
 export function DispatchSettings(){
  const [value,setValue]=useState(dispatchInitial),state=useSettings(setValue,undefined,undefined),{busy,error,message,save}=state;
- return <SettingsPanel icon={<Route/>} title="Dispatch rules" description="Control how a new booking is offered to available drivers." enabled={value.enabled} onEnabled={enabled=>setValue({...value,enabled})} error={error} message={message}>
+ return <SettingsPanel icon={<Route/>} title="Dispatch rules" description="Plan arrival times and inspect dispatch readiness in simulation mode." error={error} message={message}>
   <form className="operations-form" onSubmit={event=>save(event,'dispatch',value)}><div className="settings-grid">
-   <label>Driver selection<select value={value.selectionStrategy} onChange={e=>setValue({...value,selectionStrategy:e.target.value as Dispatch['selectionStrategy']})}><option value="nearest">Nearest available driver</option><option value="longest_waiting">Longest waiting driver</option><option value="balanced">Balanced distance and waiting time</option></select></label>
-   <label>Initial search radius (miles)<Input type="number" min="0.1" max="100" step="0.1" value={value.initialRadiusMiles} onChange={e=>setValue({...value,initialRadiusMiles:number(e.target.value)})}/></label>
-   <label>Expand radius by (miles)<Input type="number" min="0.1" max="100" step="0.1" value={value.radiusStepMiles} onChange={e=>setValue({...value,radiusStepMiles:number(e.target.value)})}/></label>
    <label>Maximum radius (miles)<Input type="number" min="0.1" max="200" step="0.1" value={value.maximumRadiusMiles} onChange={e=>setValue({...value,maximumRadiusMiles:number(e.target.value)})}/></label>
-   <label>Driver offer timeout (seconds)<Input type="number" min="5" max="300" value={value.offerTimeoutSeconds} onChange={e=>setValue({...value,offerTimeoutSeconds:number(e.target.value)})}/></label>
-   <label>Maximum driver offers<Input type="number" min="1" max="100" value={value.maximumOffers} onChange={e=>setValue({...value,maximumOffers:number(e.target.value)})}/></label>
-   <label>Scheduled booking lead time (minutes)<Input type="number" min="0" max="1440" value={value.scheduledLeadMinutes} onChange={e=>setValue({...value,scheduledLeadMinutes:number(e.target.value)})}/></label>
-  </div><div className="settings-checks"><label><Toggle checked={value.automaticDispatch} onChange={automaticDispatch=>setValue({...value,automaticDispatch})} label="Automatic dispatch"/><span><strong>Automatic dispatch</strong><small>Start driver search automatically when an eligible booking arrives.</small></span></label><label><Toggle checked={value.requireOnShift} onChange={requireOnShift=>setValue({...value,requireOnShift})} label="Require on shift"/><span><strong>Only drivers on shift</strong><small>Ignore drivers who are not currently working.</small></span></label><label><Toggle checked={value.excludeSuspended} onChange={excludeSuspended=>setValue({...value,excludeSuspended})} label="Exclude suspended drivers"/><span><strong>Exclude suspended drivers</strong><small>Suspended records can never receive a booking offer.</small></span></label></div><Button disabled={busy}><Save/>{busy?'Saving…':'Save dispatch rules'}</Button></form>
+  </div><p>Simulation only. Candidates are ordered by estimated travel time. Only working, non-suspended CLEAR vehicles are considered. Automatic sending is not active.</p><div className="settings-grid">{([{key:'arrivalMinutes',label:'Arrive before pickup (minutes)',min:0,max:30},{key:'bufferMinutes',label:'Travel buffer (minutes)',min:0,max:30},{key:'offerSeconds',label:'Acceptance window per candidate (seconds)',min:5,max:300},{key:'candidateCount',label:'Candidates including backups',min:1,max:10},{key:'maxEtaMinutes',label:'Maximum travel time (minutes)',min:1,max:120},{key:'fallbackSpeedMph',label:'Speed estimate without moving tracks (mph)',min:5,max:60},{key:'detourFactor',label:'Distance allowance for roads (multiplier)',min:1,max:3}] as const).map(field=><label key={field.key}>{field.label}<Input type="number" min={field.min} max={field.max} step={field.key==='detourFactor'?0.1:1} value={value.simulation[field.key]} onChange={e=>setValue({...value,simulation:{...value.simulation,[field.key]:number(e.target.value)}})}/></label>)}</div><Button disabled={busy}><Save/>{busy?'Saving…':'Save dispatch rules'}</Button></form><DispatchSimulator rules={value.simulation}/>
  </SettingsPanel>
 }
 
@@ -55,7 +51,7 @@ export function StripeSettings(){
  </SettingsPanel>
 }
 
-function SettingsPanel({icon,title,description,enabled,onEnabled,error,message,action,children}:{icon:React.ReactNode;title:string;description:string;enabled:boolean;onEnabled:(value:boolean)=>void;error:string;message:string;action?:React.ReactNode;children:React.ReactNode}){return <div className="operations-settings"><div className="operations-heading"><div className="config-icon">{icon}</div><div><h3>{title}</h3><p>{description}</p></div><div className="operations-heading-actions">{action}<span>{enabled?'Enabled':'Disabled'}</span><Toggle checked={enabled} onChange={onEnabled} label={`Enable ${title}`}/></div></div>{error&&<p className="error-message" role="alert">{error}</p>}{message&&<p className="saved-message" role="status">{message}</p>}{children}</div>}
+function SettingsPanel({icon,title,description,enabled,onEnabled,error,message,action,children}:{icon:React.ReactNode;title:string;description:string;enabled?:boolean;onEnabled?:(value:boolean)=>void;error:string;message:string;action?:React.ReactNode;children:React.ReactNode}){return <div className="operations-settings"><div className="operations-heading"><div className="config-icon">{icon}</div><div><h3>{title}</h3><p>{description}</p></div><div className="operations-heading-actions">{action}{onEnabled&&<><span>{enabled?'Enabled':'Disabled'}</span><Toggle checked={Boolean(enabled)} onChange={onEnabled} label={`Enable ${title}`}/></>}</div></div>{error&&<p className="error-message" role="alert">{error}</p>}{message&&<p className="saved-message" role="status">{message}</p>}{children}</div>}
 
 function useSettings(setDispatch?:React.Dispatch<React.SetStateAction<Dispatch>>,setPricing?:React.Dispatch<React.SetStateAction<Pricing>>,setStripe?:React.Dispatch<React.SetStateAction<Stripe>>){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');

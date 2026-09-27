@@ -1,16 +1,17 @@
 import {validateStripeKeys,mergeStripeSecrets} from '@/lib/stripe-mode';
 import {z} from 'zod';
+import {simulationDefaults} from '@/lib/dispatch-simulation';
 import {database} from '@/lib/database';
 import {encryptCredentials,decryptCredentials} from '@/lib/credentials';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 
 export const dynamic='force-dynamic';
 
-const dispatchDefaults={enabled:false,automaticDispatch:false,selectionStrategy:'nearest',initialRadiusMiles:2,radiusStepMiles:1,maximumRadiusMiles:8,offerTimeoutSeconds:25,maximumOffers:5,scheduledLeadMinutes:20,requireOnShift:true,excludeSuspended:true};
+const dispatchDefaults={simulation:simulationDefaults,enabled:false,automaticDispatch:false,selectionStrategy:'nearest',initialRadiusMiles:2,radiusStepMiles:1,maximumRadiusMiles:8,offerTimeoutSeconds:25,maximumOffers:5,scheduledLeadMinutes:20,requireOnShift:true,excludeSuspended:true};
 const pricingDefaults={enabled:false,globalAdjustmentPercent:0,rules:[] as unknown[]};
 const stripeDefaults={enabled:false,mode:'test',publishableKey:'',currency:'gbp',captureMethod:'automatic',statementDescriptor:'NEED A CAB PLUS'};
 
-const dispatchSchema=z.object({section:z.literal('dispatch'),enabled:z.boolean(),automaticDispatch:z.boolean(),selectionStrategy:z.enum(['nearest','longest_waiting','balanced']),initialRadiusMiles:z.number().min(.1).max(100),radiusStepMiles:z.number().min(.1).max(100),maximumRadiusMiles:z.number().min(.1).max(200),offerTimeoutSeconds:z.number().int().min(5).max(300),maximumOffers:z.number().int().min(1).max(100),scheduledLeadMinutes:z.number().int().min(0).max(1440),requireOnShift:z.boolean(),excludeSuspended:z.boolean()}).strict().refine(value=>value.maximumRadiusMiles>=value.initialRadiusMiles,{message:'Maximum radius must be at least the initial radius.',path:['maximumRadiusMiles']});
+const dispatchSchema=z.object({section:z.literal('dispatch'),enabled:z.boolean(),automaticDispatch:z.literal(false),simulation:z.object({arrivalMinutes:z.number().min(0).max(30),bufferMinutes:z.number().min(0).max(30),offerSeconds:z.number().int().min(5).max(300),candidateCount:z.number().int().min(1).max(10),maxEtaMinutes:z.number().min(1).max(120),fallbackSpeedMph:z.number().min(5).max(60).default(18),detourFactor:z.number().min(1).max(3).default(1.4)}).strict().default(simulationDefaults),selectionStrategy:z.enum(['nearest','longest_waiting','balanced']),initialRadiusMiles:z.number().min(.1).max(100),radiusStepMiles:z.number().min(.1).max(100),maximumRadiusMiles:z.number().min(.1).max(200),offerTimeoutSeconds:z.number().int().min(5).max(300),maximumOffers:z.number().int().min(1).max(100),scheduledLeadMinutes:z.number().int().min(0).max(1440),requireOnShift:z.boolean(),excludeSuspended:z.boolean()}).strict().refine(value=>value.maximumRadiusMiles>=value.initialRadiusMiles,{message:'Maximum radius must be at least the initial radius.',path:['maximumRadiusMiles']});
 const priceRuleSchema=z.object({id:z.string().uuid(),name:z.string().trim().min(2).max(80),enabled:z.boolean(),days:z.array(z.number().int().min(0).max(6)).min(1),startTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),endTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),adjustmentType:z.enum(['percentage','fixed']),adjustmentValue:z.number().min(-100).max(10000),priority:z.number().int().min(0).max(1000)}).strict();
 const pricingSchema=z.object({section:z.literal('pricing'),enabled:z.boolean(),globalAdjustmentPercent:z.number().min(-100).max(1000),rules:z.array(priceRuleSchema).max(100)}).strict();
 const stripeSchema=z.object({section:z.literal('stripe'),enabled:z.boolean(),mode:z.enum(['test','live']),publishableKey:z.string().trim().max(300),secretKey:z.string().trim().max(500).optional().default(''),webhookSecret:z.string().trim().max(500).optional().default(''),currency:z.string().trim().toLowerCase().regex(/^[a-z]{3}$/),captureMethod:z.enum(['automatic','manual']),statementDescriptor:z.string().trim().min(2).max(22).regex(/^[A-Za-z0-9 ._-]+$/)}).strict().superRefine((value,context)=>{
@@ -27,7 +28,7 @@ export async function GET(){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  try{
   const data=await rows(),byId=new Map(data.map(item=>[item.id,item]));
-  const dispatch={...dispatchDefaults,...byId.get('dispatch')?.settings};
+  const dispatch={...dispatchDefaults,...byId.get('dispatch')?.settings,automaticDispatch:false,simulation:{...simulationDefaults,...(byId.get('dispatch')?.settings.simulation as object||{})}};
   const pricing={...pricingDefaults,...byId.get('pricing')?.settings} as Record<string,unknown>;delete pricing.liveQuotes;
   const stripeSecrets=byId.get('stripe')?.secrets_encrypted?decryptCredentials(byId.get('stripe')!.secrets_encrypted):{};
   const stripe={...stripeDefaults,...byId.get('stripe')?.settings,secretKeyConfigured:Boolean(stripeSecrets.secretKey),webhookSecretConfigured:Boolean(stripeSecrets.webhookSecret)};
