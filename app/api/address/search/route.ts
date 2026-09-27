@@ -9,6 +9,8 @@ const suggestionSchema=z.object({address:z.string().trim().min(1),fullAddress:z.
 export async function GET(request:Request){
  try{
   const query=querySchema.parse(new URL(request.url).searchParams.get('q')||'');
+  const direct=(await searchAddresses(query,1)).slice(0,8).map(address=>{const value=(...keys:string[])=>{for(const key of keys){const item=address[key];if(typeof item==='string'&&item.trim())return item.trim();if(typeof item==='number')return String(item)}return ''},label=value('text','displayName','address')||[value('house'),value('street'),value('town'),value('postCode')].filter(Boolean).join(', ')||query;return {address:label,fullAddress:address,placeID:value('placeId','placeID')||null,customAddressID:value('id','customAddressID')||null}});
+  if(direct.length)return Response.json({items:direct},{headers:{'Cache-Control':'private, max-age=30'}});
   const lookupOrigin=(process.env.MAP_ADDRESS_LOOKUP_ORIGIN||'https://webapp.needacab.uk').replace(/\/$/,'');
   const searchResponse=await fetch(`${lookupOrigin}/api/address/lookup?text=${encodeURIComponent(query)}`,{headers:{Accept:'application/json'},cache:'no-store'});
   if(!searchResponse.ok)return Response.json({error:'Map address search is temporarily unavailable.'},{status:502});
