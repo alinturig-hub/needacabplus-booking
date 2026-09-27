@@ -63,8 +63,10 @@ export async function searchAddresses(query:string,companyId=1,latitude?:number,
 
 export async function addressAtCoordinates(latitude:number,longitude:number,companyId=1){
  const payload=await call('address.search',{query:{latitude,longitude,companyId}});
- function findAddress(value:unknown,depth=0):JsonRecord|null{if(depth>4)return null;if(Array.isArray(value)){for(const item of value){const found=findAddress(item,depth+1);if(found)return found}return null}const item=record(value);if(!Object.keys(item).length)return null;if(field(item,'text','street','postCode')||field(item,'coordinate'))return item;for(const key of ['address','addresses','result','results','response','data','item','items','value']){const found=findAddress(field(item,key),depth+1);if(found)return found}return null}
- return findAddress(payload);
+ function findAddress(value:unknown,depth=0):JsonRecord|null{if(depth>5)return null;if(Array.isArray(value)){for(const nested of value){const found=findAddress(nested,depth+1);if(found)return found}return null}const item=record(value);if(!Object.keys(item).length)return null;if(field(item,'text','street','postCode'))return item;for(const nested of Object.values(item)){const found=findAddress(nested,depth+1);if(found)return found}return null}
+ const direct=findAddress(payload);if(direct)return direct;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+ try{const response=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,{headers:{Accept:'application/json','User-Agent':'NeedACabPlus/1.0 (webapp.needacabplus.app)'},signal:controller.signal,cache:'no-store'});if(!response.ok)return null;const reverse=record(await response.json()),label=text(reverse,'display_name','name');if(!label)return null;return (await searchAddresses(label,companyId,latitude,longitude))[0]||null}catch{return null}finally{clearTimeout(timer)}
 }
 
 export async function resolveAddressPlaceId(placeId:string){
