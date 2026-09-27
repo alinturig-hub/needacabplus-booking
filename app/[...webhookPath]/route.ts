@@ -1,4 +1,6 @@
 import {randomUUID,timingSafeEqual} from 'node:crypto';
+import {dispatchEventKind} from '@/lib/dispatch-simulation';
+import {dispatchObservation} from '@/lib/dispatch-observation';
 import {database} from '@/lib/database';
 import {decryptCredentials} from '@/lib/credentials';
 import {saveAutocabBooking} from '@/lib/autocab-bookings';
@@ -44,6 +46,11 @@ export async function POST(request:Request,{params}:{params:Promise<{webhookPath
   await db.query('UPDATE provider_webhooks SET received_count=received_count+1,last_received_at=now(),updated_at=now() WHERE id=$1',[item.webhook_id]);
   if(driverEvent){if(!driverEvent.saved)await db.query('INSERT INTO webhook_events (id,provider_id,webhook_id,event_type,payload,content_type,source_ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)',[eventId,item.provider_id,item.webhook_id,item.event_type,JSON.stringify(payload),request.headers.get('content-type')||'',sourceIp]);else driverPositionEvents.emit('position',{eventId,eventType:item.event_type,positions:driverEvent.positions||0});}
   else if(booking){if(!booking.saved)await db.query('INSERT INTO webhook_events (id,provider_id,webhook_id,event_type,payload,content_type,source_ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)',[eventId,item.provider_id,item.webhook_id,item.event_type,JSON.stringify(payload),request.headers.get('content-type')||'',sourceIp]);else bookingEvents.emit('booking',{eventId,eventType:item.event_type,externalBookingId:booking.externalBookingId,status:booking.status});}
+  if(dispatchEventKind(item.event_type)){
+   const observation=dispatchObservation(item.event_type,payload);
+   // Observability must never turn an already stored booking into a failed delivery.
+   try{await db.query('INSERT INTO dispatch_observations (event_type,booking_id,vehicle_id,driver_id) VALUES ($1,$2,$3,$4)',[observation.eventType,observation.bookingId,observation.vehicleId,observation.driverId])}catch{console.error('Dispatch receipt history could not be stored.')}
+  }
   return json(202,{accepted:true,eventId,eventType:item.event_type,booking,driverEvent,receivedAt:new Date().toISOString()});
  }catch(error){console.error('Webhook intake failure',error);return json(500,{error:'Webhook could not be stored.'})}
 }

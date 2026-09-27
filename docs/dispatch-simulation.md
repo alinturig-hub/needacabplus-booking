@@ -62,3 +62,26 @@ OSRM estimates do not include live traffic. Without this service, the track-base
 
 No webhook normalization or production booking state transitions were changed
 by this simulation feature.
+
+## Dispatch Live dashboard
+
+`/admin/dispatch` is authenticated and reads `/api/admin/dispatch-live` every five
+seconds while visible. The selected awaiting job is simulated every ten seconds;
+there is no unattended scheduler and no external dispatch write. Connection
+staleness and calculation failures are visible. Changing selection cancels the
+previous request; assigned or accepted jobs do not generate new offers.
+
+The dashboard separates current booking state, rule-based recommendations and
+Autocab receipt history. `dispatch_observations` stores explicit booking/vehicle/
+driver IDs for recognized dispatch events from authenticated webhooks. It does
+not infer IDs from arbitrary nested objects or change booking state. Its timestamp
+is receipt time; duplicates and out-of-order deliveries are not dispatch commands.
+History starts after this release; existing records are not invented or backfilled.
+Unmatched IDs remain visible in the all-events view. Journal write failure does
+not fail a webhook whose booking was already stored.
+
+Counters label their scope: active bookings are counted across stored real jobs;
+awaiting/accepted counts refer to the latest 100 displayed records; CLEAR counts
+are fresh vehicle tracks across the fleet, not necessarily eligible candidates.
+Live DB payload mapping still requires operational verification. UI validation
+used clearly labelled sample data locally; no sample routes ship to production.

@@ -293,3 +293,15 @@ CREATE TABLE IF NOT EXISTS customer_stripe_profiles (
  created_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY (customer_id,configuration_key)
 );
+
+-- Receipt history, separate from booking state. Repeated deliveries remain visible.
+CREATE TABLE IF NOT EXISTS dispatch_observations (
+ id bigserial PRIMARY KEY,
+ event_type text NOT NULL,
+ booking_id text,
+ vehicle_id text,
+ driver_id text,
+ received_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_dispatch_observations_received ON dispatch_observations(received_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS idx_dispatch_observations_booking ON dispatch_observations(booking_id,received_at DESC);
