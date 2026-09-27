@@ -1,5 +1,6 @@
 import {database} from '@/lib/database';
 import {decryptCredentials} from '@/lib/credentials';
+import {bookingCreateUrl,type buildAutocabBookingRequest} from './autocab-booking-request';
 
 type JsonRecord=Record<string,unknown>;
 type EndpointRow={base_url:string;auth_type:'none'|'api_key'|'bearer'|'basic';api_key_header:string;credentials_encrypted:string;method:string;path:string;request_example:unknown};
@@ -31,11 +32,12 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
   ORDER BY endpoint.created_at DESC,connection.created_at DESC LIMIT 1`,[actionKey]);
  const endpoint=result.rows[0];
  if(!endpoint)throw new AutocabConfigurationError(`Add an enabled Autocab endpoint with action key “${actionKey}” in Configuration → API.`);
- const url=new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
+ const url=actionKey==='booking.create'?bookingCreateUrl(endpoint.base_url,endpoint.path,endpoint.method):new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
  if(url.protocol!=='https:')throw new AutocabConfigurationError('The Autocab connection must use HTTPS.');
  if(actionKey==='booking.quote'&&(endpoint.method.toUpperCase()!=='POST'||url.pathname.replace(/\/$/,'')!=='/booking/v1/quote'))throw new AutocabConfigurationError('Configure booking.quote as POST /booking/v1/quote.');
  for(const [key,value] of Object.entries(options?.query||{}))url.searchParams.set(key,String(value));
  const headers=new Headers({Accept:'application/json'}),credentials=decryptCredentials(endpoint.credentials_encrypted);
+ if(actionKey==='booking.create')headers.set('third-party-user','Need A Cab Plus');
  if(endpoint.auth_type==='api_key')headers.set(endpoint.api_key_header,credentials.token||'');
  if(endpoint.auth_type==='bearer')headers.set('Authorization',`Bearer ${credentials.token||''}`);
  if(endpoint.auth_type==='basic')headers.set('Authorization',`Basic ${Buffer.from(`${credentials.username||''}:${credentials.password||''}`).toString('base64')}`);
@@ -52,6 +54,14 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
 }
 
 export async function bookingQuote(body:JsonRecord){return call('booking.quote',{body,exactBody:true})}
+
+// No retries: a timeout can mean that Autocab created the booking. The future
+// orchestrator must persist the reference before calling and reconcile the result.
+// Intentionally not connected to the customer confirmation until that flow is ready.
+export async function createHeldBooking(body:ReturnType<typeof buildAutocabBookingRequest>){
+ if(body.hold!==true)throw new AutocabConfigurationError('Booking creation must remain on hold until the payment and dispatch flow is ready.');
+ return call('booking.create',{body,exactBody:true});
+}
 
 export async function searchAddresses(query:string,companyId=1,latitude?:number,longitude?:number){
  const parameters:Record<string,string|number>={text:query,companyId};

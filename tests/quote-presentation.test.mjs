@@ -5,7 +5,7 @@ import {buildAutocabQuoteRequest} from '../lib/autocab-quote-request.ts';
 test('passenger response contains only final price, never internal markup or Autocab request',()=>{
  const value=publicFareQuote({id:'id',vehicle:'saloon',service:'priority',scheduledAt:null,pickup:'Station',destination:'Library',vias:[],totalPence:1200,basePence:1000,upliftPence:200,percent:20,demand:'high',currency:'GBP',expiresAt:'later',autocabRequest:{capabilities:[9]}});
  assert.equal(value.totalPence,1200);
- for(const field of ['basePence','upliftPence','percent','demand','autocabRequest'])assert.equal(field in value,false);
+ for(const field of ['basePence','upliftPence','percent','demand','autocabRequest','autocabCosts'])assert.equal(field in value,false);
 });
 test('Autocab payload preserves address coordinates, zone, via order, capability IDs and UTC schedule',()=>{
  const place=id=>({text:`Public place ${id}`,coordinate:{latitude:50+id/100,longitude:-4},zoneId:id,zone:{id},id:String(id)});
