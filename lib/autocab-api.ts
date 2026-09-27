@@ -63,10 +63,8 @@ export async function searchAddresses(query:string,companyId=1,latitude?:number,
 
 export async function addressAtCoordinates(latitude:number,longitude:number,companyId=1){
  const payload=await call('address.search',{query:{latitude,longitude,companyId}});
- if(Array.isArray(payload))return payload.map(record).find(item=>Object.keys(item).length)||null;
- const root=record(payload);
- for(const key of ['addresses','results','items','data']){const value=field(root,key);if(Array.isArray(value)){const address=value.map(record).find(item=>Object.keys(item).length);if(address)return address}}
- return Object.keys(root).length?root:null;
+ function findAddress(value:unknown,depth=0):JsonRecord|null{if(depth>4)return null;if(Array.isArray(value)){for(const item of value){const found=findAddress(item,depth+1);if(found)return found}return null}const item=record(value);if(!Object.keys(item).length)return null;if(field(item,'text','street','postCode')||field(item,'coordinate'))return item;for(const key of ['address','addresses','result','results','response','data','item','items','value']){const found=findAddress(field(item,key),depth+1);if(found)return found}return null}
+ return findAddress(payload);
 }
 
 export async function resolveAddressPlaceId(placeId:string){
