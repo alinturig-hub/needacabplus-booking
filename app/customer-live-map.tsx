@@ -1,12 +1,13 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- map tiles and moving vehicle markers are runtime imagery */
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from 'react';
 
 type Vehicle={id:string;label:string;latitude:number;longitude:number;recordedAt:string};
 type Point={latitude:number;longitude:number}|null;
 type Size={width:number;height:number};
 const DEFAULT_CENTER={longitude:-4.143,latitude:50.374},ZOOM=13,TILE=256,WORLD=TILE*2**ZOOM,MOVE_TIME=4200;
 function project(latitude:number,longitude:number){const sin=Math.sin(latitude*Math.PI/180);return{x:(longitude+180)/360*WORLD,y:(.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*WORLD}}
+function unproject(x:number,y:number){const longitude=x/WORLD*360-180,n=Math.PI-2*Math.PI*y/WORLD,latitude=180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n)));return{latitude,longitude}}
 function bearing(from:Vehicle,to:Vehicle){const y=Math.sin((to.longitude-from.longitude)*Math.PI/180)*Math.cos(to.latitude*Math.PI/180),x=Math.cos(from.latitude*Math.PI/180)*Math.sin(to.latitude*Math.PI/180)-Math.sin(from.latitude*Math.PI/180)*Math.cos(to.latitude*Math.PI/180)*Math.cos((to.longitude-from.longitude)*Math.PI/180);return Math.atan2(y,x)*180/Math.PI}
 
 function MovingVehicle({vehicle,left,top}:{vehicle:Vehicle;left:number;top:number}){
@@ -15,12 +16,16 @@ function MovingVehicle({vehicle,left,top}:{vehicle:Vehicle;left:number;top:numbe
  return <div ref={marker} className="customer-car-marker" style={{left,top}}><span>{vehicle.label.slice(0,5)}</span><img ref={image} src="/car-marker-live.png" alt={`Available car ${vehicle.label}`} draggable={false}/></div>
 }
 
-export default function CustomerLiveMap({pickup}:{pickup:Point}){
+export default function CustomerLiveMap({pickup,picker=false,pickerPoint,onPickerMove}:{pickup:Point;picker?:boolean;pickerPoint?:Point;onPickerMove?:(point:{latitude:number;longitude:number})=>void}){
  const container=useRef<HTMLDivElement>(null),[size,setSize]=useState<Size>({width:0,height:0}),[vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false);
- const center=pickup||DEFAULT_CENTER,centerPixel=project(center.latitude,center.longitude);
+ const [dragCenter,setDragCenter]=useState(pickerPoint||pickup||DEFAULT_CENTER),drag=useRef<{x:number;y:number;center:{x:number;y:number};point:{latitude:number;longitude:number}}|null>(null);
+ const center=picker?dragCenter:(pickup||DEFAULT_CENTER),centerPixel=project(center.latitude,center.longitude);
  useEffect(()=>{const element=container.current;if(!element)return;const update=()=>setSize({width:element.clientWidth,height:element.clientHeight}),observer=new ResizeObserver(update);observer.observe(element);update();return()=>observer.disconnect()},[]);
  useEffect(()=>{let active=true;fetch('/api/map/vehicles',{cache:'no-store'}).then(async response=>{if(response.ok&&active)setVehicles(await response.json() as Vehicle[])}).catch(()=>{});const events=new EventSource('/api/map/vehicles/stream'),update=((event:MessageEvent<string>)=>{try{if(active)setVehicles(JSON.parse(event.data) as Vehicle[])}catch{}}) as EventListener;events.addEventListener('connected',()=>setLive(true));events.addEventListener('vehicles',update);events.onerror=()=>setLive(false);return()=>{active=false;events.close()}},[]);
  const tiles=useMemo(()=>{if(!size.width||!size.height)return[];const firstX=Math.floor((centerPixel.x-size.width/2)/TILE)-1,lastX=Math.floor((centerPixel.x+size.width/2)/TILE)+1,firstY=Math.floor((centerPixel.y-size.height/2)/TILE)-1,lastY=Math.floor((centerPixel.y+size.height/2)/TILE)+1,total=2**ZOOM,list:{key:string;url:string;left:number;top:number}[]=[];for(let y=firstY;y<=lastY;y++)for(let x=firstX;x<=lastX;x++){if(y<0||y>=total)continue;const tileX=((x%total)+total)%total;list.push({key:`${x}-${y}`,url:`https://tile.openstreetmap.org/${ZOOM}/${tileX}/${y}.png`,left:x*TILE-(centerPixel.x-size.width/2),top:y*TILE-(centerPixel.y-size.height/2)})}return list},[centerPixel.x,centerPixel.y,size]);
  const position=(latitude:number,longitude:number)=>{const point=project(latitude,longitude);return{left:point.x-centerPixel.x+size.width/2,top:point.y-centerPixel.y+size.height/2}};
- return <div ref={container} className="customer-map-canvas"><div className="customer-map-tiles">{tiles.map(tile=><img key={tile.key} src={tile.url} alt="" draggable={false} style={{left:tile.left,top:tile.top}}/>)}</div>{vehicles.map(vehicle=>{const point=position(vehicle.latitude,vehicle.longitude);if(point.left< -70||point.left>size.width+70||point.top< -70||point.top>size.height+70)return null;return <MovingVehicle key={vehicle.id} vehicle={vehicle} {...point}/>})}{pickup&&<div className="customer-pickup-marker" style={position(pickup.latitude,pickup.longitude)}/>}<div className="customer-map-attribution">© OpenStreetMap contributors</div><div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div></div>;
+ function pointerDown(event:ReactPointerEvent<HTMLDivElement>){if(!picker)return;event.currentTarget.setPointerCapture(event.pointerId);drag.current={x:event.clientX,y:event.clientY,center:centerPixel,point:center}}
+ function pointerMove(event:ReactPointerEvent<HTMLDivElement>){if(!picker||!drag.current)return;const next=unproject(drag.current.center.x-(event.clientX-drag.current.x),drag.current.center.y-(event.clientY-drag.current.y));drag.current.point=next;setDragCenter(next)}
+ function pointerUp(event:ReactPointerEvent<HTMLDivElement>){if(!picker||!drag.current)return;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);const point=drag.current.point;drag.current=null;onPickerMove?.(point)}
+ return <div ref={container} className={`customer-map-canvas ${picker?'is-picking':''}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}><div className="customer-map-tiles">{tiles.map(tile=><img key={tile.key} src={tile.url} alt="" draggable={false} style={{left:tile.left,top:tile.top}}/>)}</div>{vehicles.map(vehicle=>{const point=position(vehicle.latitude,vehicle.longitude);if(point.left< -70||point.left>size.width+70||point.top< -70||point.top>size.height+70)return null;return <MovingVehicle key={vehicle.id} vehicle={vehicle} {...point}/>})}{pickup&&!picker&&<div className="customer-pickup-marker" style={position(pickup.latitude,pickup.longitude)}/>} {picker&&<div className="map-picker-pin" aria-hidden="true"><span/></div>}<div className="customer-map-attribution">© OpenStreetMap contributors</div><div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div></div>;
 }
