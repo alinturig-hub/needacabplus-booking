@@ -26,7 +26,7 @@ Eligible vehicles have a position no older than two minutes, CLEAR status,
 an open driver shift, no current booking and no suspended driver/vehicle.
 Only the Plymouth companies and the saved maximum radius are considered.
 Up to 20 nearby cars are checked. Candidates are ranked by estimated travel time.
-Capability-specific or unknown requirements are blocked pending verified mapping.
+Capability IDs are matched against the driver and vehicle capability lists, with passenger capacity and requested/forbidden assignments checked. Missing or unreadable booking requirements remain blocked with an explanation. Explicit requirements are preserved across partial booking updates.
 The older selection strategy and radius expansion values are retained in storage
 but hidden from this simulator; it always ranks by estimated ETA inside the maximum radius and requires
 working, non-suspended drivers.
@@ -74,8 +74,7 @@ previous request; assigned or accepted jobs do not generate new offers.
 The dashboard separates current booking state, rule-based recommendations and
 Autocab receipt history. `dispatch_observations` stores explicit booking/vehicle/
 driver IDs for recognized dispatch events from authenticated webhooks. It does
-not infer IDs from arbitrary nested objects or change booking state. Its timestamp
-is receipt time; duplicates and out-of-order deliveries are not dispatch commands.
+not infer IDs from arbitrary nested objects or change booking state. Source event timestamps are used when available; otherwise receipt time is labelled. Identical payload retries are deduplicated by a stable fingerprint. Events are observations, never dispatch commands.
 History starts after this release; existing records are not invented or backfilled.
 Unmatched IDs remain visible in the all-events view. Journal write failure does
 not fail a webhook whose booking was already stored.
@@ -85,3 +84,27 @@ awaiting/accepted counts refer to the latest 100 displayed records; CLEAR counts
 are fresh vehicle tracks across the fleet, not necessarily eligible candidates.
 Live DB payload mapping still requires operational verification. UI validation
 used clearly labelled sample data locally; no sample routes ship to production.
+
+## Booking journey and analytics
+
+The selected booking shows the recorded offers, refusals, acceptance and arrival
+in chronological order. Acceptance does not prove movement or arrival. Unknown
+actors remain unidentified; responses without a matching offer cannot produce
+an offer-response duration. First-offer-to-acceptance and acceptance-to-arrival
+are separate metrics. Missing measurements are shown explicitly.
+
+The authenticated analytics endpoint reports a rolling 30-day window, capped at
+20,000 recent receipts with a visible partial-data notice. Driver profiles show
+matched responses, refusals, unresolved offers and sample counts. Customer
+contact profiles group an HMAC of the normalized booking telephone number using
+ADMIN_SESSION_SECRET; they are contact groups, not verified individual identities
+or personal scores. Without that secret/contact, no contact profile is created.
+Changing the secret changes these grouping keys.
+
+Recognized booking lifecycle webhooks are journalled going forward. Existing
+history is not fabricated. Booking history is capped at 1,000 receipts and marks
+truncation. Recommendations are stored separately as simulation snapshots, at
+most once per booking per minute, with the latest 20 shown. These analytics do
+not yet train a model or enable autonomous dispatch. Existing booking state
+normalization is unchanged and still needs full event-order reconciliation
+before automatic dispatch.

@@ -1,0 +1,21 @@
+'use client';
+import {useEffect,useState} from 'react';
+import type {Receipt} from '@/lib/dispatch-analytics';
+import styles from './dispatch-dashboard.module.css';
+export type Story={bookingId:string;partial:boolean;metrics:{offers:number;matchedResponses:number;offerToAcceptSeconds:number|null;acceptToArrivalSeconds:number|null;receiptTimed:boolean};events:(Receipt&{title:string})[];recommendations:{vehicle_id:string|null;details:{state:string;dispatchAt:number|null;candidates:{label:string}[]};recorded_at:string}[]};
+export const duration=(seconds:number|null)=>seconds===null?'Not measured':`${Math.floor(Math.round(seconds)/60)}m ${Math.round(seconds)%60}s`;
+const at=(value:string)=>new Date(value).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Europe/London'});
+export function BookingStory({reference}:{reference:string}){
+ const [story,setStory]=useState<Story|null>(null),[error,setError]=useState('');
+ useEffect(()=>{const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
+  async function load(){try{if(!document.hidden){const response=await fetch(`/api/admin/dispatch-analytics?bookingId=${encodeURIComponent(reference)}`,{cache:'no-store',signal:controller.signal});const data=await response.json() as Story&{error?:string};if(!response.ok)throw new Error(data.error||'Cannot load this booking history.');if(!controller.signal.aborted){setStory(data);setError('')}}}catch(reason){if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:'Cannot load history.')}finally{if(!controller.signal.aborted)timer=setTimeout(load,5000)}}
+  void load();return()=>{controller.abort();clearTimeout(timer)};
+ },[reference]);
+ return <BookingStoryView story={story?.bookingId===reference?story:null} error={error}/>;
+}
+export function BookingStoryView({story,error=''}:{story:Story|null;error?:string}){return <section className={styles.story} aria-label="Dispatch journey"><h3>Dispatch journey</h3><p className={styles.small}>Actual Autocab events. An offer is not an acceptance; acceptance does not prove the car has started moving.</p>{error&&<p role="alert" className={styles.warning}>{error} History may be out of date.</p>}{!story?<p>Loading history…</p>:<>
+ <div className={styles.journeyMetrics}><div><small>Offers observed</small><strong>{story.metrics.offers}</strong></div><div><small>First offer → accepted</small><strong>{duration(story.metrics.offerToAcceptSeconds)}</strong></div><div><small>Accepted → arrived</small><strong>{duration(story.metrics.acceptToArrivalSeconds)}</strong></div></div>
+ <p className={styles.small}>{story.metrics.receiptTimed?'Some times use webhook receipt time; delivery delays can affect measurements.':'Times use event timestamps.'} Missing offer/response pairs are not estimated.{story.partial?' Showing the latest 1,000 receipts only.':''}</p>
+ <ol className={styles.storyList}>{story.events.map(event=><li key={event.id}><time>{at(event.source_at||event.received_at)}</time><strong>{event.title}</strong><small>{event.source_at?'Event time':'Receipt time'}{event.driver_id?` · Driver ID ${event.driver_id}`:''}{event.vehicle_id?` · Vehicle ID ${event.vehicle_id}`:''}</small></li>)}</ol>{!story.events.length&&<p className={styles.small}>No linked events recorded yet. History starts when matching events are received.</p>}
+ <details><summary>Recommendation history · simulation only ({story.recommendations.length})</summary><p className={styles.small}>Saved at most once per minute while a recommendation is calculated. These are not offers to drivers.</p>{story.recommendations.map(row=><div className={styles.savedPlan} key={row.recorded_at}><time>{at(row.recorded_at)}</time><p>{row.vehicle_id?`Suggested vehicle ID ${row.vehicle_id}`:'No suitable candidate'} · {row.details.state}</p></div>)}</details>
+ </>}</section>}

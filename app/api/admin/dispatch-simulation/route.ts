@@ -1,3 +1,4 @@
+import {capabilityIds,matchDispatchRequirements} from '@/lib/dispatch-capabilities';
 import {z} from 'zod';
 import {database} from '@/lib/database';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
@@ -29,18 +30,19 @@ export async function POST(request:Request){
   const pickup=booking.pickup_data;
   if(!pickup||!validPoint(pickup)||!Number.isFinite(due))return Response.json({error:'This booking needs a valid pickup position and pickup time.'},{status:422});
   const raw=booking.raw_payload;
-  const detail=raw?.booking||raw?.metadata||raw?.data?.booking||raw?.data?.metadata||raw?.data||raw;
-  // Do not assume a standard vehicle when capability requirements are unknown.
-  if(!Array.isArray(detail?.capabilities)||detail.capabilities.length)return Response.json({error:'Capability requirements for this booking need verification before a vehicle can be recommended. Use the example simulator for now.'},{status:422});
+  const detail={...(raw?.booking||raw?.metadata||raw?.data?.booking||raw?.data?.metadata||raw?.data||raw),...booking.dispatch_requirements};
+  if(capabilityIds(detail.capabilities)===null)return Response.json({error:'This booking has not supplied a readable capability list yet. Waiting for complete Autocab booking details; no vehicle will be assumed suitable.'},{status:422});
   const cars=await db.query(`WITH driver_latest AS (SELECT DISTINCT ON (driver_id) * FROM driver_positions ORDER BY driver_id,recorded_at DESC NULLS LAST,id DESC), latest AS (
    SELECT DISTINCT ON (vehicle_id) * FROM driver_latest WHERE vehicle_id IS NOT NULL ORDER BY vehicle_id,recorded_at DESC NULLS LAST,id DESC
-  ) SELECT l.*,v.callsign FROM latest l JOIN autocab_vehicles v ON v.external_id=l.vehicle_id JOIN autocab_drivers d ON d.external_id=l.driver_id JOIN driver_shifts s ON s.driver_id=l.driver_id
+  ) SELECT l.*,v.callsign,v.passenger_capacity,v.capabilities AS vehicle_capabilities,d.capabilities AS driver_capabilities FROM latest l JOIN autocab_vehicles v ON v.external_id=l.vehicle_id JOIN autocab_drivers d ON d.external_id=l.driver_id JOIN driver_shifts s ON s.driver_id=l.driver_id
   WHERE lower(trim(l.vehicle_status))='clear' AND l.recorded_at>=now()-interval '2 minutes' AND l.recorded_at<=now()+interval '30 seconds'
   AND COALESCE(l.booking_id,0)=0 AND v.suspended=false AND d.suspended=false AND s.started_at IS NOT NULL AND (s.ended_at IS NULL OR s.started_at>s.ended_at)
   AND (lower(trim(v.company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(v.company)) LIKE 'plymouth taxi%')
   AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.status IN ('Dispatched','Driver Accepted','Arrived','Passenger On Board') AND (COALESCE(b.vehicle_data->>'id',b.vehicle_data->>'vehicleId')=l.vehicle_id OR COALESCE(b.driver_data->>'id',b.driver_data->>'driverId')=l.driver_id))`);
   const radius=Number(settings.rows[0]?.settings?.maximumRadiusMiles)||8;
-  const candidates=cars.rows.filter(car=>validPoint(car)&&/^\d+$/.test(car.vehicle_id)&&milesBetween(car,pickup)<=radius).sort((a,b)=>milesBetween(a,pickup)-milesBetween(b,pickup)).slice(0,20);
+  const checks=cars.rows.map(car=>({car,match:matchDispatchRequirements(detail.capabilities,car,detail)}));
+  const matched=checks.filter(item=>item.match.ok).map(item=>item.car);
+  const candidates=matched.filter(car=>validPoint(car)&&/^\d+$/.test(car.vehicle_id)&&milesBetween(car,pickup)<=radius).sort((a,b)=>milesBetween(a,pickup)-milesBetween(b,pickup)).slice(0,20);
   let durations:(number|null)[];
   const estimates=new Map<string,ReturnType<typeof trackEstimate>>();
   if(process.env.DISPATCH_OSRM_URL)durations=await roadDurations(candidates,pickup);
@@ -53,6 +55,7 @@ export async function POST(request:Request){
   }
   const now=Date.now();
   const result=simulateDispatch(due,now,candidates.flatMap((car,index)=>durations[index]===null?[]:[{vehicleId:car.vehicle_id,label:`${car.callsign||car.vehicle_callsign||car.vehicle_id}${estimates.has(car.vehicle_id)?' · '+estimates.get(car.vehicle_id)!.basis:''}`,etaSeconds:durations[index]!}]),rules);
-  return Response.json({result,analysis:{eligibleVehicles:cars.rows.length,nearbyVehicles:candidates.length,usableEtas:durations.filter(value=>value!==null).length,radiusMiles:radius,arrivalMinutes:rules.arrivalMinutes,bufferMinutes:rules.bufferMinutes,offerSeconds:rules.offerSeconds},calculatedAt:new Date(now).toISOString(),simulationOnly:true,note:process.env.DISPATCH_OSRM_URL?'Road estimate without live traffic. Snapshot only; vehicles are not reserved. Up to 20 nearby vehicles checked.':'Approximate ETA from GPS distance, a road-distance allowance and recent moving tracks (or your configured speed). No road routing or live traffic. Simulation only; vehicles are not reserved.'},{headers:{'Cache-Control':'no-store'}});
+  try{await db.query(`INSERT INTO dispatch_recommendations (booking_id,vehicle_id,details,minute_bucket) VALUES ($1,$2,$3::jsonb,$4) ON CONFLICT(booking_id,minute_bucket) DO NOTHING`,[booking.external_booking_id,result.recommended?.vehicleId||null,JSON.stringify({state:result.state,candidates:result.candidates,dispatchAt:result.dispatchAt,targetAt:result.targetAt,source:'simulation',etaBasis:process.env.DISPATCH_OSRM_URL?'road':'tracks'}),Math.floor(now/60000)])}catch{console.error('Dispatch recommendation history could not be stored.')}
+  return Response.json({result,analysis:{eligibleVehicles:matched.length,checkedVehicles:cars.rows.length,requiredCapabilities:capabilityIds(detail.capabilities),excluded:checks.filter(item=>!item.match.ok).slice(0,30).map(item=>({vehicleId:item.car.vehicle_id,label:item.car.callsign||item.car.vehicle_id,reason:item.match.reason})),nearbyVehicles:candidates.length,usableEtas:durations.filter(value=>value!==null).length,radiusMiles:radius,arrivalMinutes:rules.arrivalMinutes,bufferMinutes:rules.bufferMinutes,offerSeconds:rules.offerSeconds},calculatedAt:new Date(now).toISOString(),simulationOnly:true,note:process.env.DISPATCH_OSRM_URL?'Road estimate without live traffic. Snapshot only; vehicles are not reserved. Up to 20 nearby vehicles checked.':'Approximate ETA from GPS distance, a road-distance allowance and recent moving tracks (or your configured speed). No road routing or live traffic. Simulation only; vehicles are not reserved.'},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return Response.json({error:error instanceof Error?error.message:'Simulation unavailable.'},{status:503})}
 }

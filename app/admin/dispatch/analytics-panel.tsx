@@ -1,0 +1,25 @@
+'use client';
+import {useEffect,useState} from 'react';
+import type {aggregateDispatch} from '@/lib/dispatch-analytics';
+import {duration} from './booking-story';
+import styles from './dispatch-dashboard.module.css';
+export type AnalyticsData={summary:ReturnType<typeof aggregateDispatch>;partial:boolean;windowDays:number;eventsAnalyzed:number;receiptTimed:boolean;generatedAt:string};
+export function AnalyticsPanel(){
+ const [data,setData]=useState<AnalyticsData|null>(null),[error,setError]=useState('');
+ useEffect(()=>{const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
+  async function load(){try{if(!document.hidden){const response=await fetch('/api/admin/dispatch-analytics',{cache:'no-store',signal:controller.signal});const value=await response.json() as AnalyticsData&{error?:string};if(!response.ok)throw new Error(value.error||'Analytics unavailable.');if(!controller.signal.aborted){setData(value);setError('')}}}catch(reason){if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:'Analytics unavailable.')}finally{if(!controller.signal.aborted)timer=setTimeout(load,30000)}}
+  void load();return()=>{controller.abort();clearTimeout(timer)};
+ },[]);
+ return <AnalyticsView data={data} error={error}/>;
+}
+export function AnalyticsView({data,error=''}:{data:AnalyticsData|null;error?:string}){
+ const [tab,setTab]=useState<'trends'|'drivers'|'customers'>('trends'),[search,setSearch]=useState('');
+ const summary=data?.summary;
+ return <section className={styles.analytics} aria-label="Dispatch analytics"><div className={styles.sectionTitle}><div><h2>Learn from every dispatch</h2><p className={styles.small}>Last 30 days of recorded events · refreshes every 30 seconds · historical observations, not driver scores.</p></div><span>{data?`${data.eventsAnalyzed} events`:'Loading…'}</span></div>{error&&<p className={styles.warning} role="alert">{error} Previous results may be out of date.</p>}
+ {summary&&<><div className={styles.stats}><div><span>Bookings observed</span><strong>{summary.bookings}</strong></div><div><span>Measured offer → acceptance</span><strong>{summary.measuredBookings}</strong></div><div><span>Average dispatch time</span><strong>{duration(summary.meanDispatchSeconds)}</strong></div><div><span>90% accepted within</span><strong>{duration(summary.p90DispatchSeconds)}</strong></div></div>
+ <p className={styles.small}>{data?.receiptTimed?'Some durations include webhook delivery delay. ':''}{data?.partial?'Latest 20,000 events only; results are partial. ':''}{summary.unlinkedEvents} events have no booking ID and cannot be included in booking statistics. Missing responses are shown as unresolved, not refusals.</p>
+ <div className={styles.analyticsTabs}>{(['trends','drivers','customers'] as const).map(name=><button type="button" aria-pressed={tab===name} key={name} onClick={()=>{setTab(name);setSearch('')}}>{name==='trends'?'Booking trends':name==='drivers'?'Driver profiles':'Customer contact profiles'}</button>)}</div>
+ {tab==='trends'?<div className={styles.tableWrap}><table><thead><tr><th>Day · UK</th><th>Bookings observed</th><th>Measured dispatches</th><th>Average first offer → accepted</th></tr></thead><tbody>{summary.days.map(row=><tr key={row.day}><td>{row.day}</td><td>{row.bookings}</td><td>{row.measuredBookings}</td><td>{duration(row.meanDispatchSeconds)}</td></tr>)}</tbody></table>{!summary.days.length&&<p>No history collected yet.</p>}</div>:<><input aria-label="Find profile" placeholder="Find a profile by label or ID…" value={search} onChange={e=>setSearch(e.target.value)}/>{tab==='drivers'?<div className={styles.tableWrap}><table><thead><tr><th>Driver</th><th>Offers</th><th>Accepted</th><th>Rejected</th><th>Unresolved</th><th>Avg response</th></tr></thead><tbody>{summary.drivers.filter(row=>`${row.id} ${row.label}`.toLowerCase().includes(search.toLowerCase())).map(row=><tr key={row.id}><td><strong>{row.label}</strong><small>ID {row.id} · {row.bookingCount} bookings</small></td><td>{row.offers}</td><td>{row.accepted}</td><td>{row.rejected}</td><td>{row.unresolved}</td><td>{duration(row.meanResponseSeconds)}<small>{row.measuredResponses} matched responses</small></td></tr>)}</tbody></table>{!summary.drivers.length&&<p>No identified drivers with matched booking offers yet.</p>}</div>:<><p className={styles.small}>Profiles group the same booking telephone contact using a private identifier. Shared numbers can represent multiple passengers. No personal or behavioural score is assigned.</p><div className={styles.tableWrap}><table><thead><tr><th>Contact profile</th><th>Bookings</th><th>Completed</th><th>Cancelled</th><th>Avg dispatch time</th></tr></thead><tbody>{summary.customers.filter(row=>row.label.toLowerCase().includes(search.toLowerCase())).map(row=><tr key={row.id}><td>{row.label}</td><td>{row.bookings}</td><td>{row.completed}</td><td>{row.cancelled}</td><td>{duration(row.meanDispatchSeconds)}<small>{row.measuredBookings} measured bookings</small></td></tr>)}</tbody></table>{!summary.customers.length&&<p>No contact-linked booking events yet.</p>}</div></>}</>}
+ </>}
+ </section>;
+}

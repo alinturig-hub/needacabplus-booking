@@ -305,3 +305,22 @@ CREATE TABLE IF NOT EXISTS dispatch_observations (
 );
 CREATE INDEX IF NOT EXISTS idx_dispatch_observations_received ON dispatch_observations(received_at DESC,id DESC);
 CREATE INDEX IF NOT EXISTS idx_dispatch_observations_booking ON dispatch_observations(booking_id,received_at DESC);
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispatch_requirements jsonb;
+ALTER TABLE dispatch_observations ADD COLUMN IF NOT EXISTS kind text;
+ALTER TABLE dispatch_observations ADD COLUMN IF NOT EXISTS source_at timestamptz;
+ALTER TABLE dispatch_observations ADD COLUMN IF NOT EXISTS driver_callsign text;
+ALTER TABLE dispatch_observations ADD COLUMN IF NOT EXISTS vehicle_callsign text;
+ALTER TABLE dispatch_observations ADD COLUMN IF NOT EXISTS customer_key text;
+ALTER TABLE dispatch_observations ADD COLUMN IF NOT EXISTS dedup_key text;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dispatch_observations_dedup ON dispatch_observations(dedup_key) WHERE dedup_key IS NOT NULL;
+CREATE TABLE IF NOT EXISTS dispatch_recommendations (
+ id bigserial PRIMARY KEY,
+ booking_id text NOT NULL,
+ vehicle_id text,
+ details jsonb NOT NULL,
+ minute_bucket bigint NOT NULL,
+ recorded_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(booking_id,minute_bucket)
+);
+CREATE INDEX IF NOT EXISTS idx_dispatch_recommendations_booking ON dispatch_recommendations(booking_id,recorded_at DESC);
