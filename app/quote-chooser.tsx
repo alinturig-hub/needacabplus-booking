@@ -54,7 +54,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,customer,p
   }))}</div>
   {errors[selected]&&<p className="error-message" role="alert">{errors[selected]}</p>}
   {guaranteed&&scheduled&&!dateValid&&<p role="alert" className="small-note">Choose a pick-up at least {config?.minPrebookMinutes??30} minutes from now.</p>}
-  <div className="ride-checkout"><Link className="ride-payment" href={customer?'/account':'/customer-login?returnTo=/'}><CreditCard size={22}/><span>{paymentLabel}</span><ChevronRight size={19}/></Link>
+  <div className="ride-checkout"><Link className="ride-payment" href={customer?'/account':'/customer-login?returnTo=/'}><CreditCard size={22}/><span>{offers[selected]?.quote.paymentMethod==='cash'?'Cash to driver':paymentLabel}</span><ChevronRight size={19}/></Link>
    {configError||errors[selected]||(current&&!valid&&!loading[selected]&&(!guaranteed||dateValid))?<Button type="button" className="primary-action" onClick={retry}>Refresh fares</Button>:<Button type="button" className="primary-action" disabled={!valid} onClick={()=>{if(current&&Date.parse(current.quote.expiresAt)>Date.now())onChoose(current)}}>{loading[selected]?'Finding your fare…':guaranteed&&!dateValid?'Choose pick-up time':`Choose ${guaranteed?'Guarantee':'Priority'}`}</Button>}
    <span className="ride-test-label">Booking preview · no charge</span>
   </div>

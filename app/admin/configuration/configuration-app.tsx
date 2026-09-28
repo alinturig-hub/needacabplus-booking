@@ -1,4 +1,5 @@
 'use client';
+import CustomerSettings from './customer-settings';
 import Link from 'next/link';
 import {ArrowLeft,BadgePoundSterling,Braces,CheckCircle2,CloudCog,CreditCard,KeyRound,LogOut,Radio,Route,ShieldCheck,Webhook} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
@@ -21,7 +22,7 @@ export default function ConfigurationApp(){
   <div className="admin-body configuration-body">
    <div className="admin-title"><div><span className="eyebrow">ADMINISTRATION</span><h1>Configuration.</h1><p className="muted">Connect Autocab and manage how booking events enter Need A Cab Plus.</p></div><Link className="text-link" href="/admin"><ArrowLeft size={16}/>Back to bookings</Link></div>
    <Tabs defaultValue="integrations" className="configuration-tabs">
-    <TabsList><TabsTrigger value="integrations"><CloudCog/>Integrations</TabsTrigger><TabsTrigger value="dispatch"><Route/>Dispatch rules</TabsTrigger><TabsTrigger value="pricing"><BadgePoundSterling/>Price changes</TabsTrigger><TabsTrigger value="payments"><CreditCard/>Payments</TabsTrigger></TabsList>
+    <TabsList><TabsTrigger value="bookings">Bookings</TabsTrigger><TabsTrigger value="sms">SMS</TabsTrigger><TabsTrigger value="identity">Customer sign-in</TabsTrigger><TabsTrigger value="integrations"><CloudCog/>Integrations</TabsTrigger><TabsTrigger value="dispatch"><Route/>Dispatch rules</TabsTrigger><TabsTrigger value="pricing"><BadgePoundSterling/>Price changes</TabsTrigger><TabsTrigger value="payments"><CreditCard/>Payments</TabsTrigger></TabsList>
     <TabsContent value="integrations"><div className="config-provider">
     <aside className="provider-summary">
      <div className="provider-logo"><CloudCog size={31}/></div>
@@ -49,6 +50,7 @@ export default function ConfigurationApp(){
      </Tabs>
     </section>
     </div></TabsContent>
+    <TabsContent value="bookings"><CustomerSettings section="bookings"/></TabsContent><TabsContent value="sms"><CustomerSettings section="sms"/></TabsContent><TabsContent value="identity"><CustomerSettings section="identity"/></TabsContent>
     <TabsContent value="dispatch"><DispatchSettings/></TabsContent>
     <TabsContent value="pricing"><QuoteSettings/><PricingSettings/></TabsContent>
     <TabsContent value="payments"><StripeSettings/></TabsContent>

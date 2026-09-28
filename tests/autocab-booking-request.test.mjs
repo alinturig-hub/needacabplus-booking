@@ -33,3 +33,13 @@ test('booking transport validates the documented path and never overrides warnin
  assert.throws(()=>bookingCreateUrl('https://autocab-api.azure-api.net','/booking/v1/quote','POST'));
  assert.throws(()=>bookingCreateUrl('https://autocab-api.azure-api.net','/booking/v1/booking','GET'));
 });
+
+test('configured account, capabilities and Priority delay carry through quote and booking',()=>{
+ const rules={companyId:1,accountCustomerId:2155,cashAccountCustomerId:null,paymentMethod:'card',priorityDelayMinutes:7};
+ const request=buildAutocabQuoteRequest({pickup:place(1),destination:place(4),vias:[],vehicle:'saloon',scheduledAt:null},[4,9,9],now,rules);
+ assert.equal(request.customerId,2155);assert.deepEqual(request.capabilities,[4,9]);assert.equal(request.pickupDueTimeUtc,'2026-09-27T14:07:00.000Z');
+ const body=buildAutocabBookingRequest({...quote(),autocabRequest:request,bookingRules:rules,paymentMethod:'card'},passenger,now);
+ assert.equal(body.customerId,2155);assert.equal(body.pickupDueTimeUtc,request.pickupDueTimeUtc);assert.equal(body.yourReferences.yourReference1,'NAC-123');assert.equal(body.hold,true);
+ const cash=buildAutocabQuoteRequest({pickup:place(1),destination:place(4),vias:[],vehicle:'saloon',scheduledAt:'2026-09-28T10:00:00Z'},[],now,{...rules,paymentMethod:'cash'});
+ assert.equal('customerId' in cash,false);assert.equal(cash.pickupDueTimeUtc,'2026-09-28T10:00:00Z');
+});

@@ -1,0 +1,5 @@
+import {z} from 'zod';
+const ids=z.array(z.number().int().positive()).max(30).transform(v=>[...new Set(v)]);
+export const bookingPolicySchema=z.object({companyId:z.number().int().positive().default(1),accountCustomerId:z.number().int().positive().nullable().default(2155),cashAccountCustomerId:z.number().int().positive().nullable().default(null),paymentMethod:z.enum(['card','cash']).default('card'),priorityDelayMinutes:z.number().int().min(0).max(180).default(0),minPrebookMinutes:z.number().int().min(1).max(10080).default(30),priorityCapabilities:ids.default([]),guaranteeCapabilities:ids.default([]),saloonCapabilities:ids.default([]),estateCapabilities:ids.default([]),xlCapabilities:ids.default([])}).strict();
+export type BookingPolicy=z.infer<typeof bookingPolicySchema>;
+export const defaultBookingPolicy=bookingPolicySchema.parse({});

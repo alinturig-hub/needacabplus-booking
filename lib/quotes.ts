@@ -1,3 +1,5 @@
+import {loadBookingPolicy} from './app-configuration';
+import type {BookingPolicy} from './booking-policy';
 import {autocabTime} from '@/lib/autocab-time.mjs';
 import {buildAutocabQuoteRequest} from './autocab-quote-request';
 import {publicFareQuote} from './quote-presentation';
@@ -13,8 +15,8 @@ import {QuoteError,quotePolicySchema,priorityPercent,readFare,fareBreakdown,vali
 
 const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
 export const quoteRequestSchema=z.object({pickup:address,destination:address,vias:z.array(address).max(3),vehicle:z.enum(['saloon','estate','xl']),service:z.enum(['priority','guarantee']),scheduledAt:z.string().datetime().nullable()}).strict();
-export type FareQuote={id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number}};
-export async function loadQuotePolicy(){const result=await database().query("SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");return quotePolicySchema.parse(result.rows[0]?.policy||{})}
+export type FareQuote={id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';bookingRules?:BookingPolicy;paymentMethod?:'card'|'cash';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number}};
+export async function loadQuotePolicy(){const result=await database().query("SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");const rules=await loadBookingPolicy();return quotePolicySchema.parse({...result.rows[0]?.policy,minPrebookMinutes:rules.minPrebookMinutes,saloonCapabilities:rules.saloonCapabilities,estateCapabilities:rules.estateCapabilities,xlCapabilities:rules.xlCapabilities})}
 export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuotePolicy>>){
  if(policy.demandMode==='manual')return {waiting:null,clear:null,mode:'manual'};
  const [cars,result,fresh]=await Promise.all([publicClearVehicles(),database().query("SELECT pickup_data,timeline_data FROM bookings WHERE source<>'WebApp' AND status IN ('Booked','Created','Modified','Running Late') AND COALESCE(driver_data->>'id',driver_data->>'driverId','')=''"),database().query('SELECT max(recorded_at) AS latest FROM driver_positions')]);
@@ -29,11 +31,12 @@ export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
  const stops=[input.pickup,...input.vias,input.destination];if(new Set(stops.map(stop=>stop.text.toLowerCase())).size!==stops.length)throw new QuoteError('Choose a different address for each stop.');
  const capabilities=input.vehicle==='saloon'?policy.saloonCapabilities:policy[input.vehicle==='estate'?'estateCapabilities':'xlCapabilities'];
  if(input.vehicle!=='saloon'&&!capabilities.length)throw new QuoteError('This vehicle category is not available for quoting yet. Choose Plus Saloon.');
- const autocabRequest=buildAutocabQuoteRequest(input,capabilities);
+ const bookingRules=await loadBookingPolicy();
+ const autocabRequest=buildAutocabQuoteRequest(input,[...capabilities,...(input.service==='priority'?bookingRules.priorityCapabilities:bookingRules.guaranteeCapabilities)],new Date(),bookingRules);
  const response=await bookingQuote(autocabRequest);
  const basePence=readFare(response,policy.pricePath,policy.priceUnit),snapshot=input.service==='priority'?await demandSnapshot(policy):{waiting:null,clear:null},demand=priorityPercent(policy,snapshot.waiting,snapshot.clear),percent=input.service==='priority'?demand.percent:policy.guaranteePercent;
  validateSchedule(input.service,input.scheduledAt,policy.minPrebookMinutes);
  const expiry=Math.min(Date.now()+policy.quoteValiditySeconds*1000,input.scheduledAt?Date.parse(input.scheduledAt)-policy.minPrebookMinutes*60000:Infinity);
- const quote:FareQuote={id:randomUUID(),autocabRequest,autocabCosts:readAutocabCosts(response),vehicle:input.vehicle,service:input.service,scheduledAt:input.scheduledAt,pickup:input.pickup.text,destination:input.destination.text,vias:input.vias.map(v=>v.text),...fareBreakdown(basePence,percent),percent,demand:input.service==='priority'?demand.level:'prebook',currency:'GBP',expiresAt:new Date(expiry).toISOString()};
+ const quote:FareQuote={id:randomUUID(),bookingRules,paymentMethod:bookingRules.paymentMethod,autocabRequest,autocabCosts:readAutocabCosts(response),vehicle:input.vehicle,service:input.service,scheduledAt:input.scheduledAt,pickup:input.pickup.text,destination:input.destination.text,vias:input.vias.map(v=>v.text),...fareBreakdown(basePence,percent),percent,demand:input.service==='priority'?demand.level:'prebook',currency:'GBP',expiresAt:new Date(expiry).toISOString()};
  return {quote:publicFareQuote(quote),token:signQuote(quote)};
 }

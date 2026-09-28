@@ -23,13 +23,13 @@ export function buildAutocabBookingRequest(quote:FareQuote,details:z.infer<typeo
  if(!Number.isSafeInteger(quote.totalPence)||quote.totalPence<=0)throw new Error('The final fare is invalid.');
  const quotedCapacity=Number(quote.autocabRequest.passengers);
  if(!Number.isInteger(quotedCapacity)||passenger.passengers>quotedCapacity)throw new Error('Passenger count exceeds the quoted vehicle capacity.');
- const due=quote.service==='priority'?now.toISOString():quote.scheduledAt;
+ const due=quote.service==='priority'?new Date(now.getTime()+(quote.bookingRules?.priorityDelayMinutes||0)*60000).toISOString():quote.scheduledAt;
  if(!due||!Number.isFinite(Date.parse(due))||Date.parse(due)<now.getTime())throw new Error('Invalid pickup time.');
  const source=quote.autocabRequest;
  // Whitelist the documented fields; quote examples and account/return IDs must not leak in.
  return {
-  companyId:source.companyId,capabilities:[...source.capabilities],bookingSource:'ThirdPartyWebsite',
-  ...passenger,passengers:String(passenger.passengers),ourReference:`NAC-${quote.id}`,
+  companyId:source.companyId,...(source.customerId?{customerId:source.customerId,yourReferences:{yourReference1:`NAC-${quote.id}`}}:{}),capabilities:[...source.capabilities],bookingSource:'ThirdPartyWebsite',
+  ...passenger,officeNote:`WebApp payment method: ${quote.paymentMethod||'card'}. Payment is not confirmed by this request.`,passengers:String(passenger.passengers),ourReference:`NAC-${quote.id}`,
   pickup:structuredClone(source.pickup),destination:structuredClone(source.destination),vias:structuredClone(source.vias),
   driverConstraints:structuredClone(source.driverConstraints),vehicleConstraints:structuredClone(source.vehicleConstraints),
   pickupDueTime:due,pickupDueTimeUtc:due,

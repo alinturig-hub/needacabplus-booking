@@ -1,0 +1,4 @@
+import {finishOAuth,providerName} from '@/lib/customer-oauth';
+async function callback(request:Request,params:Promise<{provider:string}>){const origin=process.env.CUSTOMER_APP_ORIGIN||'https://webapp.needacabplus.app';try{const values=request.method==='POST'?await request.formData():new URL(request.url).searchParams;const result=await finishOAuth(providerName((await params).provider),String(values.get('code')||''),String(values.get('state')||''));return Response.redirect(new URL('verificationRequired' in result?'/customer-login?verify=1'+(result.phoneRequired?'&phone=1':''):'/',origin),303)}catch{return Response.redirect(new URL('/customer-login?error=provider',origin),303)}}
+export async function GET(request:Request,{params}:{params:Promise<{provider:string}>}){return callback(request,params)}
+export async function POST(request:Request,{params}:{params:Promise<{provider:string}>}){return callback(request,params)}
