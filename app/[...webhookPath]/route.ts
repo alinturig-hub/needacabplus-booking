@@ -54,7 +54,7 @@ export async function POST(request:Request,{params}:{params:Promise<{webhookPath
     const customer=observation.bookingId?await db.query('SELECT phone FROM bookings WHERE external_booking_id=$1',[observation.bookingId]):{rows:[]};
     await db.query(`INSERT INTO dispatch_observations (event_type,booking_id,vehicle_id,driver_id,kind,source_at,driver_callsign,vehicle_callsign,customer_key,dedup_key)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL DO NOTHING`,
-     [observation.eventType,observation.bookingId,observation.vehicleId,observation.driverId,operationKind(item.event_type),sourceTimestamp(payload),callsigns.driver,callsigns.vehicle,customerProfileKey(customer.rows[0]?.phone,process.env.ADMIN_SESSION_SECRET),receiptFingerprint(item.event_type,payload)]);
+     [observation.eventType,observation.bookingId,observation.vehicleId,observation.driverId,operationKind(item.event_type),sourceTimestamp(payload,item.event_type),callsigns.driver,callsigns.vehicle,customerProfileKey(customer.rows[0]?.phone,process.env.ADMIN_SESSION_SECRET),receiptFingerprint(item.event_type,payload)]);
    }catch{console.error('Dispatch receipt history could not be stored.')}
   }
   return json(202,{accepted:true,eventId,eventType:item.event_type,booking,driverEvent,receivedAt:new Date().toISOString()});

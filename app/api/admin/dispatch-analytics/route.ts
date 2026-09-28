@@ -1,7 +1,21 @@
 import {database} from '@/lib/database';
 import {isAdmin,unavailable} from '@/lib/security';
 import {aggregateDispatch,bookingMetrics,receiptText,type Receipt} from '@/lib/dispatch-analytics';
-import {operationKind} from '@/lib/dispatch-history';
+import {operationKind,receiptCallsigns} from '@/lib/dispatch-history';
+import {dispatchObservation} from '@/lib/dispatch-observation';
+import {readBookingDetails} from '@/lib/autocab-api';
+type Assignment={driverId:string|null;vehicleId:string|null;driver:string|null;vehicle:string|null;checkedAt:string;source:string};
+const assignments=new Map<string,{until:number;value:Assignment|null}>();
+async function currentAssignment(bookingId:string){
+ const cached=assignments.get(bookingId);if(cached&&cached.until>Date.now())return cached.value;
+ let value:Assignment|null=null;
+ try{
+  const payload=await readBookingDetails(bookingId),ids=dispatchObservation('snapshot',payload),labels=receiptCallsigns(payload);
+  value={driverId:ids.driverId,vehicleId:ids.vehicleId,driver:labels.driver,vehicle:labels.vehicle,checkedAt:new Date().toISOString(),source:'Autocab booking API'};
+ }catch{/* A failed read is not evidence that the booking has no assigned driver. */}
+ if(assignments.size>=100)assignments.delete(assignments.keys().next().value!);
+ assignments.set(bookingId,{until:Date.now()+60000,value});return value;
+}
 export const dynamic='force-dynamic';
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
@@ -15,7 +29,7 @@ export async function GET(request:Request){
   if(bookingId){
    const recommendations=await db.query('SELECT vehicle_id,details,recorded_at FROM dispatch_recommendations WHERE booking_id=$1 ORDER BY recorded_at DESC LIMIT 20',[bookingId]);
    const metrics=bookingMetrics(rows);
-   return Response.json({bookingId,partial,metrics:{offers:metrics.attempts.length,matchedResponses:metrics.attempts.filter(row=>row.response).length,offerToAcceptSeconds:metrics.offerToAcceptSeconds,acceptToArrivalSeconds:metrics.acceptToArrivalSeconds,receiptTimed:metrics.receiptTimed},events:metrics.rows.map(row=>({...row,title:receiptText(row)})),recommendations:recommendations.rows,generatedAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+   return Response.json({bookingId,partial,currentAssignment:await currentAssignment(bookingId),metrics:{offers:metrics.attempts.length,matchedResponses:metrics.attempts.filter(row=>row.response).length,offerToAcceptSeconds:metrics.offerToAcceptSeconds,acceptToArrivalSeconds:metrics.acceptToArrivalSeconds,receiptTimed:metrics.receiptTimed},events:metrics.rows.map(row=>({...row,title:receiptText(row)})),recommendations:recommendations.rows,generatedAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
   }
   const summary=aggregateDispatch(rows);
   return Response.json({summary,partial,windowDays:30,eventsAnalyzed:rows.length,receiptTimed:rows.some(row=>!row.source_at),generatedAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});

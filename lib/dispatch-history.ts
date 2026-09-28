@@ -11,8 +11,14 @@ function stable(value:unknown):string{
  return JSON.stringify(value)??'null';
 }
 export function receiptFingerprint(event:string,payload:unknown){return createHash('sha256').update(event.toLowerCase().replace(/[^a-z]/g,'')+':'+stable(payload)).digest('hex')}
-export function sourceTimestamp(payload:unknown){
- const root=object(payload),value=root.occurredAt??root.eventTimestamp??root.eventTime??root.timestamp;
+export function sourceTimestamp(payload:unknown,eventType=''){
+ const get=(r:Record<string,unknown>,name:string)=>Object.entries(r).find(([k])=>k.toLowerCase()===name.toLowerCase())?.[1];
+ const root=object(payload),data=object(get(root,'data')),detail=object(get(root,'booking')??get(root,'metadata')??get(data,'booking')??get(data,'metadata')??get(root,'data')??root);
+ let value:unknown;
+ for(const r of [root,detail]){value=get(r,'occurredAt')??get(r,'eventTimestamp')??get(r,'eventTime')??get(r,'timestamp');if(value)break}
+ const fields:Record<string,string>={offered:'dispatchedAtTime',arrived:'vehicleArrivedAtTime',onboard:'pickedUpAtTime'};
+ const timeField=fields[operationKind(eventType)||''];
+ if(!value&&timeField){for(const r of [detail,root]){value=get(object(get(r,'dispatchedBooking')),timeField)??get(r,timeField);if(value)break}}
  if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(value)||!Number.isFinite(Date.parse(value)))return null;
  return new Date(value).toISOString();
 }
