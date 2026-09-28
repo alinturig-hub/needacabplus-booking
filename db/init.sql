@@ -362,3 +362,15 @@ CREATE TABLE IF NOT EXISTS customer_trusted_devices(token_hash text PRIMARY KEY,
 CREATE TABLE IF NOT EXISTS customer_auth_limits(key text PRIMARY KEY,hits int NOT NULL DEFAULT 1,until_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_oauth_states(state_hash text PRIMARY KEY,provider text NOT NULL,browser_hash text NOT NULL,nonce text NOT NULL,verifier text NOT NULL,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_identities(provider text NOT NULL,subject text NOT NULL,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,PRIMARY KEY(provider,subject));
+
+-- Safely interpret legacy timezone-less Autocab pickup times as UK local time.
+CREATE OR REPLACE FUNCTION booking_pickup_day(timeline jsonb, pickup jsonb) RETURNS date LANGUAGE plpgsql STABLE AS $$
+DECLARE stamp text;
+BEGIN
+ stamp := COALESCE(NULLIF(timeline->>'scheduledAt',''),NULLIF(pickup->>'dueTime',''));
+ IF stamp IS NULL THEN RETURN NULL; END IF;
+ IF stamp ~ '(Z|[+-][0-9]{2}:[0-9]{2})$' THEN RETURN (stamp::timestamptz AT TIME ZONE 'Europe/London')::date; END IF;
+ RETURN stamp::timestamp::date;
+EXCEPTION WHEN OTHERS THEN RETURN NULL;
+END;
+$$;
