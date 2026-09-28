@@ -239,3 +239,24 @@ html[data-theme=light] .customer-map-engine .maplibregl-canvas{filter:none}
 .booking-card-customize{margin:18px 0;border:1px solid #38433d;border-radius:10px;background:#171d19;padding:14px 18px}.booking-card-customize summary{cursor:pointer;font-size:13px;color:#dfc38b}.booking-card-customize p{font-size:12px;color:#a4afa7;margin:12px 0}.booking-card-customize>div{display:flex;flex-wrap:wrap;gap:16px;padding:8px 0}.booking-card-customize label{display:flex;align-items:center;gap:8px;font-size:12px;color:#d9e0dc}.booking-card-customize input{width:18px;height:18px;accent-color:#dfc38b}
 
 .booking-status-picker{position:relative;min-width:190px;max-width:320px}.booking-status-picker summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid #39443d;border-radius:12px;background:#101612}.booking-status-picker summary::-webkit-details-marker{display:none}.booking-status-picker>div{position:absolute;z-index:30;top:calc(100% + 8px);left:0;width:290px;max-height:420px;overflow:auto;padding:12px;background:#171e19;border:1px solid #39443d;border-radius:12px;box-shadow:0 12px 32px #0008}.booking-toolbar .booking-status-picker label{display:flex;align-items:center;gap:10px;padding:9px;background:none;border:0;width:100%}.booking-toolbar .booking-status-picker input[type=checkbox]{width:18px;height:18px;min-width:18px;accent-color:#e7c66d}.booking-status-picker small{display:block;padding:10px;color:#a5afa9}.booking-status-picker button{width:100%;text-align:left;padding:9px}
+
+/* Keep booking summaries and filters aligned at every screen size. */
+.bookings-admin .operation-cards{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:20px 0}
+.bookings-admin .operation-cards article{display:grid;grid-template-rows:40px auto 34px;align-content:start;min-width:0;min-height:168px;padding:20px}
+.bookings-admin .operation-cards article>span{line-height:20px;font-size:13px}
+.bookings-admin .operation-cards strong{margin:10px 0 14px;font-size:30px;line-height:1.15;font-variant-numeric:tabular-nums}
+.bookings-admin .operation-cards small{font-size:11px;line-height:17px}
+.bookings-admin .booking-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 210px 150px 150px auto auto auto;gap:10px;padding:16px;align-items:center}
+.bookings-admin .booking-toolbar>label{width:100%;min-width:0;height:44px}
+.bookings-admin .booking-toolbar>label input{min-width:0}
+.bookings-admin .booking-toolbar>select,.bookings-admin .booking-toolbar>button{height:44px;min-width:0;white-space:nowrap}
+.bookings-admin .toolbar-spacer{display:none}
+.bookings-admin .booking-status-picker{min-width:0;max-width:none;width:100%}
+.bookings-admin .booking-status-picker summary{height:44px;padding:0 12px;border-radius:9px;font-size:12px}
+.bookings-admin .booking-status-picker summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bookings-admin .booking-status-picker summary svg{flex:none}
+.bookings-admin .booking-status-picker>div{width:300px;max-width:calc(100vw - 48px)}
+.bookings-admin .booking-status-picker summary:focus-visible{outline:2px solid #e1c17e;outline-offset:3px}
+@media(max-width:1400px){.bookings-admin .booking-toolbar{grid-template-columns:minmax(180px,1fr) minmax(160px,1fr) minmax(140px,1fr) auto auto auto}.bookings-admin .booking-toolbar>label{grid-column:1/-1}}
+@media(max-width:900px){.bookings-admin .booking-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}.bookings-admin .operation-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.bookings-admin .booking-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.bookings-admin .booking-status-picker{grid-column:1/-1}.bookings-admin .booking-toolbar>button:last-child{grid-column:1/-1}.bookings-admin .operation-cards article{padding:16px;grid-template-rows:40px auto 51px}.bookings-admin .operation-cards strong{font-size:26px}}
