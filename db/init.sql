@@ -374,3 +374,14 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN NULL;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION booking_pickup_local_time(timeline jsonb,pickup jsonb) RETURNS timestamp LANGUAGE plpgsql STABLE AS $$
+DECLARE stamp text;
+BEGIN
+ stamp:=COALESCE(NULLIF(timeline->>'scheduledAt',''),NULLIF(pickup->>'dueTime',''));
+ IF stamp IS NULL THEN RETURN NULL; END IF;
+ IF stamp ~ '(Z|[+-][0-9]{2}:[0-9]{2})$' THEN RETURN stamp::timestamptz AT TIME ZONE 'Europe/London'; END IF;
+ RETURN stamp::timestamp;
+EXCEPTION WHEN OTHERS THEN RETURN NULL;
+END;
+$$;

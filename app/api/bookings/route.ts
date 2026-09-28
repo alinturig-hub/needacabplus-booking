@@ -1,3 +1,4 @@
+import {livePassengerSql} from '@/lib/booking-live-summary';
 import {bookingPeriod,bookingCsv} from '@/lib/booking-period';
 import {z} from 'zod';
 import {database} from '@/lib/database';
@@ -43,15 +44,17 @@ export async function GET(request:Request){
   if(source){values.push(source);conditions.push(`source=$${values.length}`)}
   if(payment){values.push(payment);conditions.push(`payment_type=$${values.length}`)}
   if(period.start&&period.end){values.push(period.start,period.end);conditions.push(`booking_pickup_day(timeline_data,pickup_data) BETWEEN $${values.length-1}::date AND $${values.length}::date`)}
+  if(period.period==='custom'){values.push(period.start+'T'+period.fromTime,period.end+'T'+period.toTime);conditions.push(`booking_pickup_local_time(timeline_data,pickup_data)>=$${values.length-1}::timestamp AND booking_pickup_local_time(timeline_data,pickup_data)<$${values.length}::timestamp+interval '1 minute'`)}
   const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';
   const db=database();
   if(exporting){const rows=await db.query(`SELECT external_booking_id,name,phone,status,pickup,destination,source,payment_type,booking_pickup_day(timeline_data,pickup_data)::text AS pickup_day FROM bookings ${where} ORDER BY updated_at DESC,id`,values);return new Response(bookingCsv(rows.rows),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="need-a-cab-bookings.csv"','Cache-Control':'no-store'}})}
-  const [countResult,summaryResult,sourceResult,paymentResult,statusResult]=await Promise.all([
+  const [countResult,summaryResult,sourceResult,paymentResult,statusResult,liveResult]=await Promise.all([
    db.query<{total:string}>(`SELECT COUNT(*)::text AS total FROM bookings ${where}`,values),
    db.query<{status:string;total:string}>(`SELECT status,COUNT(*)::text AS total FROM bookings ${where} GROUP BY status`,values),
    db.query<{source:string}>('SELECT DISTINCT source FROM bookings WHERE source IS NOT NULL AND source<>\'\' ORDER BY source'),
    db.query<{payment_type:string}>('SELECT DISTINCT payment_type FROM bookings WHERE payment_type IS NOT NULL AND payment_type<>\'\' ORDER BY payment_type'),
-   db.query<{status:string}>('SELECT DISTINCT status FROM bookings ORDER BY status')
+   db.query<{status:string}>('SELECT DISTINCT status FROM bookings ORDER BY status'),
+   db.query<{total:string}>(livePassengerSql)
   ]);
   const total=Number(countResult.rows[0]?.total||0);const totalPages=Math.max(1,Math.ceil(total/pageSize));const safePage=Math.min(page,totalPages);
   const dataValues:[...string[],number,number]=[...values,pageSize,(safePage-1)*pageSize];
@@ -60,7 +63,7 @@ export async function GET(request:Request){
   booking_type,source,payment_type,priority,street_pickup,vehicle,fare_pence,status,last_event_type,raw_payload,created_at,updated_at
   ,booking_pickup_day(timeline_data,pickup_data)::text AS pickup_day FROM bookings ${where} ORDER BY updated_at DESC,created_at DESC LIMIT $${values.length+1} OFFSET $${values.length+2}`,dataValues);
   const summary=Object.fromEntries(summaryResult.rows.map(row=>[row.status,Number(row.total)]));
-  return Response.json({bookings:result.rows,total,page:safePage,pageSize,summary,period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
+  return Response.json({bookings:result.rows,total,page:safePage,pageSize,summary,livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
  }catch(error){return unavailable(error)}
 }
 
