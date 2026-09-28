@@ -19,10 +19,11 @@ test('OTP registration, limits, expiry, replay and trusted devices use real SQL'
   return require(id);
  },module,module.exports);return module.exports}
  const credentials=load('credentials'),api=load('customer-verification');
- await query('INSERT INTO app_configuration(section,settings) VALUES($1,$2::jsonb)',['sms',JSON.stringify({enabled:true,endpoint:'https://sms.example.test/send'})]);
+ await query('INSERT INTO app_configuration(section,settings) VALUES($1,$2::jsonb)',['sms',JSON.stringify({enabled:true,endpoint:'https://sms.example.test/send',phoneField:'customer_phone',sender:''})]);
  await query('INSERT INTO app_configuration(section,settings) VALUES($1,$2::jsonb)',['identity',JSON.stringify({registrationOtp:true,newDeviceOtp:true})]);
+ await query('UPDATE app_configuration SET secrets_encrypted=$1 WHERE section=$2',[credentials.encryptCredentials({endpointQuery:'?endpoint_id=109&signature=test-only-signature'}),'sms']);
  const originalFetch=global.fetch;let deliveredCode,deliveries=0;
- global.fetch=async(url,options)=>{assert.equal(String(url),'https://sms.example.test/send');const payload=JSON.parse(options.body);deliveredCode=payload.message.match(/\b\d{6}\b/)[0];deliveries++;return new Response('{}',{status:200})};
+ global.fetch=async(url,options)=>{assert.equal(String(url),'https://sms.example.test/send?endpoint_id=109&signature=test-only-signature');assert.equal(options.method,'POST');const payload=JSON.parse(options.body);assert.deepEqual(Object.keys(payload).sort(),['customer_phone','message']);assert.match(payload.customer_phone,/^\+44/);deliveredCode=payload.message.match(/\b\d{6}\b/)[0];deliveries++;return new Response('{}',{status:200})};
  try{
   assert.equal(api.normalizePhone('07700 900123'),'+447700900123');
   const result=await api.beginChallenge('register','07700 900123',{email:'otp@example.test',passwordHash:'fixture',fullName:'Test Person'});
@@ -34,7 +35,8 @@ test('OTP registration, limits, expiry, replay and trusted devices use real SQL'
   assert.equal((await query('SELECT attempts FROM customer_auth_challenges')).rows[0].attempts,1);
   await api.finishChallenge(correct);assert.equal(sessions.length,1);const customer=(await query('SELECT * FROM customer_accounts')).rows[0];assert.ok(customer.phone_verified_at);assert.ok(await api.trustedDevice(customer.id));
   await assert.rejects(api.finishChallenge(correct),/Start verification/);
-  jar.delete('nac_trusted_device');await query('DELETE FROM customer_auth_limits');
+  await query('UPDATE app_configuration SET settings=$1::jsonb WHERE section=$2',[JSON.stringify({everyLoginOtp:true,newDeviceOtp:false}),'identity']);await query('DELETE FROM customer_auth_limits');
+  assert.ok(await api.trustedDevice(customer.id));
   assert.equal((await api.completeLogin(customer.id,customer.phone)).verificationRequired,true);assert.equal(sessions.length,1);
   const lastCode=deliveredCode;await query('UPDATE customer_auth_challenges SET attempts=5 WHERE consumed_at IS NULL');await assert.rejects(api.finishChallenge(lastCode),/too many attempts/);
   await query("UPDATE customer_auth_challenges SET attempts=0,expires_at=now()-make_interval(secs=>1) WHERE consumed_at IS NULL");await assert.rejects(api.finishChallenge(lastCode),/expired/);
