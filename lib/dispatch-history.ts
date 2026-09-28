@@ -28,4 +28,16 @@ export function customerProfileKey(phone:unknown,secret:string|undefined){
  if(digits.length<9||digits.length>15||/^0+$/.test(digits))return null;
  return createHmac('sha256',secret).update(`contact:${digits}`).digest('hex');
 }
-export function receiptCallsigns(payload:unknown){const root=object(payload),data=object(root.data),detail=object(root.booking??root.metadata??data.booking??data.metadata??root.data??root);const text=(v:unknown)=>typeof v==='string'||typeof v==='number'?String(v).slice(0,100):null;return {driver:text(detail.driverCallsign??object(detail.driver).callsign),vehicle:text(detail.vehicleCallsign??object(detail.vehicle).callsign)}}
+export function receiptCallsigns(payload:unknown){
+ const get=(r:Record<string,unknown>,name:string)=>Object.entries(r).find(([k])=>k.toLowerCase()===name.toLowerCase())?.[1];
+ const root=object(payload),data=object(get(root,'data')),detail=object(get(root,'booking')??get(root,'metadata')??get(data,'booking')??get(data,'metadata')??get(root,'data')??root);
+ const actor=(type:string)=>{
+  for(const item of [detail,data,root]){
+   const nested=object(get(object(get(item,`${type}Details`)),type));
+   const value=get(item,`${type}Callsign`)??get(nested,'callsign')??get(object(get(item,type)),'callsign');
+   if((typeof value==='string'&&value.trim())||typeof value==='number')return String(value).trim().slice(0,100);
+  }
+  return null;
+ };
+ return {driver:actor('driver'),vehicle:actor('vehicle')};
+}

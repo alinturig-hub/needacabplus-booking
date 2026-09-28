@@ -5,7 +5,8 @@ export function dispatchObservation(eventType:string,payload:unknown){
  const records=[detail,data,root];
  const actor=(type:string)=>{
   for(const item of records){
-   const explicit=get(item,`${type}Id`)??get(record(get(item,type)),'id');
+   const nested=record(get(record(get(item,`${type}Details`)),type));
+   const explicit=get(item,`${type}Id`)??get(nested,'id')??get(record(get(item,type)),'id');
    if(explicit!==undefined&&explicit!==null)return explicit;
   }
   // A rejection may describe a previous offer: never borrow its current assignment.
