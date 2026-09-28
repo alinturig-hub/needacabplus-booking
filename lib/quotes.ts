@@ -11,7 +11,7 @@ import {z} from 'zod';
 import {database} from './database';
 import {bookingQuote} from './autocab-api';
 import {publicClearVehicles} from './live-drivers';
-import {QuoteError,quotePolicySchema,priorityPercent,readFare,fareBreakdown,validateSchedule,type Service} from './quote-policy';
+import {QuoteError,quotePolicySchema,fareAdjustment,readFare,fareBreakdown,validateSchedule,type Service} from './quote-policy';
 
 const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
 export const quoteRequestSchema=z.object({pickup:address,destination:address,vias:z.array(address).max(3),vehicle:z.enum(['saloon','estate','xl']),service:z.enum(['priority','guarantee']),scheduledAt:z.string().datetime().nullable()}).strict();
@@ -34,10 +34,11 @@ export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
  const bookingRules=await loadBookingPolicy();
  const autocabRequest=buildAutocabQuoteRequest(input,[...capabilities,...(input.service==='priority'?bookingRules.priorityCapabilities:bookingRules.guaranteeCapabilities)],new Date(),bookingRules);
  const response=await bookingQuote(autocabRequest);
- const basePence=readFare(response,policy.pricePath,policy.priceUnit),snapshot=input.service==='priority'?await demandSnapshot(policy):{waiting:null,clear:null},demand=priorityPercent(policy,snapshot.waiting,snapshot.clear),percent=input.service==='priority'?demand.percent:policy.guaranteePercent;
+ const basePence=readFare(response,policy.pricePath,policy.priceUnit),snapshot=input.service==='priority'&&policy.priorityUpliftMode==='percentage'?await demandSnapshot(policy):{waiting:null,clear:null};
+ const {percent,fixedPence,demand}=fareAdjustment(policy,input.service,snapshot.waiting,snapshot.clear);
  validateSchedule(input.service,input.scheduledAt,policy.minPrebookMinutes);
- const fixedPence=Math.round((input.service==='priority'?policy.priorityFixedAmount:policy.guaranteeFixedAmount)*100);
+
  const expiry=Math.min(Date.now()+policy.quoteValiditySeconds*1000,input.scheduledAt?Date.parse(input.scheduledAt)-policy.minPrebookMinutes*60000:Infinity);
- const quote:FareQuote={id:randomUUID(),bookingRules,paymentMethod:bookingRules.paymentMethod,autocabRequest,autocabCosts:readAutocabCosts(response),vehicle:input.vehicle,service:input.service,scheduledAt:input.scheduledAt,pickup:input.pickup.text,destination:input.destination.text,vias:input.vias.map(v=>v.text),...fareBreakdown(basePence,percent,fixedPence),fixedPence,percent,demand:input.service==='priority'?demand.level:'prebook',currency:'GBP',expiresAt:new Date(expiry).toISOString()};
+ const quote:FareQuote={id:randomUUID(),bookingRules,paymentMethod:bookingRules.paymentMethod,autocabRequest,autocabCosts:readAutocabCosts(response),vehicle:input.vehicle,service:input.service,scheduledAt:input.scheduledAt,pickup:input.pickup.text,destination:input.destination.text,vias:input.vias.map(v=>v.text),...fareBreakdown(basePence,percent,fixedPence),fixedPence,percent,demand,currency:'GBP',expiresAt:new Date(expiry).toISOString()};
  return {quote:publicFareQuote(quote),token:signQuote(quote)};
 }

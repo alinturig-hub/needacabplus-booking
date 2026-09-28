@@ -3,6 +3,7 @@ export class QuoteError extends Error{}
 
 export const quotePolicySchema=z.object({
  enabled:z.boolean().default(true),minPrebookMinutes:z.number().int().min(1).max(10080).default(30),
+ priorityUpliftMode:z.enum(['percentage','fixed']).default('percentage'),guaranteeUpliftMode:z.enum(['percentage','fixed']).default('percentage'),
  priorityFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),guaranteeFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),
  guaranteePercent:z.number().min(0).max(100).default(20),
  demandMode:z.enum(['manual','automatic']).default('automatic'),manualDemand:z.enum(['low','medium','high']).default('low'),
@@ -28,9 +29,16 @@ export function priorityPercent(policy:QuotePolicy,waiting:number|null,clear:num
  if(policy.demandMode==='automatic'&&waiting!==null&&clear!==null){const ratio=clear===0?(waiting>0?Infinity:0):waiting/clear;level=ratio>=policy.highRatio?'high':ratio>=policy.mediumRatio?'medium':'low'}
  return {level,percent:policy[`${level}Percent`]};
 }
+export function fareAdjustment(policy:QuotePolicy,service:Service,waiting:number|null,clear:number|null){
+ const mode=service==='priority'?policy.priorityUpliftMode:policy.guaranteeUpliftMode;
+ if(mode==='fixed')return {percent:0,fixedPence:Math.round((service==='priority'?policy.priorityFixedAmount:policy.guaranteeFixedAmount)*100),demand:'fixed'};
+ const priority=priorityPercent(policy,waiting,clear);
+ return {percent:service==='priority'?priority.percent:policy.guaranteePercent,fixedPence:0,demand:service==='priority'?priority.level:'prebook'};
+}
 export function fareBreakdown(basePence:number,percent:number,fixedPence=0){
  if(!Number.isSafeInteger(basePence)||basePence<=0||basePence>1000000)throw new QuoteError('Autocab did not return a valid fare.');
  if(!Number.isFinite(percent)||percent<0||percent>100||!Number.isSafeInteger(fixedPence)||fixedPence<0||fixedPence>100000)throw new QuoteError('Invalid fare adjustment.');
+ if(percent>0&&fixedPence>0)throw new QuoteError('Choose percentage or fixed addition, not both.');
  const upliftPence=Math.round(basePence*percent/100)+fixedPence;
  return {basePence,upliftPence,totalPence:basePence+upliftPence};
 }

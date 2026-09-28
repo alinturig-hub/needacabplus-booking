@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultQuotePolicy as defaults,quotePolicySchema,priorityPercent,fareBreakdown,validateSchedule,readFare} from '../lib/quote-policy.ts';
+import {defaultQuotePolicy as defaults,quotePolicySchema,priorityPercent,fareAdjustment,fareBreakdown,validateSchedule,readFare} from '../lib/quote-policy.ts';
 test('Priority uplift uses integer pence and predictable half-penny rounding',()=>{
  assert.deepEqual(fareBreakdown(1090,15),{basePence:1090,upliftPence:164,totalPence:1254});
  assert.equal(fareBreakdown(670,10).totalPence,737);
@@ -42,12 +42,21 @@ test('settings reject reversed thresholds, negative notice and unordered surchar
  assert.equal(quotePolicySchema.safeParse({...defaults,highPercent:101}).success,false);
 });
 
-test('fixed addition applies after percentage in integer pence and defaults to zero',()=>{
+test('fixed addition is exclusive and defaults to zero',()=>{
  assert.equal(defaults.priorityFixedAmount,0);assert.equal(defaults.guaranteeFixedAmount,0);
- assert.deepEqual(fareBreakdown(1000,20,150),{basePence:1000,upliftPence:350,totalPence:1350});
- assert.equal(fareBreakdown(1090,15,125).totalPence,1379);
+ assert.throws(()=>fareBreakdown(1000,20,150));
+ assert.equal(fareBreakdown(1090,0,125).totalPence,1215);
  assert.equal(fareBreakdown(1000,0,250).totalPence,1250);
  assert.equal(quotePolicySchema.parse({priorityFixedAmount:1.25,guaranteeFixedAmount:2.50}).guaranteeFixedAmount,2.5);
  for(const amount of [-1,1.001,1001,Infinity])assert.equal(quotePolicySchema.safeParse({priorityFixedAmount:amount}).success,false);
  for(const amount of [-1,0.5,NaN,Infinity])assert.throws(()=>fareBreakdown(1000,20,amount));
+});
+
+test('service modes ignore inactive amounts and do not combine charges',()=>{
+ const p={...defaults,priorityFixedAmount:1.5,guaranteeFixedAmount:2};
+ assert.deepEqual(fareAdjustment(p,'priority',4,1),{percent:20,fixedPence:0,demand:'high'});
+ assert.deepEqual(fareAdjustment({...p,priorityUpliftMode:'fixed'},'priority',4,1),{percent:0,fixedPence:150,demand:'fixed'});
+ assert.deepEqual(fareAdjustment(p,'guarantee',null,null),{percent:20,fixedPence:0,demand:'prebook'});
+ assert.deepEqual(fareAdjustment({...p,guaranteeUpliftMode:'fixed'},'guarantee',null,null),{percent:0,fixedPence:200,demand:'fixed'});
+ assert.equal(quotePolicySchema.safeParse({priorityUpliftMode:'both'}).success,false);
 });
