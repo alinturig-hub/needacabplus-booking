@@ -2,7 +2,7 @@ import pg from 'pg';
 import {createHash,createDecipheriv} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {compareBooking} from './compare-booking.mjs';
-import {fetchAuditBooking} from './audit-fetch.mjs';
+import {readAuditBooking} from './audit-reference.mjs';
 const auditId='booking-modified-review-2026-09-28-v1';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('sslmode=require')?{rejectUnauthorized:false}:undefined,max:2,connectionTimeoutMillis:10000,query_timeout:15000,statement_timeout:12000});
 const db=await pool.connect();
@@ -21,7 +21,11 @@ try{
   }
   await db.query('COMMIT');
   const retryLegacy=await db.query("UPDATE booking_database_audit_items SET checked_at=NULL,result=jsonb_build_object('legacyRetry',true) WHERE audit_id=$1 AND result->>'error'='Comparison unavailable'",[auditId]);
-  if(retryLegacy.rowCount)await db.query("UPDATE booking_database_audits SET finished_at=NULL,status='running' WHERE id=$1",[auditId]);
+  const retryOriginal=await db.query(`UPDATE booking_database_audit_items i SET checked_at=NULL,result=jsonb_build_object('originalRetryPending',true)
+   FROM bookings b WHERE i.audit_id=$1 AND b.id=i.booking_id AND i.result->>'error'='HTTP_404'
+   AND b.original_booking_id ~ '^[1-9][0-9]*$' AND b.original_booking_id<>i.reference
+   AND (i.result->>'originalReferenceAttempted') IS DISTINCT FROM b.original_booking_id`,[auditId]);
+  if(retryLegacy.rowCount||retryOriginal.rowCount)await db.query("UPDATE booking_database_audits SET finished_at=NULL,status='running' WHERE id=$1",[auditId]);
   const run=(await db.query('SELECT * FROM booking_database_audits WHERE id=$1',[auditId])).rows[0];
   if(!run.finished_at){
    const conn=(await db.query("SELECT c.* FROM api_connections c JOIN api_endpoints e ON e.connection_id=c.id WHERE c.provider='autocab' AND e.action_key='booking.create' AND e.enabled=true ORDER BY e.created_at DESC LIMIT 1")).rows[0];
@@ -38,17 +42,18 @@ try{
    await db.query("UPDATE booking_database_audits SET status='running',error=NULL,heartbeat_at=now() WHERE id=$1",[auditId]);
    let done=0;
    for(;;){
-    const batch=await db.query('SELECT * FROM booking_database_audit_items WHERE audit_id=$1 AND checked_at IS NULL ORDER BY booking_id LIMIT 50',[auditId]);
+    const batch=await db.query('SELECT i.*,b.original_booking_id FROM booking_database_audit_items i LEFT JOIN bookings b ON b.id=i.booking_id WHERE i.audit_id=$1 AND i.checked_at IS NULL ORDER BY i.booking_id LIMIT 50',[auditId]);
     if(!batch.rowCount)break;
     for(const row of batch.rows){
      let result;
      try{
       if(!/^\d+$/.test(row.reference))throw new Error('Invalid reference');
-      const remote=await fetchAuditBooking(`https://autocab-api.azure-api.net/booking/v1/booking/${row.reference}`,headers);
+      const {remote,...lookup}=await readAuditBooking(row.reference,row.original_booking_id,headers);
       result=compareBooking(row.local_snapshot,remote);
+      Object.assign(result,lookup);
       const current=(await db.query('SELECT updated_at::text AS version FROM bookings WHERE id=$1',[row.booking_id])).rows[0];
       result.localChangedSinceSnapshot=current?.version!==row.local_version;
-     }catch(error){if(error.message.startsWith('STOP_HTTP_'))throw error;result={error:/^(HTTP_\d+|TIMEOUT|NETWORK_ERROR|INVALID_JSON|INVALID_PAYLOAD|RETRIES_EXHAUSTED)$/.test(error.message)?error.message:'LOCAL_COMPARISON_ERROR',differences:[],unverified:['all']}}
+     }catch(error){if(error.message.startsWith('STOP_HTTP_'))throw error;result={error:/^(HTTP_\d+|TIMEOUT|NETWORK_ERROR|INVALID_JSON|INVALID_PAYLOAD|RETRIES_EXHAUSTED|REFERENCE_MISMATCH)$/.test(error.message)?error.message:'LOCAL_COMPARISON_ERROR',originalReferenceAttempted:error.originalReferenceAttempted,differences:[],unverified:['all']}}
      await db.query('UPDATE booking_database_audit_items SET result=$3::jsonb,checked_at=now() WHERE audit_id=$1 AND booking_id=$2',[auditId,row.booking_id,JSON.stringify(result)]);
      done++;if(done%25===0)console.log(`Booking database audit: ${done} checked in this process; snapshot total ${run.total}.`);
      await delay(400);
