@@ -32,7 +32,7 @@ export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
  const capabilities=input.vehicle==='saloon'?policy.saloonCapabilities:policy[input.vehicle==='estate'?'estateCapabilities':'xlCapabilities'];
  if(input.vehicle!=='saloon'&&!capabilities.length)throw new QuoteError('This vehicle category is not available for quoting yet. Choose Plus Saloon.');
  const bookingRules=await loadBookingPolicy();
- const autocabRequest=buildAutocabQuoteRequest(input,[...capabilities,...(input.service==='priority'?bookingRules.priorityCapabilities:bookingRules.guaranteeCapabilities)],new Date(),bookingRules);
+ const autocabRequest=buildAutocabQuoteRequest(input,capabilities,new Date(),bookingRules);
  const response=await bookingQuote(autocabRequest);
  const basePence=readFare(response,policy.pricePath,policy.priceUnit),snapshot=input.service==='priority'&&policy.priorityUpliftMode==='percentage'?await demandSnapshot(policy):{waiting:null,clear:null};
  const {percent,fixedPence,demand}=fareAdjustment(policy,input.service,snapshot.waiting,snapshot.clear);

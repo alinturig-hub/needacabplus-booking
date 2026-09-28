@@ -53,3 +53,11 @@ test('configured account ID and common capabilities reach quote and booking; acc
  assert.equal(body.customerId,2155);assert.deepEqual(body.capabilities,[4,9,5]);assert.equal('accountName' in body,false);
  const cash=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},[],now,{...rules,paymentMethod:'cash',cashAccountCustomerId:222});assert.equal(cash.customerId,222);
 });
+
+test('legacy Priority and Guarantee capabilities are discarded from saved settings',async()=>{
+ const {bookingPolicySchema}=await import('../lib/booking-policy.ts');
+ const rules=bookingPolicySchema.parse({bookingCapabilities:[9],saloonCapabilities:[4],priorityCapabilities:[777],guaranteeCapabilities:[888]});
+ assert.equal('priorityCapabilities' in rules,false);assert.equal('guaranteeCapabilities' in rules,false);
+ const body=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},rules.saloonCapabilities,now,rules);
+ assert.deepEqual(body.capabilities,[9,4]);
+});
