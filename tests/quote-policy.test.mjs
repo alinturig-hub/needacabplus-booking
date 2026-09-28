@@ -41,3 +41,13 @@ test('settings reject reversed thresholds, negative notice and unordered surchar
  assert.equal(quotePolicySchema.safeParse({...defaults,minPrebookMinutes:0}).success,false);
  assert.equal(quotePolicySchema.safeParse({...defaults,highPercent:101}).success,false);
 });
+
+test('fixed addition applies after percentage in integer pence and defaults to zero',()=>{
+ assert.equal(defaults.priorityFixedAmount,0);assert.equal(defaults.guaranteeFixedAmount,0);
+ assert.deepEqual(fareBreakdown(1000,20,150),{basePence:1000,upliftPence:350,totalPence:1350});
+ assert.equal(fareBreakdown(1090,15,125).totalPence,1379);
+ assert.equal(fareBreakdown(1000,0,250).totalPence,1250);
+ assert.equal(quotePolicySchema.parse({priorityFixedAmount:1.25,guaranteeFixedAmount:2.50}).guaranteeFixedAmount,2.5);
+ for(const amount of [-1,1.001,1001,Infinity])assert.equal(quotePolicySchema.safeParse({priorityFixedAmount:amount}).success,false);
+ for(const amount of [-1,0.5,NaN,Infinity])assert.throws(()=>fareBreakdown(1000,20,amount));
+});
