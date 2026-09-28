@@ -35,12 +35,12 @@ export async function GET(request:Request){
   const requestedSize=Number.parseInt(searchParams.get('pageSize')||'20',10);
   const pageSize=[10,20,50,100].includes(requestedSize)?requestedSize:20;
   const search=(searchParams.get('search')||'').trim().slice(0,120);
-  const status=(searchParams.get('status')||'').trim().slice(0,60);
+  const selectedStatuses=[...new Set(searchParams.getAll('status').map(value=>value.trim().slice(0,60)).filter(Boolean))].slice(0,50);
   const source=(searchParams.get('source')||'').trim().slice(0,100);
   const payment=(searchParams.get('payment')||'').trim().slice(0,100);
   const values:string[]=[];const conditions:string[]=[];
   if(search){values.push(`%${search}%`);const index=values.length;conditions.push(`(COALESCE(external_booking_id,'') ILIKE $${index} OR COALESCE(original_booking_id,'') ILIKE $${index} OR name ILIKE $${index} OR phone ILIKE $${index} OR pickup ILIKE $${index} OR destination ILIKE $${index} OR COALESCE(driver_data::text,'') ILIKE $${index} OR COALESCE(vehicle_data::text,'') ILIKE $${index})`)}
-  if(status){values.push(status);conditions.push(`status=$${values.length}`)}
+  if(selectedStatuses.length){const placeholders=selectedStatuses.map(status=>{values.push(status);return '$'+values.length});conditions.push(`status IN (${placeholders.join(',')})`)}
   if(source){values.push(source);conditions.push(`source=$${values.length}`)}
   if(payment){values.push(payment);conditions.push(`payment_type=$${values.length}`)}
   if(period.start&&period.end){values.push(period.start,period.end);conditions.push(`booking_pickup_day(timeline_data,pickup_data) BETWEEN $${values.length-1}::date AND $${values.length}::date`)}
