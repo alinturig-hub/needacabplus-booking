@@ -6,6 +6,7 @@ import type {simulateDispatch} from '@/lib/dispatch-simulation';
 import styles from './dispatch-dashboard.module.css';
 import {BookingStory} from './booking-story';
 import {AnalyticsPanel} from './analytics-panel';
+import {DatabaseAudit} from './database-audit';
 import {isUpcomingPickup} from '@/lib/dispatch-queue';
 
 export type Job={id:string;reference:string;pickup:string;destination:string;status:string;due_at:string|null;vehicle:string|null;updated_at:string;last_event_type:string|null;assigned:boolean};
@@ -71,7 +72,7 @@ export function DispatchDashboardView({data,selected,onSelect,analysis,error='',
     </section>
     <section className={styles.feed}><div className={styles.sectionTitle}><h2>Autocab activity</h2><Radio size={16}/></div><p className={styles.small}>{job?`Receipts linked to #${job.reference}`:'Latest dispatch event receipts'}. Receipt order, not necessarily event order. Repeated deliveries may appear.</p><div className={styles.events}>{events.map(event=><article key={event.id}><span className={styles.eventDot}/><time>{dateTime(event.received_at)} · {clock(event.received_at)}</time><strong>{event.event_type}</strong><p>Booking {event.booking_id||'ID unavailable'}{event.driver_callsign?` · Driver ${event.driver_callsign}`:event.driver_id?` · Driver ID ${event.driver_id}`:''}{event.vehicle_callsign?` · Vehicle ${event.vehicle_callsign}`:event.vehicle_id?` · Vehicle ID ${event.vehicle_id}`:''}</p><small>Received from Autocab</small></article>)}{!events.length&&<p className={styles.empty}>No recorded receipts for this view. History starts with this dashboard release.</p>}</div><div className={styles.track}><CarFront size={18}/><div><strong>Latest track position</strong><p>{dateTime(data?.fleet.last_track||null)}</p></div></div>{job&&<button className={styles.textButton} onClick={()=>onSelect('')}>Show all event receipts <ArrowRight size={14}/></button>}</section>
    </div>
-   <AnalyticsPanel/>
+   <DatabaseAudit/><AnalyticsPanel/>
   </main>
  </div>;
 }

@@ -324,3 +324,30 @@ CREATE TABLE IF NOT EXISTS dispatch_recommendations (
  UNIQUE(booking_id,minute_bucket)
 );
 CREATE INDEX IF NOT EXISTS idx_dispatch_recommendations_booking ON dispatch_recommendations(booking_id,recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS booking_modified_audit (
+ id bigserial PRIMARY KEY, booking_id text NOT NULL, received_at timestamptz NOT NULL DEFAULT now(),
+ previous_status text, resulting_status text, changed_fields text[] NOT NULL
+);
+CREATE OR REPLACE FUNCTION audit_booking_modified() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE changed text[];
+BEGIN
+ IF regexp_replace(lower(COALESCE(NEW.last_event_type,'')),'[^a-z]','','g')='bookingmodified' AND (NEW.raw_payload IS DISTINCT FROM OLD.raw_payload OR NEW.dispatch_requirements IS DISTINCT FROM OLD.dispatch_requirements) THEN
+  SELECT COALESCE(array_agg(key ORDER BY key),ARRAY[]::text[]) INTO changed FROM jsonb_each(to_jsonb(NEW))
+  WHERE key NOT IN ('raw_payload','updated_at','last_event_type') AND value IS DISTINCT FROM to_jsonb(OLD)->key;
+  INSERT INTO booking_modified_audit(booking_id,previous_status,resulting_status,changed_fields)
+  VALUES(NEW.external_booking_id,OLD.status,NEW.status,changed);
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS booking_modified_audit_trigger ON bookings;
+CREATE TRIGGER booking_modified_audit_trigger AFTER UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION audit_booking_modified();
+CREATE TABLE IF NOT EXISTS booking_database_audits (
+ id text PRIMARY KEY, started_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz,
+ status text NOT NULL DEFAULT 'running', total integer NOT NULL DEFAULT 0, error text
+);
+CREATE TABLE IF NOT EXISTS booking_database_audit_items (
+ audit_id text REFERENCES booking_database_audits(id), booking_id uuid, reference text,
+ local_snapshot jsonb NOT NULL, local_version text NOT NULL, checked_at timestamptz,
+ result jsonb, PRIMARY KEY(audit_id,booking_id)
+);

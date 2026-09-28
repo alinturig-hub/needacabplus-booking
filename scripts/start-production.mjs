@@ -13,5 +13,8 @@ try{
 finally{await pool.end()}
 
 const child=spawn(process.execPath,['server.js'],{stdio:'inherit',env:process.env});
-child.on('exit',(code,signal)=>{if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>child.kill(signal));
+// One resumable, versioned audit requested by the operator; never writes to Autocab.
+const audit=spawn(process.execPath,['scripts/audit-bookings.mjs'],{stdio:'inherit',env:process.env});
+audit.on('error',()=>console.error('Booking audit process could not start.'));
+child.on('exit',(code,signal)=>{audit.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{audit.kill(signal);child.kill(signal)});

@@ -78,7 +78,7 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
  const vias=first(key(booking,'vias'),key(booking,'viaPoints'));
  const created=text(first(timeline?.bookedAt,key(booking,'createdAt')))||new Date().toISOString();
 
- await db.query(`INSERT INTO bookings (
+ const saved=await db.query(`INSERT INTO bookings (
    id,user_id,name,phone,pickup,destination,via_points,pickup_note,vehicle,fare_pence,status,created_at,
    external_booking_id,original_booking_id,booking_type,source,payment_type,priority,street_pickup,customer_email,passengers,luggage,
    pickup_data,destination_data,vias_data,driver_data,vehicle_data,pricing_data,timeline_data,notes_data,raw_payload,last_event_type,updated_at
@@ -86,12 +86,12 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
   ON CONFLICT (external_booking_id) WHERE external_booking_id IS NOT NULL DO UPDATE SET
    name=COALESCE($31,bookings.name),phone=COALESCE($32,bookings.phone),pickup=COALESCE($33,bookings.pickup),destination=COALESCE($34,bookings.destination),
    via_points=COALESCE($35::jsonb,bookings.via_points),pickup_note=COALESCE($36,bookings.pickup_note),fare_pence=CASE WHEN $37::integer>0 THEN $37 ELSE bookings.fare_pence END,
-   status=CASE WHEN bookings.status IN ('Completed','Cancelled','No Fare') AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status ELSE $9 END,original_booking_id=COALESCE($12,bookings.original_booking_id),booking_type=COALESCE($13,bookings.booking_type),source=COALESCE($14,bookings.source),payment_type=COALESCE($15,bookings.payment_type),
+   status=CASE WHEN regexp_replace(lower($30),'[^a-z]','','g')='bookingmodified' THEN bookings.status WHEN bookings.status IN ('Completed','Cancelled','No Fare') AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status ELSE $9 END,original_booking_id=COALESCE($12,bookings.original_booking_id),booking_type=COALESCE($13,bookings.booking_type),source=COALESCE($14,bookings.source),payment_type=COALESCE($15,bookings.payment_type),
    priority=COALESCE($16,bookings.priority),street_pickup=COALESCE($17,bookings.street_pickup),customer_email=COALESCE($18,bookings.customer_email),passengers=COALESCE($19,bookings.passengers),luggage=COALESCE($20,bookings.luggage),
    pickup_data=COALESCE(bookings.pickup_data,'{}'::jsonb)||COALESCE($21::jsonb,'{}'::jsonb),destination_data=COALESCE(bookings.destination_data,'{}'::jsonb)||COALESCE($22::jsonb,'{}'::jsonb),
    vias_data=COALESCE($23::jsonb,bookings.vias_data),driver_data=COALESCE(bookings.driver_data,'{}'::jsonb)||COALESCE($24::jsonb,'{}'::jsonb),vehicle_data=COALESCE(bookings.vehicle_data,'{}'::jsonb)||COALESCE($25::jsonb,'{}'::jsonb),
    pricing_data=COALESCE(bookings.pricing_data,'{}'::jsonb)||COALESCE($26::jsonb,'{}'::jsonb),timeline_data=COALESCE(bookings.timeline_data,'{}'::jsonb)||COALESCE($27::jsonb,'{}'::jsonb),notes_data=COALESCE(bookings.notes_data,'{}'::jsonb)||COALESCE($28::jsonb,'{}'::jsonb),
-   raw_payload=$29::jsonb,last_event_type=$30,updated_at=now()`,[
+   raw_payload=$29::jsonb,last_event_type=$30,updated_at=now() RETURNING status`,[
    randomUUID(),name||'Unknown passenger',phone||'Not supplied',pickup?.address||'Address pending',destination?.address||'Address pending',JSON.stringify(Array.isArray(vias)?vias:[]),text(notes?.driverNote)||'',farePence,status,created,
    externalId,text(first(key(booking,'originalBookingId'),key(booking,'originalId'))),text(first(key(booking,'typeOfBooking'),key(booking,'bookingType'),key(booking,'type'))),source,payment,number(key(booking,'priority')),boolean(first(key(booking,'streetPickup'),key(booking,'isStreetPickup'))),email,number(key(booking,'passengers')),number(key(booking,'luggage')),
    pickup?JSON.stringify(pickup):null,destination?JSON.stringify(destination):null,Array.isArray(vias)?JSON.stringify(vias):null,driver?JSON.stringify(driver):null,vehicle?JSON.stringify(vehicle):null,pricing?JSON.stringify(pricing):null,timeline?JSON.stringify(timeline):null,notes?JSON.stringify(notes):null,JSON.stringify(payload),eventType,
@@ -99,5 +99,5 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
   ]);
  const requirements=bookingRequirements(payload);
  if(Object.keys(requirements).length)await db.query("UPDATE bookings SET dispatch_requirements=COALESCE(dispatch_requirements,'{}'::jsonb)||$2::jsonb WHERE external_booking_id=$1",[externalId,JSON.stringify(requirements)]);
- return {saved:true,externalBookingId:externalId,status};
+ return {saved:true,externalBookingId:externalId,status:saved.rows[0]?.status||status};
 }
