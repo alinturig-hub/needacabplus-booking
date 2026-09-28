@@ -43,3 +43,13 @@ test('configured account, capabilities and Priority delay carry through quote an
  const cash=buildAutocabQuoteRequest({pickup:place(1),destination:place(4),vias:[],vehicle:'saloon',scheduledAt:'2026-09-28T10:00:00Z'},[],now,{...rules,paymentMethod:'cash'});
  assert.equal('customerId' in cash,false);assert.equal(cash.pickupDueTimeUtc,'2026-09-28T10:00:00Z');
 });
+
+test('configured account ID and common capabilities reach quote and booking; account labels stay local',async()=>{
+ const {bookingPolicySchema}=await import('../lib/booking-policy.ts');
+ const rules=bookingPolicySchema.parse({accountName:'Web Booker Card',accountCustomerId:2155,bookingCapabilities:[4,9],priorityCapabilities:[5]});
+ const request=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},[4,5],now,rules);
+ assert.equal(request.customerId,2155);assert.deepEqual(request.capabilities,[4,9,5]);assert.equal('accountName' in request,false);
+ const body=buildAutocabBookingRequest({...quote(),autocabRequest:request,bookingRules:rules},passenger,now);
+ assert.equal(body.customerId,2155);assert.deepEqual(body.capabilities,[4,9,5]);assert.equal('accountName' in body,false);
+ const cash=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},[],now,{...rules,paymentMethod:'cash',cashAccountCustomerId:222});assert.equal(cash.customerId,222);
+});
