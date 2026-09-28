@@ -6,6 +6,7 @@ import type {simulateDispatch} from '@/lib/dispatch-simulation';
 import styles from './dispatch-dashboard.module.css';
 import {BookingStory} from './booking-story';
 import {AnalyticsPanel} from './analytics-panel';
+import {isUpcomingPickup} from '@/lib/dispatch-queue';
 
 export type Job={id:string;reference:string;pickup:string;destination:string;status:string;due_at:string|null;vehicle:string|null;updated_at:string;last_event_type:string|null;assigned:boolean};
 export type LiveData={jobs:Job[];events:{id:string;event_type:string;booking_id:string|null;vehicle_id:string|null;driver_id:string|null;driver_callsign?:string|null;vehicle_callsign?:string|null;received_at:string}[];fleet:{clear:number;last_track:string|null};activeTotal:number;serverTime:string};
@@ -38,7 +39,8 @@ export function DispatchDashboardView({data,selected,onSelect,analysis,error='',
  const [filter,setFilter]=useState('');
  const job=data?.jobs.find(item=>item.id===selected),stale=!data||now-Date.parse(data.serverTime)>15000||Boolean(error);
  const jobs=data?.jobs.filter(item=>`${item.reference} ${item.pickup} ${item.status}`.toLowerCase().includes(filter.toLowerCase()))||[];
- const nextJob=data?.jobs.filter(waiting).filter(item=>item.due_at&&Number.isFinite(Date.parse(item.due_at))).sort((a,b)=>Date.parse(a.due_at!)-Date.parse(b.due_at!))[0];
+ const overdue=data?.jobs.filter(waiting).filter(item=>item.due_at&&Number.isFinite(Date.parse(item.due_at))&&!isUpcomingPickup(item.due_at,now||Date.parse(data.serverTime))).sort((a,b)=>Date.parse(a.due_at!)-Date.parse(b.due_at!))||[];
+ const nextJob=data?.jobs.filter(waiting).filter(item=>isUpcomingPickup(item.due_at,now||Date.parse(data.serverTime))).sort((a,b)=>Date.parse(a.due_at!)-Date.parse(b.due_at!))[0];
  const events=data?.events.filter(event=>!job||event.booking_id===job.reference)||[];
  const plan=analysis?.result;
  const remaining=plan?.dispatchAt===null||plan?.dispatchAt===undefined?null:Math.ceil((plan.dispatchAt-now)/1000);
@@ -49,7 +51,8 @@ export function DispatchDashboardView({data,selected,onSelect,analysis,error='',
    <div className={styles.banner}><ShieldCheck size={20}/><div><strong>Simulation mode — automatic sending is off</strong><span>Recommendations are calculated by dispatch rules. Autocab events show external activity; this dashboard does not send or reserve a job.</span></div><Link href="/admin/configuration"><Settings2 size={16}/>Dispatch settings</Link></div>
    {error&&<p className={styles.warning} role="alert">{error} Previously loaded data may be out of date.</p>}
    <div className={styles.stats}><Stat icon={<Activity/>} label="Active bookings" value={data?.activeTotal}/><Stat icon={<Clock3/>} label="Awaiting · displayed list" value={data?.jobs.filter(waiting).length}/><Stat icon={<CarFront/>} label="Fresh CLEAR tracks · all fleet" value={data?.fleet.clear}/><Stat icon={<Radio/>} label="Accepted · displayed list" value={data?.jobs.filter(item=>item.status==='Driver Accepted').length}/></div>
-   {nextJob&&<button className={styles.nextJob} onClick={()=>onSelect(nextJob.id)}><div><small>NEXT AWAITING JOB · DISPLAYED QUEUE</small><strong>Booking #{nextJob.reference}</strong><span>{nextJob.pickup}</span></div><div><strong>{dateTime(nextJob.due_at)}</strong><span>Awaiting driver offer · view journey →</span></div></button>}
+   {overdue.length>0&&<div className={styles.warning}><strong>{overdue.length} overdue booking(s) need status verification</strong><p>These remain in the queue while their status is checked against Autocab. They are not shown as the next upcoming pickup.</p><button className={styles.textButton} onClick={()=>onSelect(overdue[0].id)}>Review oldest overdue booking →</button></div>}
+   {nextJob&&<button className={styles.nextJob} onClick={()=>onSelect(nextJob.id)}><div><small>NEXT UPCOMING PICKUP · DISPLAYED QUEUE</small><strong>Booking #{nextJob.reference}</strong><span>{nextJob.pickup}</span></div><div><strong>{dateTime(nextJob.due_at)}</strong><span>Awaiting driver offer · view journey →</span></div></button>}
    <div className={styles.workspace}>
     <section className={styles.queue}><div className={styles.sectionTitle}><h2>Job queue</h2><span>{data?.jobs.length||0} / {data?.activeTotal||0}</span></div><p className={styles.small}>Latest 100 active records. Updated by received booking events.</p><input aria-label="Search jobs" placeholder="Find booking, pickup or status…" value={filter} onChange={e=>setFilter(e.target.value)}/><div className={styles.jobList}>{jobs.map(item=><button key={item.id} className={`${styles.job} ${selected===item.id?styles.selected:''}`} onClick={()=>onSelect(item.id)}><div><strong>#{item.reference}</strong><span>{item.status}</span></div><p>{item.pickup}</p><small><Clock3 size={12}/>{dateTime(item.due_at)}{item.vehicle?` · Car ${item.vehicle}`:''}</small></button>)}{!jobs.length&&<p className={styles.empty}>{data?'No matching active jobs.':'Loading bookings…'}</p>}</div></section>
     <section className={styles.detail} aria-label="Booking analysis"><div className={styles.sectionTitle}><h2>{job?`Booking #${job.reference}`:'Select a booking'}</h2><span>{planning?'Calculating…':'Recommendation'}</span></div>

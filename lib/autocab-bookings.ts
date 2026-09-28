@@ -86,7 +86,7 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
   ON CONFLICT (external_booking_id) WHERE external_booking_id IS NOT NULL DO UPDATE SET
    name=COALESCE($31,bookings.name),phone=COALESCE($32,bookings.phone),pickup=COALESCE($33,bookings.pickup),destination=COALESCE($34,bookings.destination),
    via_points=COALESCE($35::jsonb,bookings.via_points),pickup_note=COALESCE($36,bookings.pickup_note),fare_pence=CASE WHEN $37::integer>0 THEN $37 ELSE bookings.fare_pence END,
-   status=$9,original_booking_id=COALESCE($12,bookings.original_booking_id),booking_type=COALESCE($13,bookings.booking_type),source=COALESCE($14,bookings.source),payment_type=COALESCE($15,bookings.payment_type),
+   status=CASE WHEN bookings.status IN ('Completed','Cancelled','No Fare') AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status ELSE $9 END,original_booking_id=COALESCE($12,bookings.original_booking_id),booking_type=COALESCE($13,bookings.booking_type),source=COALESCE($14,bookings.source),payment_type=COALESCE($15,bookings.payment_type),
    priority=COALESCE($16,bookings.priority),street_pickup=COALESCE($17,bookings.street_pickup),customer_email=COALESCE($18,bookings.customer_email),passengers=COALESCE($19,bookings.passengers),luggage=COALESCE($20,bookings.luggage),
    pickup_data=COALESCE(bookings.pickup_data,'{}'::jsonb)||COALESCE($21::jsonb,'{}'::jsonb),destination_data=COALESCE(bookings.destination_data,'{}'::jsonb)||COALESCE($22::jsonb,'{}'::jsonb),
    vias_data=COALESCE($23::jsonb,bookings.vias_data),driver_data=COALESCE(bookings.driver_data,'{}'::jsonb)||COALESCE($24::jsonb,'{}'::jsonb),vehicle_data=COALESCE(bookings.vehicle_data,'{}'::jsonb)||COALESCE($25::jsonb,'{}'::jsonb),

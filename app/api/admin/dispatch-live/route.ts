@@ -1,10 +1,12 @@
 import {database} from '@/lib/database';
 import {isAdmin,unavailable} from '@/lib/security';
+import {reconcileOverdueBookings} from '@/lib/dispatch-reconciliation';
 export const dynamic='force-dynamic';
 export async function GET(){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403,headers:{'X-Dispatch-Version':'callsign-details-v2','Cache-Control':'no-store'}});
+ if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403,headers:{'X-Dispatch-Version':'queue-reconcile-v3','Cache-Control':'no-store'}});
  try{
   const db=database();
+  await reconcileOverdueBookings();
   const [jobs,events,fleet,totals]=await Promise.all([
    db.query(`SELECT id,external_booking_id AS reference,pickup,destination,status,COALESCE(timeline_data->>'scheduledAt',pickup_data->>'dueTime') AS due_at,COALESCE(vehicle_data->>'callsign',vehicle_data->>'id',vehicle_data->>'vehicleId') AS vehicle,updated_at,last_event_type,
     COALESCE(driver_data->>'id',driver_data->>'driverId','')<>'' OR COALESCE(vehicle_data->>'id',vehicle_data->>'vehicleId','')<>'' AS assigned
