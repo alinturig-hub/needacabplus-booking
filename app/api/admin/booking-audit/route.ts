@@ -2,7 +2,7 @@ import {database} from '@/lib/database';
 import {isAdmin,unavailable} from '@/lib/security';
 export const dynamic='force-dynamic';
 export async function GET(){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403,headers:{'X-Booking-Audit-Version':'audit-original-id-v4'}});
+ if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403,headers:{'X-Booking-Audit-Version':'audit-timing-v5'}});
  try{
   const db=database();
   const runs=await db.query('SELECT * FROM booking_database_audits ORDER BY started_at DESC LIMIT 1');

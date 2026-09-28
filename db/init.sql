@@ -352,3 +352,5 @@ CREATE TABLE IF NOT EXISTS booking_database_audit_items (
  result jsonb, PRIMARY KEY(audit_id,booking_id)
 );
 ALTER TABLE booking_database_audits ADD COLUMN IF NOT EXISTS heartbeat_at timestamptz;
+
+ALTER TABLE booking_database_audits ADD COLUMN IF NOT EXISTS time_diagnostics jsonb;

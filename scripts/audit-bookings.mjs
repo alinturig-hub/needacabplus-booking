@@ -3,6 +3,7 @@ import {createHash,createDecipheriv} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {compareBooking} from './compare-booking.mjs';
 import {readAuditBooking} from './audit-reference.mjs';
+import {timeEvidence} from './audit-time-evidence.mjs';
 const auditId='booking-modified-review-2026-09-28-v1';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('sslmode=require')?{rejectUnauthorized:false}:undefined,max:2,connectionTimeoutMillis:10000,query_timeout:15000,statement_timeout:12000});
 const db=await pool.connect();
@@ -25,9 +26,10 @@ try{
    FROM bookings b WHERE i.audit_id=$1 AND b.id=i.booking_id AND i.result->>'error'='HTTP_404'
    AND b.original_booking_id ~ '^[1-9][0-9]*$' AND b.original_booking_id<>i.reference
    AND (i.result->>'originalReferenceAttempted') IS DISTINCT FROM b.original_booking_id`,[auditId]);
-  if(retryLegacy.rowCount||retryOriginal.rowCount)await db.query("UPDATE booking_database_audits SET finished_at=NULL,status='running' WHERE id=$1",[auditId]);
+  const retryTimeout=await db.query("UPDATE booking_database_audit_items SET checked_at=NULL,result=result||jsonb_build_object('timeoutRetryAttempted',true) WHERE audit_id=$1 AND result->>'error'='TIMEOUT' AND NOT(result ? 'timeoutRetryAttempted')",[auditId]);
+  if(retryLegacy.rowCount||retryOriginal.rowCount||retryTimeout.rowCount)await db.query("UPDATE booking_database_audits SET finished_at=NULL,status='running' WHERE id=$1",[auditId]);
   const run=(await db.query('SELECT * FROM booking_database_audits WHERE id=$1',[auditId])).rows[0];
-  if(!run.finished_at){
+  if(!run.finished_at||!run.time_diagnostics){
    const conn=(await db.query("SELECT c.* FROM api_connections c JOIN api_endpoints e ON e.connection_id=c.id WHERE c.provider='autocab' AND e.action_key='booking.create' AND e.enabled=true ORDER BY e.created_at DESC LIMIT 1")).rows[0];
    if(!conn||new URL(conn.base_url).hostname!=='autocab-api.azure-api.net'||new URL(conn.base_url).protocol!=='https:')throw new Error('Direct Autocab booking connection unavailable');
    const secret=process.env.CREDENTIALS_ENCRYPTION_KEY||process.env.ADMIN_SESSION_SECRET;
@@ -54,12 +56,27 @@ try{
       const current=(await db.query('SELECT updated_at::text AS version FROM bookings WHERE id=$1',[row.booking_id])).rows[0];
       result.localChangedSinceSnapshot=current?.version!==row.local_version;
      }catch(error){if(error.message.startsWith('STOP_HTTP_'))throw error;result={error:/^(HTTP_\d+|TIMEOUT|NETWORK_ERROR|INVALID_JSON|INVALID_PAYLOAD|RETRIES_EXHAUSTED|REFERENCE_MISMATCH)$/.test(error.message)?error.message:'LOCAL_COMPARISON_ERROR',originalReferenceAttempted:error.originalReferenceAttempted,differences:[],unverified:['all']}}
+     if(row.result?.timeoutRetryAttempted)result.timeoutRetryAttempted=true;
      await db.query('UPDATE booking_database_audit_items SET result=$3::jsonb,checked_at=now() WHERE audit_id=$1 AND booking_id=$2',[auditId,row.booking_id,JSON.stringify(result)]);
      done++;if(done%25===0)console.log(`Booking database audit: ${done} checked in this process; snapshot total ${run.total}.`);
      await delay(400);
     }
    }
-   await db.query("UPDATE booking_database_audits SET status='finished',finished_at=now() WHERE id=$1",[auditId]);
+   if(!run.time_diagnostics){
+    const samples=await db.query(`SELECT i.*,b.original_booking_id,b.timeline_data AS current_timeline,b.updated_at::text AS current_version
+     FROM booking_database_audit_items i JOIN bookings b ON b.id=i.booking_id
+     WHERE i.audit_id=$1 AND i.result->'differences' ? 'pickupTime' ORDER BY i.reference LIMIT 8`,[auditId]);
+    const evidence=[];
+    for(const row of samples.rows){
+     try{
+      const {remote,lookupReference}=await readAuditBooking(row.reference,row.original_booking_id,headers);
+      evidence.push({reference:row.reference,lookupReference,snapshot:timeEvidence(row.local_snapshot,remote),current:timeEvidence({timeline_data:row.current_timeline},remote),changedSinceSnapshot:row.current_version!==row.local_version});
+     }catch(error){if(error.message.startsWith('STOP_HTTP_'))throw error;evidence.push({reference:row.reference,error:'Sample unavailable'})}
+     await delay(400);
+    }
+    await db.query('UPDATE booking_database_audits SET time_diagnostics=$2::jsonb WHERE id=$1',[auditId,JSON.stringify({checkedAt:new Date().toISOString(),samples:evidence})]);
+   }
+   await db.query("UPDATE booking_database_audits SET status='finished',finished_at=now(),heartbeat_at=now() WHERE id=$1",[auditId]);
    const summary=(await db.query("SELECT count(*) AS checked,count(*) FILTER(WHERE result ? 'error') AS errors,count(*) FILTER(WHERE jsonb_array_length(result->'differences')>0) AS mismatches FROM booking_database_audit_items WHERE audit_id=$1",[auditId])).rows[0];
    console.log('Booking database audit finished:',JSON.stringify(summary));
   }

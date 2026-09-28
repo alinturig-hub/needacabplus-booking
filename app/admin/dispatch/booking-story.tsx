@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import type {Receipt} from '@/lib/dispatch-analytics';
 import styles from './dispatch-dashboard.module.css';
 export type Story={currentAssignment?:{driverId:string|null;vehicleId:string|null;driver:string|null;vehicle:string|null;checkedAt:string;source:string}|null;bookingId:string;partial:boolean;metrics:{offers:number;matchedResponses:number;offerToAcceptSeconds:number|null;acceptToArrivalSeconds:number|null;receiptTimed:boolean};events:(Receipt&{title:string})[];recommendations:{vehicle_id:string|null;details:{state:string;dispatchAt:number|null;candidates:{label:string}[]};recorded_at:string}[]};
-export const duration=(seconds:number|null)=>seconds===null?'Not measured':`${Math.floor(Math.round(seconds)/60)}m ${Math.round(seconds)%60}s`;
+export const duration=(seconds:number|null)=>seconds===null||!Number.isFinite(seconds)||seconds<=0?'Not measured':seconds<1?'Less than 1s':`${Math.floor(Math.round(seconds)/60)}m ${Math.round(seconds)%60}s`;
 const at=(value:string)=>new Date(value).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Europe/London'});
 export function BookingStory({reference}:{reference:string}){
  const [story,setStory]=useState<Story|null>(null),[error,setError]=useState('');

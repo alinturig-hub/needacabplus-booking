@@ -31,7 +31,7 @@ test('missing offers and unidentifiable drivers never invent durations',()=>{
 });
 test('source timestamps order delayed deliveries; empty history stays empty',()=>{
  const delayed={...journey[1],received_at:new Date(base+1200*1000).toISOString(),source_at:journey[1].received_at};
- assert.equal(bookingMetrics([journey[0],delayed,...journey.slice(2)]).attempts[0].responseSeconds,120);
+ assert.equal(bookingMetrics([{...journey[0],source_at:journey[0].received_at},delayed,...journey.slice(2)]).attempts[0].responseSeconds,120);
  assert.equal(aggregateDispatch([]).meanDispatchSeconds,null);
 });
 test('receipt deduplication is stable across property order and contact keys are private',()=>{
@@ -42,4 +42,16 @@ test('receipt deduplication is stable across property order and contact keys are
  assert.equal(customerProfileKey('07700900123',undefined),null);
  assert.equal(sourceTimestamp({pickupDueTime:'2030-01-01T14:00:00Z'}),null);
  assert.equal(sourceTimestamp({timestamp:'2030-01-01T14:00:00Z'}),'2030-01-01T14:00:00.000Z');
+});
+
+test('equal timestamps retain acceptance but do not claim an instant dispatch',()=>{
+ const rows=[event(1,'offered','62',0),event(2,'accepted','62',0)];
+ const metrics=bookingMetrics(rows);assert.equal(metrics.attempts[0].response.kind,'accepted');
+ assert.equal(metrics.offerToAcceptSeconds,null);assert.equal(metrics.attempts[0].responseSeconds,null);
+ const stats=aggregateDispatch(rows);assert.equal(stats.measuredBookings,0);assert.equal(stats.meanDispatchSeconds,null);assert.equal(stats.timingQuality.unusableResponseTimes,1);assert.equal(stats.drivers[0].accepted,1);
+});
+test('delivery and event clocks are not subtracted, positive subsecond times remain valid',()=>{
+ const offer=event(1,'offered','62',0),accepted=event(2,'accepted','62',10);
+ assert.equal(bookingMetrics([{...offer,source_at:offer.received_at},accepted]).offerToAcceptSeconds,null);
+ assert.equal(bookingMetrics([offer,event(2,'accepted','62',0.125)]).offerToAcceptSeconds,0.125);
 });
