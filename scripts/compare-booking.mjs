@@ -1,3 +1,4 @@
+import {autocabTime} from '../lib/autocab-time.mjs';
 const field=(object,name)=>Object.entries(object||{}).find(([key])=>key.toLowerCase()===name.toLowerCase())?.[1];
 const id=object=>field(object,'id')??field(object,'driverId')??field(object,'vehicleId');
 const caps=value=>Array.isArray(value)?[...new Set(value.map(x=>String(typeof x==='object'?field(x,'id'):x)))].sort():null;
@@ -7,7 +8,9 @@ export function compareBooking(local,remote){
  const reason=remote?.archivedBooking?.reason?.toLowerCase().replace(/[^a-z]/g,'');
  const status=({completed:'Completed',cancelled:'Cancelled',nofare:'No Fare'})[reason];
  check('terminalStatus',local.status,status);
- check('pickupTime',local.timeline_data?.scheduledAt?Date.parse(local.timeline_data.scheduledAt):null,remote.pickupDueTime?Date.parse(remote.pickupDueTime):null);
+ const localTime=autocabTime(local.timeline_data?.scheduledAt),remoteTime=autocabTime(remote.pickupDueTimeUtc||remote.pickupDueTime);
+ if(!Number.isFinite(localTime)||!Number.isFinite(remoteTime))unverified.push('pickupTime');
+ else if(Math.abs(localTime-remoteTime)>=1000)differences.push('pickupTime');
  check('driver',id(local.driver_data)?.toString(),id(remote.driver)?.toString());
  check('vehicle',id(local.vehicle_data)?.toString(),id(remote.vehicle)?.toString());
  check('price',local.fare_pence,typeof remote.pricing?.price==='number'?Math.round(remote.pricing.price*100):null);

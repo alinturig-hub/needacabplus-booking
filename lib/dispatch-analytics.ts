@@ -1,16 +1,19 @@
 export type Receipt={id:string;kind:string|null;event_type:string;booking_id:string|null;vehicle_id:string|null;driver_id:string|null;driver_callsign?:string|null;vehicle_callsign?:string|null;customer_key?:string|null;source_at?:string|null;received_at:string;dedup_key?:string|null};
 export function receiptTime(row:Receipt){return Date.parse(row.source_at||row.received_at)}
 // Event clocks and delivery clocks cannot be mixed into a journey duration.
-export function elapsedSeconds(start:Receipt,end:Receipt){
- if(Boolean(start.source_at)!==Boolean(end.source_at))return null;
- const seconds=(receiptTime(end)-receiptTime(start))/1000;
- return Number.isFinite(seconds)&&seconds>0?seconds:null;
+export function elapsedMeasurement(start:Receipt,end:Receipt){
+ const source=Boolean(start.source_at&&end.source_at);
+ const seconds=(Date.parse(source?end.source_at!:end.received_at)-Date.parse(source?start.source_at!:start.received_at))/1000;
+ return Number.isFinite(seconds)&&seconds>0?{seconds,basis:source?'event':'delivery'}:null;
 }
+export function elapsedSeconds(start:Receipt,end:Receipt){return elapsedMeasurement(start,end)?.seconds??null}
 export function receiptActor(row:Receipt){return row.driver_callsign?`Driver ${row.driver_callsign}`:row.driver_id?`Driver ID ${row.driver_id}`:row.vehicle_callsign?`Vehicle ${row.vehicle_callsign}`:row.vehicle_id?`Vehicle ID ${row.vehicle_id}`:'Driver not identified'}
 export function receiptText(row:Receipt){const actor=receiptActor(row);const names:Record<string,string>={created:'Booking received — awaiting dispatch',offered:`Job offered to ${actor}`,rejected:`${actor} rejected the job`,accepted:`${actor} accepted — awaiting arrival`,recovered:'Job recovered — available for another offer',arrived:`${actor} arrived at pickup`,onboard:'Passenger on board',completed:'Journey completed',cancelled:'Booking cancelled',late:'Running late reported',no_fare:'No fare reported'};return names[row.kind||'']||row.event_type}
 export function bookingMetrics(input:Receipt[]){
  const seen=new Set<string>();
- const rows=input.filter(row=>{if(row.dedup_key){if(seen.has(row.dedup_key))return false;seen.add(row.dedup_key)}return Number.isFinite(receiptTime(row))}).sort((a,b)=>receiptTime(a)-receiptTime(b)||Number(a.id)-Number(b.id));
+ const allSource=input.every(row=>row.source_at&&Number.isFinite(Date.parse(row.source_at)));
+ const orderTime=(row:Receipt)=>Date.parse(allSource?row.source_at!:row.received_at);
+ const rows=input.filter(row=>{if(row.dedup_key){if(seen.has(row.dedup_key))return false;seen.add(row.dedup_key)}return Number.isFinite(receiptTime(row))}).sort((a,b)=>orderTime(a)-orderTime(b)||Number(a.id)-Number(b.id));
  const attempts:{offer:Receipt;response:Receipt|null;responseSeconds:number|null}[]=[];
  let firstAccepted:Receipt|undefined;
  for(const row of rows){
@@ -20,14 +23,14 @@ export function bookingMetrics(input:Receipt[]){
    attempts.push({offer:row,response:null,responseSeconds:null});
   }
   if(row.kind==='accepted'||row.kind==='rejected'){
-   const attempt=[...attempts].reverse().find(item=>!item.response&&receiptTime(item.offer)<=receiptTime(row)&&((row.driver_id&&item.offer.driver_id===row.driver_id)||(!row.driver_id&&row.vehicle_id&&item.offer.vehicle_id===row.vehicle_id)));
+   const attempt=[...attempts].reverse().find(item=>!item.response&&orderTime(item.offer)<=orderTime(row)&&((row.driver_id&&item.offer.driver_id===row.driver_id)||(!row.driver_id&&row.vehicle_id&&item.offer.vehicle_id===row.vehicle_id)));
    if(attempt){attempt.response=row;attempt.responseSeconds=elapsedSeconds(attempt.offer,row);if(row.kind==='accepted'&&!firstAccepted)firstAccepted=row}
   }
  }
  const firstOffer=attempts[0]?.offer;
  const arrivals=rows.filter(row=>row.kind==='arrived');
  const acceptance=rows.find(row=>row.kind==='accepted');
- const arrival=arrivals.find(row=>acceptance&&receiptTime(row)>=receiptTime(acceptance)&&((acceptance.driver_id&&row.driver_id===acceptance.driver_id)||(!acceptance.driver_id&&acceptance.vehicle_id&&row.vehicle_id===acceptance.vehicle_id)));
+ const arrival=arrivals.find(row=>acceptance&&orderTime(row)>=orderTime(acceptance)&&((acceptance.driver_id&&row.driver_id===acceptance.driver_id)||(!acceptance.driver_id&&acceptance.vehicle_id&&row.vehicle_id===acceptance.vehicle_id)));
  return {rows,attempts,offerToAcceptSeconds:firstOffer&&firstAccepted?elapsedSeconds(firstOffer,firstAccepted):null,acceptToArrivalSeconds:acceptance&&arrival?elapsedSeconds(acceptance,arrival):null,receiptTimed:rows.some(row=>!row.source_at)};
 }
 export function aggregateDispatch(rows:Receipt[]){
@@ -41,7 +44,7 @@ export function aggregateDispatch(rows:Receipt[]){
   const metrics=bookingMetrics(events);const elapsed=metrics.offerToAcceptSeconds;if(elapsed!==null)dispatchSeconds.push(elapsed);
   const day=new Date(receiptTime(metrics.rows[0])).toLocaleDateString('en-CA',{timeZone:'Europe/London'});const trend=days.get(day)||{day,bookings:0,dispatchSeconds:[]};trend.bookings++;if(elapsed!==null)trend.dispatchSeconds.push(elapsed);days.set(day,trend);
   for(const attempt of metrics.attempts){
-   if(attempt.response){matchedResponses++;if(attempt.responseSeconds===null)unusableResponseTimes++;else if(attempt.offer.source_at)sourceTimedResponses++;else receiptTimedResponses++}
+   if(attempt.response){matchedResponses++;if(attempt.responseSeconds===null)unusableResponseTimes++;else if(elapsedMeasurement(attempt.offer,attempt.response)?.basis==='event')sourceTimedResponses++;else receiptTimedResponses++}
    const id=attempt.offer.driver_id;if(!id)continue;const driver=drivers.get(id)||{id,label:receiptActor(attempt.offer),offers:0,accepted:0,rejected:0,responseSeconds:[],bookings:new Set<string>()};driver.offers++;driver.bookings.add(bookingId);if(attempt.response?.kind==='accepted')driver.accepted++;if(attempt.response?.kind==='rejected')driver.rejected++;if(attempt.responseSeconds!==null)driver.responseSeconds.push(attempt.responseSeconds);drivers.set(id,driver)}
   const key=events.find(row=>row.customer_key)?.customer_key;if(key){const profile=customers.get(key)||{id:key,bookings:new Set<string>(),completed:new Set<string>(),cancelled:new Set<string>(),dispatchSeconds:[]};profile.bookings.add(bookingId);if(events.some(row=>row.kind==='completed'))profile.completed.add(bookingId);if(events.some(row=>row.kind==='cancelled'))profile.cancelled.add(bookingId);if(elapsed!==null)profile.dispatchSeconds.push(elapsed);customers.set(key,profile)}
  }

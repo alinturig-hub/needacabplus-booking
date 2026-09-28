@@ -4,7 +4,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {compareBooking} from './compare-booking.mjs';
 import {readAuditBooking} from './audit-reference.mjs';
 import {timeEvidence} from './audit-time-evidence.mjs';
-const auditId='booking-modified-review-2026-09-28-v1';
+const auditId='booking-london-time-review-2026-09-28-v2';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('sslmode=require')?{rejectUnauthorized:false}:undefined,max:2,connectionTimeoutMillis:10000,query_timeout:15000,statement_timeout:12000});
 const db=await pool.connect();
 let heartbeat;

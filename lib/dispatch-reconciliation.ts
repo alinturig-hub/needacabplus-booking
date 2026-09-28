@@ -1,3 +1,4 @@
+import {autocabTime} from '@/lib/autocab-time.mjs';
 import {database} from '@/lib/database';
 import {readBookingDetails} from '@/lib/autocab-api';
 import {archivedBookingStatus} from './dispatch-queue';
@@ -12,7 +13,7 @@ export async function reconcileOverdueBookings(){
  running=(async()=>{
   const db=database();
   const rows=await db.query("SELECT id,external_booking_id,updated_at::text AS version,COALESCE(timeline_data->>'scheduledAt',pickup_data->>'dueTime') AS due_at FROM bookings WHERE external_booking_id IS NOT NULL AND status NOT IN ('Completed','Cancelled','No Fare') AND COALESCE(pricing_data->>'testBooking','false')<>'true' ORDER BY updated_at ASC LIMIT 100");
-  const stale=rows.rows.filter(row=>Number.isFinite(Date.parse(row.due_at))&&Date.parse(row.due_at)<Date.now()).sort((a,b)=>(checked.get(a.id)||0)-(checked.get(b.id)||0)).slice(0,3);
+  const stale=rows.rows.filter(row=>Number.isFinite(autocabTime(row.due_at))&&autocabTime(row.due_at)<Date.now()).sort((a,b)=>(checked.get(a.id)||0)-(checked.get(b.id)||0)).slice(0,3);
   await Promise.all(stale.map(async row=>{
    checked.set(row.id,Date.now());
    try{

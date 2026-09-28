@@ -1,3 +1,4 @@
+import {autocabTime,autocabIso} from '@/lib/autocab-time.mjs';
 import {capabilityIds,matchDispatchRequirements} from '@/lib/dispatch-capabilities';
 import {bookingRequirements} from '@/lib/booking-requirements';
 import {readBookingDetails} from '@/lib/autocab-api';
@@ -17,7 +18,7 @@ export async function GET(){
    db.query(`SELECT id,external_booking_id,pickup,timeline_data->>'scheduledAt' AS scheduled_at,pickup_data->>'dueTime' AS due_time FROM bookings WHERE ${eligible} ORDER BY updated_at DESC LIMIT 100`),
    db.query(`SELECT event_type,event_url_suffix,received_count,last_received_at,w.enabled AND p.enabled AS enabled FROM provider_webhooks w JOIN webhook_providers p ON p.id=w.provider_id WHERE event_url_suffix IN ('/booking_dispatch','/booking_accepted','/booking_rejected')`)
   ]);
-  return Response.json({bookings:bookings.rows,webhooks:events.rows.map(row=>({...row,kind:dispatchEventKind(row.event_type)})),roadTimesConfigured:Boolean(process.env.DISPATCH_OSRM_URL),simulationOnly:true},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({bookings:bookings.rows.map(row=>({...row,scheduled_at:autocabIso(row.scheduled_at),due_time:autocabIso(row.due_time)})),webhooks:events.rows.map(row=>({...row,kind:dispatchEventKind(row.event_type)})),roadTimesConfigured:Boolean(process.env.DISPATCH_OSRM_URL),simulationOnly:true},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
 }
 export async function POST(request:Request){
@@ -28,7 +29,7 @@ export async function POST(request:Request){
   const [bookings,settings]=await Promise.all([db.query(`SELECT * FROM bookings WHERE id=$1 AND ${eligible}`,[id]),db.query("SELECT settings FROM operations_settings WHERE id='dispatch'")]);
   const booking=bookings.rows[0];if(!booking)return Response.json({error:'This booking is no longer awaiting dispatch. Refresh the list.'},{status:409});
   const rules={...simulationDefaults,...settings.rows[0]?.settings?.simulation};
-  const due=Date.parse(booking.timeline_data?.scheduledAt||booking.pickup_data?.dueTime||'');
+  const due=autocabTime(booking.timeline_data?.scheduledAt||booking.pickup_data?.dueTime||'');
   const pickup=booking.pickup_data;
   if(!pickup||!validPoint(pickup)||!Number.isFinite(due))return Response.json({error:'This booking needs a valid pickup position and pickup time.'},{status:422});
   const raw=booking.raw_payload;

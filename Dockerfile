@@ -25,6 +25,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-fetch.mjs ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-reference.mjs ./scripts/audit-reference.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-time-evidence.mjs ./scripts/audit-time-evidence.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/db/init.sql ./db/init.sql
+COPY --from=builder --chown=nextjs:nodejs /app/lib/autocab-time.mjs ./lib/autocab-time.mjs
 USER nextjs
 EXPOSE 3000
 CMD ["node","scripts/start-production.mjs"]

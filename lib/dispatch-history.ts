@@ -1,3 +1,4 @@
+import {autocabIso} from './autocab-time.mjs';
 import {createHash,createHmac} from 'node:crypto';
 const object=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
 export function operationKind(event:string){
@@ -19,8 +20,7 @@ export function sourceTimestamp(payload:unknown,eventType=''){
  const fields:Record<string,string>={offered:'dispatchedAtTime',arrived:'vehicleArrivedAtTime',onboard:'pickedUpAtTime'};
  const timeField=fields[operationKind(eventType)||''];
  if(!value&&timeField){for(const r of [detail,root]){value=get(object(get(r,'dispatchedBooking')),timeField)??get(r,timeField);if(value)break}}
- if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(value)||!Number.isFinite(Date.parse(value)))return null;
- return new Date(value).toISOString();
+ return autocabIso(value);
 }
 export function customerProfileKey(phone:unknown,secret:string|undefined){
  if(!secret||typeof phone!=='string')return null;

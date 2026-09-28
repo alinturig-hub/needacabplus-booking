@@ -1,3 +1,4 @@
+import {autocabIso} from '@/lib/autocab-time.mjs';
 import {database} from '@/lib/database';
 import {isAdmin,unavailable} from '@/lib/security';
 import {reconcileOverdueBookings} from '@/lib/dispatch-reconciliation';
@@ -16,6 +17,6 @@ export async function GET(){
     SELECT count(*) FILTER(WHERE lower(trim(vehicle_status))='clear' AND recorded_at>=now()-interval '2 minutes' AND recorded_at<=now()+interval '30 seconds')::int AS clear, max(recorded_at) FILTER(WHERE recorded_at<=now()+interval '30 seconds') AS last_track FROM latest`),
    db.query(`SELECT count(*)::int AS active FROM bookings WHERE external_booking_id IS NOT NULL AND COALESCE(pricing_data->>'testBooking','false')<>'true' AND status NOT IN ('Completed','Cancelled','No Fare')`)
   ]);
-  return Response.json({jobs:jobs.rows,events:events.rows,fleet:fleet.rows[0],activeTotal:totals.rows[0]?.active||0,serverTime:new Date().toISOString(),simulationOnly:true},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({jobs:jobs.rows.map(row=>({...row,due_at:autocabIso(row.due_at)})),events:events.rows,fleet:fleet.rows[0],activeTotal:totals.rows[0]?.active||0,serverTime:new Date().toISOString(),simulationOnly:true},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
 }

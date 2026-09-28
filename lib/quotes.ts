@@ -1,3 +1,4 @@
+import {autocabTime} from '@/lib/autocab-time.mjs';
 import {buildAutocabQuoteRequest} from './autocab-quote-request';
 import {publicFareQuote} from './quote-presentation';
 import {readAutocabCosts} from './autocab-booking-request';
@@ -19,7 +20,7 @@ export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuoteP
  const [cars,result,fresh]=await Promise.all([publicClearVehicles(),database().query("SELECT pickup_data,timeline_data FROM bookings WHERE source<>'WebApp' AND status IN ('Booked','Created','Modified','Running Late') AND COALESCE(driver_data->>'id',driver_data->>'driverId','')=''"),database().query('SELECT max(recorded_at) AS latest FROM driver_positions')]);
  if(!fresh.rows[0]?.latest||Date.now()-new Date(fresh.rows[0].latest).getTime()>120000)return {waiting:null,clear:null,mode:'manual-fallback'};
  const now=Date.now(),window=policy.demandWindowMinutes*60000;
- const waiting=result.rows.filter(row=>{const due=Date.parse(row.timeline_data?.scheduledAt||row.pickup_data?.dueTime||'');return Number.isFinite(due)&&due>=now-window&&due<=now+window}).length;
+ const waiting=result.rows.filter(row=>{const due=autocabTime(row.timeline_data?.scheduledAt||row.pickup_data?.dueTime||'');return Number.isFinite(due)&&due>=now-window&&due<=now+window}).length;
  return {waiting,clear:cars.length,mode:'automatic'};
 }
 export async function createQuote(input:z.infer<typeof quoteRequestSchema>){

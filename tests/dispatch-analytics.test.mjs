@@ -31,7 +31,7 @@ test('missing offers and unidentifiable drivers never invent durations',()=>{
 });
 test('source timestamps order delayed deliveries; empty history stays empty',()=>{
  const delayed={...journey[1],received_at:new Date(base+1200*1000).toISOString(),source_at:journey[1].received_at};
- assert.equal(bookingMetrics([{...journey[0],source_at:journey[0].received_at},delayed,...journey.slice(2)]).attempts[0].responseSeconds,120);
+ assert.equal(bookingMetrics([{...journey[0],source_at:journey[0].received_at},delayed,...journey.slice(2).map(row=>({...row,source_at:row.received_at}))]).attempts[0].responseSeconds,120);
  assert.equal(aggregateDispatch([]).meanDispatchSeconds,null);
 });
 test('receipt deduplication is stable across property order and contact keys are private',()=>{
@@ -52,6 +52,17 @@ test('equal timestamps retain acceptance but do not claim an instant dispatch',(
 });
 test('delivery and event clocks are not subtracted, positive subsecond times remain valid',()=>{
  const offer=event(1,'offered','62',0),accepted=event(2,'accepted','62',10);
- assert.equal(bookingMetrics([{...offer,source_at:offer.received_at},accepted]).offerToAcceptSeconds,null);
+ assert.equal(bookingMetrics([{...offer,source_at:offer.received_at},accepted]).offerToAcceptSeconds,10);
  assert.equal(bookingMetrics([offer,event(2,'accepted','62',0.125)]).offerToAcceptSeconds,0.125);
+});
+
+test('missing source time uses two delivery times, never a hybrid duration',()=>{
+ const offered={...event(1,'offered','62',60),source_at:new Date(base).toISOString()};
+ const accepted=event(2,'accepted','62',90);
+ const result=bookingMetrics([offered,accepted]);assert.equal(result.offerToAcceptSeconds,30);
+ const stats=aggregateDispatch([offered,accepted]);assert.equal(stats.timingQuality.receiptTimedResponses,1);assert.equal(stats.timingQuality.sourceTimedResponses,0);
+});
+test('reversed delivery order without comparable source timestamps stays unmeasured',()=>{
+ const offered={...event(1,'offered','62',60),source_at:new Date(base).toISOString()};
+ assert.equal(bookingMetrics([offered,event(2,'accepted','62',30)]).offerToAcceptSeconds,null);
 });
