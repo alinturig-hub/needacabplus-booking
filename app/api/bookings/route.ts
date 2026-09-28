@@ -62,8 +62,9 @@ export async function GET(request:Request){
   pickup,destination,via_points,pickup_note,pickup_data,destination_data,vias_data,driver_data,vehicle_data,pricing_data,timeline_data,notes_data,
   booking_type,source,payment_type,priority,street_pickup,vehicle,fare_pence,status,last_event_type,raw_payload,created_at,updated_at
   ,booking_pickup_day(timeline_data,pickup_data)::text AS pickup_day FROM bookings ${where} ORDER BY updated_at DESC,created_at DESC LIMIT $${values.length+1} OFFSET $${values.length+2}`,dataValues);
+  const pastPeriod=Boolean(period.end&&period.end<bookingPeriod(new URLSearchParams()).start!);
   const summary=Object.fromEntries(summaryResult.rows.map(row=>[row.status,Number(row.total)]));
-  return Response.json({bookings:result.rows,total,page:safePage,pageSize,summary,livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
+  return Response.json({pastPeriod,bookings:result.rows,total,page:safePage,pageSize,summary,livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
  }catch(error){return unavailable(error)}
 }
 

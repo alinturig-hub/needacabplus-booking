@@ -385,3 +385,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN NULL;
 END;
 $$;
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status_checked_at timestamptz;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status_check_result jsonb;
+CREATE INDEX IF NOT EXISTS idx_booking_status_check ON bookings(status_checked_at) WHERE external_booking_id IS NOT NULL AND status NOT IN ('Completed','Cancelled','No Fare');

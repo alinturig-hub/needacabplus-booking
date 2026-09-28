@@ -26,6 +26,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-reference.mjs ./scr
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-time-evidence.mjs ./scripts/audit-time-evidence.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/db/init.sql ./db/init.sql
 COPY --from=builder --chown=nextjs:nodejs /app/lib/autocab-time.mjs ./lib/autocab-time.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-bookings.mjs ./scripts/reconcile-bookings.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-booking-status.mjs ./scripts/reconcile-booking-status.mjs
 USER nextjs
 EXPOSE 3000
 CMD ["node","scripts/start-production.mjs"]

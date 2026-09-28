@@ -21,5 +21,12 @@ function launchAudit(){
  audit.on('exit',code=>{if(!closing&&code!==0&&retries++<3)retryTimer=setTimeout(launchAudit,60000)});
 }
 launchAudit();
-child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);audit?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);audit?.kill(signal);child.kill(signal)});
+let reconciliation,reconciliationTimer;
+function launchReconciliation(){
+ reconciliation=spawn(process.execPath,['scripts/reconcile-bookings.mjs'],{stdio:'inherit',env:process.env});
+ reconciliation.on('error',()=>console.error('Booking status synchronization could not start.'));
+ reconciliation.on('exit',()=>{if(!closing)reconciliationTimer=setTimeout(launchReconciliation,60000)});
+}
+launchReconciliation();
+child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);audit?.kill();reconciliation.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);audit?.kill(signal);reconciliation.kill(signal);child.kill(signal)});
