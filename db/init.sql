@@ -351,3 +351,4 @@ CREATE TABLE IF NOT EXISTS booking_database_audit_items (
  local_snapshot jsonb NOT NULL, local_version text NOT NULL, checked_at timestamptz,
  result jsonb, PRIMARY KEY(audit_id,booking_id)
 );
+ALTER TABLE booking_database_audits ADD COLUMN IF NOT EXISTS heartbeat_at timestamptz;

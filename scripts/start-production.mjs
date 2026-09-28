@@ -14,7 +14,12 @@ finally{await pool.end()}
 
 const child=spawn(process.execPath,['server.js'],{stdio:'inherit',env:process.env});
 // One resumable, versioned audit requested by the operator; never writes to Autocab.
-const audit=spawn(process.execPath,['scripts/audit-bookings.mjs'],{stdio:'inherit',env:process.env});
-audit.on('error',()=>console.error('Booking audit process could not start.'));
-child.on('exit',(code,signal)=>{audit.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{audit.kill(signal);child.kill(signal)});
+let audit,retryTimer,closing=false,retries=0;
+function launchAudit(){
+ audit=spawn(process.execPath,['scripts/audit-bookings.mjs'],{stdio:'inherit',env:process.env});
+ audit.on('error',()=>console.error('Booking audit process could not start.'));
+ audit.on('exit',code=>{if(!closing&&code!==0&&retries++<3)retryTimer=setTimeout(launchAudit,60000)});
+}
+launchAudit();
+child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);audit?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);audit?.kill(signal);child.kill(signal)});

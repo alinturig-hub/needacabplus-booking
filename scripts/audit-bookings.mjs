@@ -2,12 +2,15 @@ import pg from 'pg';
 import {createHash,createDecipheriv} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {compareBooking} from './compare-booking.mjs';
+import {fetchAuditBooking} from './audit-fetch.mjs';
 const auditId='booking-modified-review-2026-09-28-v1';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('sslmode=require')?{rejectUnauthorized:false}:undefined,max:2});
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('sslmode=require')?{rejectUnauthorized:false}:undefined,max:2,connectionTimeoutMillis:10000,query_timeout:15000,statement_timeout:12000});
 const db=await pool.connect();
+let heartbeat;
 try{
  if(!(await db.query('SELECT pg_try_advisory_lock(9282601) AS locked')).rows[0].locked)process.exitCode=0;
  else{
+  heartbeat=setInterval(()=>{pool.query('UPDATE booking_database_audits SET heartbeat_at=now() WHERE id=$1 AND finished_at IS NULL',[auditId]).catch(()=>{})},10000);
   await db.query('BEGIN');
   const created=await db.query('INSERT INTO booking_database_audits(id) VALUES($1) ON CONFLICT DO NOTHING RETURNING id',[auditId]);
   if(created.rowCount){
@@ -17,6 +20,8 @@ try{
    await db.query('UPDATE booking_database_audits SET total=(SELECT count(*) FROM booking_database_audit_items WHERE audit_id=$1) WHERE id=$1',[auditId]);
   }
   await db.query('COMMIT');
+  const retryLegacy=await db.query("UPDATE booking_database_audit_items SET checked_at=NULL,result=jsonb_build_object('legacyRetry',true) WHERE audit_id=$1 AND result->>'error'='Comparison unavailable'",[auditId]);
+  if(retryLegacy.rowCount)await db.query("UPDATE booking_database_audits SET finished_at=NULL,status='running' WHERE id=$1",[auditId]);
   const run=(await db.query('SELECT * FROM booking_database_audits WHERE id=$1',[auditId])).rows[0];
   if(!run.finished_at){
    const conn=(await db.query("SELECT c.* FROM api_connections c JOIN api_endpoints e ON e.connection_id=c.id WHERE c.provider='autocab' AND e.action_key='booking.create' AND e.enabled=true ORDER BY e.created_at DESC LIMIT 1")).rows[0];
@@ -30,7 +35,7 @@ try{
    if(conn.auth_type==='api_key')headers[conn.api_key_header]=credential.token;
    else if(conn.auth_type==='bearer')headers.Authorization=`Bearer ${credential.token}`;
    else throw new Error('Audit requires API key or bearer authentication');
-   await db.query("UPDATE booking_database_audits SET status='running',error=NULL WHERE id=$1",[auditId]);
+   await db.query("UPDATE booking_database_audits SET status='running',error=NULL,heartbeat_at=now() WHERE id=$1",[auditId]);
    let done=0;
    for(;;){
     const batch=await db.query('SELECT * FROM booking_database_audit_items WHERE audit_id=$1 AND checked_at IS NULL ORDER BY booking_id LIMIT 50',[auditId]);
@@ -39,15 +44,11 @@ try{
      let result;
      try{
       if(!/^\d+$/.test(row.reference))throw new Error('Invalid reference');
-      const response=await fetch(`https://autocab-api.azure-api.net/booking/v1/booking/${row.reference}`,{headers,signal:AbortSignal.timeout(15000)});
-      if([401,403,429].includes(response.status))throw new Error(`STOP_HTTP_${response.status}`);
-      if(!response.ok)throw new Error(`HTTP_${response.status}`);
-      const remote=await response.json();
-      if(!remote||typeof remote!=='object'||Array.isArray(remote))throw new Error('Unexpected response');
+      const remote=await fetchAuditBooking(`https://autocab-api.azure-api.net/booking/v1/booking/${row.reference}`,headers);
       result=compareBooking(row.local_snapshot,remote);
       const current=(await db.query('SELECT updated_at::text AS version FROM bookings WHERE id=$1',[row.booking_id])).rows[0];
       result.localChangedSinceSnapshot=current?.version!==row.local_version;
-     }catch(error){if(error.message.startsWith('STOP_HTTP_'))throw error;result={error:'Comparison unavailable',differences:[],unverified:['all']}}
+     }catch(error){if(error.message.startsWith('STOP_HTTP_'))throw error;result={error:/^(HTTP_\d+|TIMEOUT|NETWORK_ERROR|INVALID_JSON|INVALID_PAYLOAD|RETRIES_EXHAUSTED)$/.test(error.message)?error.message:'LOCAL_COMPARISON_ERROR',differences:[],unverified:['all']}}
      await db.query('UPDATE booking_database_audit_items SET result=$3::jsonb,checked_at=now() WHERE audit_id=$1 AND booking_id=$2',[auditId,row.booking_id,JSON.stringify(result)]);
      done++;if(done%25===0)console.log(`Booking database audit: ${done} checked in this process; snapshot total ${run.total}.`);
      await delay(400);
@@ -62,4 +63,4 @@ try{
  await db.query('ROLLBACK').catch(()=>{});
  await db.query("UPDATE booking_database_audits SET status='blocked',error=$2 WHERE id=$1",[auditId,error.message.startsWith('STOP_HTTP_')?error.message:'Audit could not continue; check connection configuration']).catch(()=>{});
  console.error('Booking database audit paused. See booking_database_audits.');process.exitCode=1;
-}finally{db.release();await pool.end()}
+}finally{clearInterval(heartbeat);db.release();await pool.end()}
