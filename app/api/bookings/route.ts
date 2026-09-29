@@ -61,10 +61,13 @@ export async function GET(request:Request){
   const db=database();
   if(exporting){const rows=await db.query(`SELECT external_booking_id,name,phone,status,pickup,destination,source,payment_type,booking_pickup_day(timeline_data,pickup_data)::text AS pickup_day FROM bookings ${where} ORDER BY updated_at DESC,id`,values);return new Response(bookingCsv(rows.rows),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="need-a-cab-bookings.csv"','Cache-Control':'no-store'}})}
   const needACabPlusOrigin=`(COALESCE(source='WebApp',false) OR COALESCE(COALESCE(notes_data->>'ourReference',raw_payload#>>'{booking,ourReference}',raw_payload#>>'{metadata,ourReference}',raw_payload#>>'{data,booking,ourReference}',raw_payload#>>'{data,metadata,ourReference}',raw_payload#>>'{data,ourReference}',raw_payload->>'ourReference') ~* '^NAC-',false))`;
+  const prebookType=`COALESCE(booking_type,raw_payload#>>'{booking,typeOfBooking}',raw_payload#>>'{booking,bookingType}',raw_payload#>>'{metadata,typeOfBooking}',raw_payload#>>'{metadata,bookingType}',raw_payload#>>'{data,booking,typeOfBooking}',raw_payload#>>'{data,booking,bookingType}',raw_payload->>'typeOfBooking',raw_payload->>'bookingType','')`;
+  const prebookFlag=`lower(COALESCE(raw_payload#>>'{booking,isPreBooking}',raw_payload#>>'{metadata,isPreBooking}',raw_payload#>>'{data,booking,isPreBooking}',raw_payload->>'isPreBooking','false')) IN ('true','1','yes')`;
+  const prebookBooking=`(${prebookType} ~* '(pre.?book|advance|guarantee|scheduled|future)' OR ${prebookFlag})`;
   const [countResult,summaryResult,originResult,sourceResult,paymentResult,statusResult,liveResult]=await Promise.all([
    db.query<{total:string}>(`SELECT COUNT(*)::text AS total FROM bookings ${where}`,values),
    db.query<{status:string;total:string}>(`SELECT status,COUNT(*)::text AS total FROM bookings ${where} GROUP BY status`,values),
-   db.query<{need_a_cab_plus:string;autocab:string}>(`SELECT COUNT(*) FILTER(WHERE ${needACabPlusOrigin})::text AS need_a_cab_plus,COUNT(*) FILTER(WHERE NOT ${needACabPlusOrigin})::text AS autocab FROM bookings ${where}`,values),
+   db.query<{need_a_cab_plus:string;autocab:string;asap:string;prebook:string}>(`SELECT COUNT(*) FILTER(WHERE ${needACabPlusOrigin})::text AS need_a_cab_plus,COUNT(*) FILTER(WHERE NOT ${needACabPlusOrigin})::text AS autocab,COUNT(*) FILTER(WHERE NOT ${prebookBooking})::text AS asap,COUNT(*) FILTER(WHERE ${prebookBooking})::text AS prebook FROM bookings ${where}`,values),
    db.query<{source:string}>('SELECT DISTINCT source FROM bookings WHERE source IS NOT NULL AND source<>\'\' ORDER BY source'),
    db.query<{payment_type:string}>('SELECT DISTINCT payment_type FROM bookings WHERE payment_type IS NOT NULL AND payment_type<>\'\' ORDER BY payment_type'),
    db.query<{status:string}>('SELECT DISTINCT status FROM bookings ORDER BY status'),
@@ -79,7 +82,7 @@ export async function GET(request:Request){
   const pastPeriod=Boolean(period.end&&period.end<bookingPeriod(new URLSearchParams()).start!);
   const summary=Object.fromEntries(summaryResult.rows.map(row=>[row.status,Number(row.total)]));
   const origin=originResult.rows[0];
-  return Response.json({pastPeriod,bookings:result.rows,total,page:safePage,pageSize,summary,originSummary:{autocab:Number(origin?.autocab||0),needACabPlus:Number(origin?.need_a_cab_plus||0)},livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
+  return Response.json({pastPeriod,bookings:result.rows,total,page:safePage,pageSize,summary,originSummary:{autocab:Number(origin?.autocab||0),needACabPlus:Number(origin?.need_a_cab_plus||0)},timingSummary:{asap:Number(origin?.asap||0),prebook:Number(origin?.prebook||0)},livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
  }catch(error){return unavailable(error)}
 }
 
