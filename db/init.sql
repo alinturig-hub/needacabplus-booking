@@ -389,3 +389,10 @@ $$;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status_checked_at timestamptz;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status_check_result jsonb;
 CREATE INDEX IF NOT EXISTS idx_booking_status_check ON bookings(status_checked_at) WHERE external_booking_id IS NOT NULL AND status NOT IN ('Completed','Cancelled','No Fare');
+
+CREATE TABLE IF NOT EXISTS web_booking_attempts (
+ quote_id uuid PRIMARY KEY,user_id text NOT NULL,state text NOT NULL CHECK(state IN ('sending','unknown','confirmed','rejected')),
+ request_body jsonb NOT NULL,external_booking_id text,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_web_booking_attempt_user ON web_booking_attempts(user_id,state);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_web_booking_attempt_unresolved ON web_booking_attempts(user_id) WHERE state IN ('sending','unknown');

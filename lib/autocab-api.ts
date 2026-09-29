@@ -6,7 +6,7 @@ type JsonRecord=Record<string,unknown>;
 type EndpointRow={base_url:string;auth_type:'none'|'api_key'|'bearer'|'basic';api_key_header:string;credentials_encrypted:string;method:string;path:string;request_example:unknown};
 
 export class AutocabConfigurationError extends Error{}
-export class AutocabApiError extends Error{}
+export class AutocabApiError extends Error{constructor(message:string,public status?:number){super(message)}}
 
 function record(value:unknown):JsonRecord{return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonRecord:{}}
 function field(source:JsonRecord,...names:string[]){for(const name of names){const match=Object.entries(source).find(([key])=>key.toLowerCase()===name.toLowerCase());if(match&&match[1]!==null&&match[1]!==undefined&&match[1]!=='')return match[1]}return undefined}
@@ -50,13 +50,14 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(options?.exactBody?options.body:options?.body?{...record(endpoint.request_example),...options.body}:endpoint.request_example||{})}
  try{
   const response=await fetch(url,init);
-  if(!response.ok)throw new AutocabApiError(`Autocab returned HTTP ${response.status} for ${actionKey}. Check the endpoint path and API permissions.`);
+  if(!response.ok)throw new AutocabApiError(`Autocab returned HTTP ${response.status} for ${actionKey}. Check the endpoint path and API permissions.`,response.status);
   const contentType=response.headers.get('content-type')||'';
   if(!contentType.includes('json'))throw new AutocabApiError(`Autocab returned a non-JSON response for ${actionKey}.`);
   return await response.json() as unknown;
  }finally{clearTimeout(timer)}
 }
 
+export async function createCashBooking(body:JsonRecord){if(body.hold!==false||!String(body.ourReference||'').startsWith('NAC-'))throw new AutocabConfigurationError('Invalid live cash booking.');return call('booking.create',{body,exactBody:true})}
 export async function bookingQuote(body:JsonRecord){return call('booking.quote',{body,exactBody:true})}
 // Uses the configured booking operator's credentials; never creates or dispatches a job.
 export async function readBookingDetails(bookingId:string){return call('booking.create',{readBookingId:bookingId})}

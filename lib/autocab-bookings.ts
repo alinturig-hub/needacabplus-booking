@@ -100,5 +100,10 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
   ]);
  const requirements=bookingRequirements(payload);
  if(Object.keys(requirements).length)await db.query("UPDATE bookings SET dispatch_requirements=COALESCE(dispatch_requirements,'{}'::jsonb)||$2::jsonb WHERE external_booking_id=$1",[externalId,JSON.stringify(requirements)]);
+ // Match our persisted creation reference or the returned Autocab ID, including delayed webhooks.
+ const ourReference=text(first(key(booking,'ourReference'),key(root,'ourReference')));
+ const quoteId=ourReference?.match(/^NAC-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1]||null;
+ const linked=await db.query("UPDATE web_booking_attempts SET state='confirmed',external_booking_id=$1,updated_at=now() WHERE external_booking_id=$1 OR (quote_id=$2::uuid AND (external_booking_id IS NULL OR external_booking_id=$1)) RETURNING user_id",[externalId,quoteId]);
+ if(linked.rows[0])await db.query('UPDATE bookings SET user_id=$2 WHERE external_booking_id=$1',[externalId,linked.rows[0].user_id]);
  return {saved:true,externalBookingId:externalId,status:saved.rows[0]?.status||status};
 }

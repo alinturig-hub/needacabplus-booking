@@ -45,3 +45,8 @@ export function bookingCreateUrl(baseUrl:string,path:string,method:string){
  // No automatic override of Autocab warnings, including a value saved in configuration.
  url.search='';return url;
 }
+
+export function buildLiveCashBookingRequest(quote:FareQuote,details:z.infer<typeof passengerDetailsSchema>,now=new Date()){
+ if(quote.paymentMethod!=='cash'||!quote.liveBooking)throw new Error('A live cash quote is required.');
+ return {...buildAutocabBookingRequest(quote,details,now),hold:false,officeNote:'WebApp cash booking. Customer pays the driver.'};
+}

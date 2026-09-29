@@ -1,0 +1,13 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+function load(path,deps={}){const m={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>deps[id]||require(id),m,m.exports);return m.exports;}
+const {bookingPolicySchema}=load('lib/booking-policy.ts'),payments=load('lib/booking-payments.ts');
+const id='00000000-0000-4000-8000-000000000001';
+const input={id,quoteToken:'signed-test-quote',name:'Passenger',phone:'+447000000000',pickup:'Public Station',destination:'Public Library',viaPoints:[],pickupNote:'',vehicle:'saloon',acknowledged:true};
+function setup(settings,quote){let submitted=0;const route=load('app/api/bookings/route.ts',{
+ '@/lib/booking-live-summary':{},'@/lib/booking-period':{},'@/lib/customer-auth':{getCustomer:async()=>({id:'customer',email:'test@example.invalid'})},'@/lib/database':{database:()=>({query:async()=>({rows:[]})})},'@/lib/security':{sameOrigin:()=>true,unavailable:e=>{throw e}},'@/lib/quotes':{verifyQuote:()=>quote,loadQuotePolicy:async()=>({enabled:true,minPrebookMinutes:30})},'@/lib/quote-policy':{validateSchedule:()=>{}},'@/lib/app-configuration':{loadBookingPolicy:async()=>bookingPolicySchema.parse(settings)},'@/lib/booking-payments':payments,'@/lib/autocab-booking-request':{buildLiveCashBookingRequest:()=>({})},'@/lib/autocab-api':{createCashBooking:()=>{}},'@/lib/live-cash-booking':{readLiveAttempt:async()=>null,submitLiveCashBooking:async()=>{submitted++;return {id,pending:false,externalBookingId:'123'}}}
+ });return {post:()=>route.POST(new Request('https://example.test/api/bookings',{method:'POST',body:JSON.stringify(input)})),sent:()=>submitted};}
+test('confirmation enforces latest switches, never sends disabled cash or unpaid live card',async()=>{
+ const quote={id,vehicle:'saloon',pickup:input.pickup,destination:input.destination,vias:[],service:'priority',scheduledAt:null,paymentMethod:'cash',liveBooking:true};
+ for(const [settings,change] of [[{cashEnabled:false,liveBookingsEnabled:true},{}],[{liveBookingsEnabled:false},{}],[{liveBookingsEnabled:true},{paymentMethod:'card'}]]){const r=setup(settings,{...quote,...change});assert.equal((await r.post()).status,409);assert.equal(r.sent(),0)}
+ const allowed=setup({cashEnabled:true,cardEnabled:false,liveBookingsEnabled:true},quote);assert.equal((await allowed.post()).status,201);assert.equal(allowed.sent(),1);
+});
