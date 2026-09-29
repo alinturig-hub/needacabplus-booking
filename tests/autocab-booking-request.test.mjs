@@ -35,7 +35,7 @@ test('booking transport validates the documented path and never overrides warnin
 });
 
 test('configured account, capabilities and Priority delay carry through quote and booking',()=>{
- const rules={companyId:1,accountCustomerId:2155,cashAccountCustomerId:null,paymentMethod:'card',priorityDelayMinutes:7};
+ const rules={bookingCapabilities:[4,9,9],companyId:1,accountCustomerId:2155,cashAccountCustomerId:null,paymentMethod:'card',priorityDelayMinutes:7};
  const request=buildAutocabQuoteRequest({pickup:place(1),destination:place(4),vias:[],vehicle:'saloon',scheduledAt:null},[4,9,9],now,rules);
  assert.equal(request.customerId,2155);assert.deepEqual(request.capabilities,[4,9]);assert.equal(request.pickupDueTimeUtc,'2026-09-27T14:07:00.000Z');
  const body=buildAutocabBookingRequest({...quote(),autocabRequest:request,bookingRules:rules,paymentMethod:'card'},passenger,now);
@@ -48,16 +48,16 @@ test('configured account ID and common capabilities reach quote and booking; acc
  const {bookingPolicySchema}=await import('../lib/booking-policy.ts');
  const rules=bookingPolicySchema.parse({accountName:'Web Booker Card',accountCustomerId:2155,bookingCapabilities:[4,9],priorityCapabilities:[5]});
  const request=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},[4,5],now,rules);
- assert.equal(request.customerId,2155);assert.deepEqual(request.capabilities,[4,9,5]);assert.equal('accountName' in request,false);
+ assert.equal(request.customerId,2155);assert.deepEqual(request.capabilities,[4,9]);assert.equal('accountName' in request,false);
  const body=buildAutocabBookingRequest({...quote(),autocabRequest:request,bookingRules:rules},passenger,now);
- assert.equal(body.customerId,2155);assert.deepEqual(body.capabilities,[4,9,5]);assert.equal('accountName' in body,false);
+ assert.equal(body.customerId,2155);assert.deepEqual(body.capabilities,[4,9]);assert.equal('accountName' in body,false);
  const cash=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},[],now,{...rules,paymentMethod:'cash',cashAccountCustomerId:222});assert.equal(cash.customerId,222);
 });
 
-test('legacy Priority and Guarantee capabilities are discarded from saved settings',async()=>{
+test('legacy service and vehicle category capabilities are discarded from saved settings',async()=>{
  const {bookingPolicySchema}=await import('../lib/booking-policy.ts');
- const rules=bookingPolicySchema.parse({bookingCapabilities:[9],saloonCapabilities:[4],priorityCapabilities:[777],guaranteeCapabilities:[888]});
- assert.equal('priorityCapabilities' in rules,false);assert.equal('guaranteeCapabilities' in rules,false);
- const body=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},rules.saloonCapabilities,now,rules);
- assert.deepEqual(body.capabilities,[9,4]);
+ const rules=bookingPolicySchema.parse({bookingCapabilities:[9],saloonCapabilities:[4],estateCapabilities:[6],xlCapabilities:[8],priorityCapabilities:[777],guaranteeCapabilities:[888]});
+ assert.equal('saloonCapabilities' in rules,false);assert.equal('estateCapabilities' in rules,false);assert.equal('xlCapabilities' in rules,false);assert.equal('priorityCapabilities' in rules,false);assert.equal('guaranteeCapabilities' in rules,false);
+ const body=buildAutocabQuoteRequest({pickup:place(1),destination:place(2),vias:[],vehicle:'saloon',scheduledAt:null},[],now,rules);
+ assert.deepEqual(body.capabilities,[9]);
 });

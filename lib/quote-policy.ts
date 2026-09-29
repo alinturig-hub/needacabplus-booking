@@ -1,7 +1,7 @@
 import {z} from 'zod';
 export class QuoteError extends Error{}
 
-export const quotePolicySchema=z.object({
+export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return value;const settings={...value} as Record<string,unknown>;delete settings.saloonCapabilities;delete settings.estateCapabilities;delete settings.xlCapabilities;return settings},z.object({
  enabled:z.boolean().default(true),minPrebookMinutes:z.number().int().min(1).max(10080).default(30),
  priorityUpliftMode:z.enum(['percentage','fixed']).default('percentage'),guaranteeUpliftMode:z.enum(['percentage','fixed']).default('percentage'),
  priorityFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),guaranteeFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),
@@ -12,9 +12,7 @@ export const quotePolicySchema=z.object({
  demandWindowMinutes:z.number().int().min(1).max(120).default(15),quoteValiditySeconds:z.number().int().min(60).max(600).default(180),
  pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('outward.price'),
  priceUnit:z.enum(['gbp','pence']).default('gbp'),
- saloonCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),
- estateCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),xlCapabilities:z.array(z.number().int().nonnegative()).max(20).default([]),
-}).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'});
+}).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'}));
 export type QuotePolicy=z.infer<typeof quotePolicySchema>;
 export const defaultQuotePolicy=quotePolicySchema.parse({});
 export type Service='priority'|'guarantee';
