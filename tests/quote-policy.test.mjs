@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultQuotePolicy as defaults,quotePolicySchema,priorityPercent,fareAdjustment,fareBreakdown,validateSchedule,readFare} from '../lib/quote-policy.ts';
+import {defaultQuotePolicy as defaults,quotePolicySchema,dynamicScheduleActive,priorityPercent,fareAdjustment,fareBreakdown,validateSchedule,readFare} from '../lib/quote-policy.ts';
 test('Priority uplift uses integer pence and predictable half-penny rounding',()=>{
  assert.deepEqual(fareBreakdown(1090,15),{basePence:1090,upliftPence:164,totalPence:1254});
  assert.equal(fareBreakdown(670,10).totalPence,737);
@@ -8,15 +8,22 @@ test('Priority uplift uses integer pence and predictable half-penny rounding',()
  assert.equal(fareBreakdown(1000,defaults.guaranteePercent).totalPence,1200);
  assert.equal(fareBreakdown(670,0).totalPence,670);
 });
-test('automatic demand thresholds, empty supply and stale fallback',()=>{
- const p={...defaults,demandMode:'automatic',manualDemand:'medium'};
- assert.equal(priorityPercent(p,1,2).percent,10);
- assert.equal(priorityPercent(p,2,2).percent,15);
- assert.equal(priorityPercent(p,4,2).percent,20);
- assert.equal(priorityPercent(p,1,0).percent,20);
- assert.equal(priorityPercent(p,0,0).percent,10);
- assert.equal(priorityPercent(p,null,null).percent,15);
- assert.equal(priorityPercent({...p,demandMode:'manual'},100,1).percent,15);
+test('dynamic pricing activates only when bookings exceed CLEAR cars',()=>{
+ const p={...defaults,dynamicPricingEnabled:true,lowPercent:10,demandPercent:25};
+ assert.deepEqual(priorityPercent(p,1,2),{level:'base',percent:10});
+ assert.deepEqual(priorityPercent(p,2,2),{level:'base',percent:10});
+ assert.deepEqual(priorityPercent(p,3,2),{level:'demand',percent:25});
+ assert.deepEqual(priorityPercent(p,1,0),{level:'demand',percent:25});
+ assert.deepEqual(priorityPercent(p,0,0),{level:'base',percent:10});
+ assert.deepEqual(priorityPercent(p,null,null),{level:'base',percent:10});
+ assert.deepEqual(priorityPercent({...p,dynamicPricingEnabled:false},100,1),{level:'base',percent:10});
+});
+test('dynamic pricing schedule uses UK days and supports overnight windows',()=>{
+ const weekday={...defaults,dynamicPricingEnabled:true,dynamicScheduleEnabled:true,dynamicDays:[1],dynamicStartTime:'17:00',dynamicEndTime:'23:00'};
+ assert.equal(dynamicScheduleActive(weekday,new Date('2026-09-28T18:00:00Z')),true);
+ assert.equal(dynamicScheduleActive(weekday,new Date('2026-09-28T10:00:00Z')),false);
+ assert.equal(dynamicScheduleActive({...weekday,dynamicStartTime:'22:00',dynamicEndTime:'04:00'},new Date('2026-09-28T23:00:00Z')),true);
+ assert.equal(dynamicScheduleActive({...weekday,dynamicStartTime:'22:00',dynamicEndTime:'04:00'},new Date('2026-09-29T02:00:00Z')),true);
 });
 test('prebook exact boundary, ASAP restriction and invalid dates',()=>{
  const now=Date.parse('2026-09-27T10:00:00Z');
@@ -40,6 +47,7 @@ test('settings reject reversed thresholds, negative notice and unordered surchar
  assert.equal(quotePolicySchema.safeParse({...defaults,highRatio:.5}).success,false);
  assert.equal(quotePolicySchema.safeParse({...defaults,minPrebookMinutes:0}).success,false);
  assert.equal(quotePolicySchema.safeParse({...defaults,highPercent:101}).success,false);
+ assert.equal(quotePolicySchema.safeParse({...defaults,lowPercent:25,demandPercent:20}).success,false);
 });
 
 test('fixed addition is exclusive and defaults to zero',()=>{
@@ -54,7 +62,7 @@ test('fixed addition is exclusive and defaults to zero',()=>{
 
 test('service modes ignore inactive amounts and do not combine charges',()=>{
  const p={...defaults,priorityFixedAmount:1.5,guaranteeFixedAmount:2};
- assert.deepEqual(fareAdjustment(p,'priority',4,1),{percent:20,fixedPence:0,demand:'high'});
+ assert.deepEqual(fareAdjustment({...p,dynamicPricingEnabled:true,demandPercent:20},'priority',4,1),{percent:20,fixedPence:0,demand:'demand'});
  assert.deepEqual(fareAdjustment({...p,priorityUpliftMode:'fixed'},'priority',4,1),{percent:0,fixedPence:150,demand:'fixed'});
  assert.deepEqual(fareAdjustment(p,'guarantee',null,null),{percent:20,fixedPence:0,demand:'prebook'});
  assert.deepEqual(fareAdjustment({...p,guaranteeUpliftMode:'fixed'},'guarantee',null,null),{percent:0,fixedPence:200,demand:'fixed'});

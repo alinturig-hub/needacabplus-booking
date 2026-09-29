@@ -1,18 +1,21 @@
 import {z} from 'zod';
 export class QuoteError extends Error{}
 
-export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return value;const settings={...value} as Record<string,unknown>;delete settings.saloonCapabilities;delete settings.estateCapabilities;delete settings.xlCapabilities;return settings},z.object({
+export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return value;const settings={...value} as Record<string,unknown>;delete settings.saloonCapabilities;delete settings.estateCapabilities;delete settings.xlCapabilities;if(settings.demandPercent===undefined&&typeof settings.highPercent==='number')settings.demandPercent=settings.highPercent;return settings},z.object({
  enabled:z.boolean().default(true),minPrebookMinutes:z.number().int().min(1).max(10080).default(30),
  priorityUpliftMode:z.enum(['percentage','fixed']).default('percentage'),guaranteeUpliftMode:z.enum(['percentage','fixed']).default('percentage'),
  priorityFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),guaranteeFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),
  guaranteePercent:z.number().min(0).max(100).default(20),
+ dynamicPricingEnabled:z.boolean().default(false),demandPercent:z.number().min(0).max(100).default(20),
+ dynamicScheduleEnabled:z.boolean().default(false),dynamicDays:z.array(z.number().int().min(0).max(6)).min(1).max(7).default([0,1,2,3,4,5,6]),
+ dynamicStartTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('00:00'),dynamicEndTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('23:59'),
  demandMode:z.enum(['manual','automatic']).default('automatic'),manualDemand:z.enum(['low','medium','high']).default('low'),
  lowPercent:z.number().min(0).max(100).default(10),mediumPercent:z.number().min(0).max(100).default(15),highPercent:z.number().min(0).max(100).default(20),
  mediumRatio:z.number().positive().max(100).default(1),highRatio:z.number().positive().max(100).default(2),
  demandWindowMinutes:z.number().int().min(1).max(120).default(15),quoteValiditySeconds:z.number().int().min(60).max(600).default(180),
  pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('outward.price'),
  priceUnit:z.enum(['gbp','pence']).default('gbp'),
-}).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'}));
+}).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'}).refine(v=>v.demandPercent>=v.lowPercent,{message:'Demand percentage must be at least the base Priority percentage.'}));
 export type QuotePolicy=z.infer<typeof quotePolicySchema>;
 export const defaultQuotePolicy=quotePolicySchema.parse({});
 export type Service='priority'|'guarantee';
@@ -22,10 +25,18 @@ export function validateSchedule(service:Service,scheduledAt:string|null,minimum
  if(!Number.isFinite(when)||when<now+minimum*60000)throw new QuoteError(`Prebook at least ${minimum} minutes in advance.`);
  if(when>now+366*86400000)throw new QuoteError('Choose a date within the next year.');
 }
-export function priorityPercent(policy:QuotePolicy,waiting:number|null,clear:number|null){
- let level=policy.manualDemand;
- if(policy.demandMode==='automatic'&&waiting!==null&&clear!==null){const ratio=clear===0?(waiting>0?Infinity:0):waiting/clear;level=ratio>=policy.highRatio?'high':ratio>=policy.mediumRatio?'medium':'low'}
- return {level,percent:policy[`${level}Percent`]};
+export function dynamicScheduleActive(policy:QuotePolicy,now=new Date()){
+ if(!policy.dynamicPricingEnabled)return false;
+ if(!policy.dynamicScheduleEnabled)return true;
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(part=>[part.type,part.value]));
+ const day=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(parts.weekday),minutes=Number(parts.hour)*60+Number(parts.minute),toMinutes=(value:string)=>{const [hour,minute]=value.split(':').map(Number);return hour*60+minute},start=toMinutes(policy.dynamicStartTime),end=toMinutes(policy.dynamicEndTime);
+ if(start<=end)return policy.dynamicDays.includes(day)&&minutes>=start&&minutes<=end;
+ return minutes>=start?policy.dynamicDays.includes(day):minutes<=end&&policy.dynamicDays.includes((day+6)%7);
+}
+export function priorityPercent(policy:QuotePolicy,waiting:number|null,clear:number|null,now=new Date()){
+ if(!dynamicScheduleActive(policy,now))return {level:'base',percent:policy.lowPercent};
+ if(waiting!==null&&clear!==null&&waiting>clear)return {level:'demand',percent:policy.demandPercent};
+ return {level:'base',percent:policy.lowPercent};
 }
 export function fareAdjustment(policy:QuotePolicy,service:Service,waiting:number|null,clear:number|null){
  const mode=service==='priority'?policy.priorityUpliftMode:policy.guaranteeUpliftMode;

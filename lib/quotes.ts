@@ -12,15 +12,16 @@ import {z} from 'zod';
 import {database} from './database';
 import {bookingQuote} from './autocab-api';
 import {publicClearVehicles} from './live-drivers';
-import {QuoteError,quotePolicySchema,fareAdjustment,readFare,fareBreakdown,validateSchedule,type Service} from './quote-policy';
+import {QuoteError,quotePolicySchema,dynamicScheduleActive,fareAdjustment,readFare,fareBreakdown,validateSchedule,type Service} from './quote-policy';
 
 const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
 export const quoteRequestSchema=z.object({pickup:address,destination:address,vias:z.array(address).max(3),vehicle:z.enum(['saloon','estate','xl']),service:z.enum(['priority','guarantee']),paymentMethod:z.enum(['cash','card']).optional(),scheduledAt:z.string().datetime().nullable()}).strict();
 export type FareQuote={id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;fixedPence?:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';liveBooking?:boolean;bookingRules?:BookingPolicy;paymentMethod?:'card'|'cash';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number}};
 export async function loadQuotePolicy(){const result=await database().query("SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");const rules=await loadBookingPolicy();return quotePolicySchema.parse({...result.rows[0]?.policy,minPrebookMinutes:rules.minPrebookMinutes})}
 export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuotePolicy>>){
- if(policy.demandMode==='manual')return {waiting:null,clear:null,mode:'manual'};
- const [cars,result,fresh]=await Promise.all([publicClearVehicles(),database().query("SELECT pickup_data,timeline_data FROM bookings WHERE source<>'WebApp' AND status IN ('Booked','Created','Modified','Running Late') AND COALESCE(driver_data->>'id',driver_data->>'driverId','')=''"),database().query('SELECT max(recorded_at) AS latest FROM driver_positions')]);
+ if(!policy.dynamicPricingEnabled)return {waiting:null,clear:null,mode:'disabled'};
+ if(!dynamicScheduleActive(policy))return {waiting:null,clear:null,mode:'scheduled-off'};
+ const [cars,result,fresh]=await Promise.all([publicClearVehicles(),database().query("SELECT pickup_data,timeline_data FROM bookings WHERE status IN ('Booked','Created','Modified','Running Late') AND COALESCE(driver_data->>'id',driver_data->>'driverId','')=''"),database().query('SELECT max(recorded_at) AS latest FROM driver_positions')]);
  if(!fresh.rows[0]?.latest||Date.now()-new Date(fresh.rows[0].latest).getTime()>120000)return {waiting:null,clear:null,mode:'manual-fallback'};
  const now=Date.now(),window=policy.demandWindowMinutes*60000;
  const waiting=result.rows.filter(row=>{const due=autocabTime(row.timeline_data?.scheduledAt||row.pickup_data?.dueTime||'');return Number.isFinite(due)&&due>=now-window&&due<=now+window}).length;
@@ -35,7 +36,7 @@ export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
  const bookingRules={...savedRules,paymentMethod};
  const autocabRequest=buildAutocabQuoteRequest(input,bookingRules.bookingCapabilities,new Date(),bookingRules);
  const response=await bookingQuote(autocabRequest);
- const basePence=readFare(response,policy.pricePath,policy.priceUnit),snapshot=input.service==='priority'&&policy.priorityUpliftMode==='percentage'?await demandSnapshot(policy):{waiting:null,clear:null};
+ const basePence=readFare(response,policy.pricePath,policy.priceUnit),snapshot=input.service==='priority'&&policy.priorityUpliftMode==='percentage'&&policy.dynamicPricingEnabled?await demandSnapshot(policy):{waiting:null,clear:null};
  const {percent,fixedPence,demand}=fareAdjustment(policy,input.service,snapshot.waiting,snapshot.clear);
  validateSchedule(input.service,input.scheduledAt,policy.minPrebookMinutes);
 
