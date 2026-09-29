@@ -25,7 +25,7 @@ function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
  return [];
 }
 
-async function call(actionKey:string,options?:{query?:Record<string,string|number>;body?:JsonRecord;exactBody?:boolean;readBookingId?:string}){
+async function call(actionKey:string,options?:{query?:Record<string,string|number>;body?:JsonRecord;exactBody?:boolean;readBookingId?:string;readCapabilities?:boolean}){
  const result=await database().query<EndpointRow>(`SELECT connection.base_url,connection.auth_type,connection.api_key_header,connection.credentials_encrypted,endpoint.method,endpoint.path,endpoint.request_example
   FROM api_endpoints endpoint JOIN api_connections connection ON connection.id=endpoint.connection_id
   WHERE connection.provider='autocab' AND endpoint.action_key=$1 AND endpoint.enabled=true
@@ -35,6 +35,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  const url=actionKey==='booking.create'?bookingCreateUrl(endpoint.base_url,endpoint.path,endpoint.method):new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
  if(url.protocol!=='https:')throw new AutocabConfigurationError('The Autocab connection must use HTTPS.');
  if(actionKey==='booking.quote'&&(endpoint.method.toUpperCase()!=='POST'||url.pathname.replace(/\/$/,'')!=='/booking/v1/quote'))throw new AutocabConfigurationError('Configure booking.quote as POST /booking/v1/quote.');
+ if(options?.readCapabilities){if(url.hostname!=='autocab-api.azure-api.net')throw new AutocabConfigurationError('Capabilities require a direct Autocab booking connection.');url.pathname='/booking/v1/capabilities';url.search='';}
  if(options?.readBookingId){
   if(!/^\d+$/.test(options.readBookingId)||url.hostname!=='autocab-api.azure-api.net')throw new AutocabConfigurationError('Booking details require a direct Autocab booking connection.');
   url.pathname=`/booking/v1/booking/${options.readBookingId}`;url.search='';
@@ -45,7 +46,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  if(endpoint.auth_type==='api_key')headers.set(endpoint.api_key_header,credentials.token||'');
  if(endpoint.auth_type==='bearer')headers.set('Authorization',`Bearer ${credentials.token||''}`);
  if(endpoint.auth_type==='basic')headers.set('Authorization',`Basic ${Buffer.from(`${credentials.username||''}:${credentials.password||''}`).toString('base64')}`);
- const method=options?.readBookingId?'GET':endpoint.method.toUpperCase(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ const method=options?.readBookingId||options?.readCapabilities?'GET':endpoint.method.toUpperCase(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
  const init:RequestInit={method,headers,signal:controller.signal,cache:'no-store'};
  if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(options?.exactBody?options.body:options?.body?{...record(endpoint.request_example),...options.body}:endpoint.request_example||{})}
  try{
@@ -58,6 +59,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
 }
 
 export async function createCashBooking(body:JsonRecord){if(body.hold!==false||!String(body.ourReference||'').startsWith('NAC-'))throw new AutocabConfigurationError('Invalid live cash booking.');return call('booking.create',{body,exactBody:true})}
+export async function readBookingCapabilities(){return call('booking.create',{readCapabilities:true})}
 export async function bookingQuote(body:JsonRecord){return call('booking.quote',{body,exactBody:true})}
 // Uses the configured booking operator's credentials; never creates or dispatches a job.
 export async function readBookingDetails(bookingId:string){return call('booking.create',{readBookingId:bookingId})}
