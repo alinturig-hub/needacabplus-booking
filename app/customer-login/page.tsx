@@ -1,4 +1,5 @@
 'use client';
+import {oauthMessages} from '@/lib/oauth-errors';
 import Link from 'next/link';
 import {FormEvent,Suspense,useEffect,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
@@ -6,7 +7,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 function CustomerLoginForm(){
  const router=useRouter(),params=useSearchParams();
- const [mode,setMode]=useState<'login'|'register'>('login'),[stage,setStage]=useState<'credentials'|'phone'|'verify'>(params.get('phone')?'phone':params.get('verify')?'verify':'credentials'),[busy,setBusy]=useState(false),[error,setError]=useState(params.get('error')?'Provider sign-in could not be completed. Try again or sign in with email.':''),[message,setMessage]=useState(''),[providers,setProviders]=useState({google:false,apple:false});
+ const [mode,setMode]=useState<'login'|'register'>('login'),[stage,setStage]=useState<'credentials'|'phone'|'verify'>(params.get('phone')?'phone':params.get('verify')?'verify':'credentials'),[busy,setBusy]=useState(false),[error,setError]=useState(params.get('error')?(oauthMessages[params.get('error')!]||oauthMessages.provider):''),[message,setMessage]=useState(''),[providers,setProviders]=useState({google:false,apple:false});
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[fullName,setFullName]=useState(''),[phone,setPhone]=useState(''),[code,setCode]=useState('');
  useEffect(()=>{fetch('/api/customer/auth/options',{cache:'no-store'}).then(r=>r.json() as Promise<{google:boolean;apple:boolean}>).then(setProviders).catch(()=>{})},[]);
  function finish(){const target=params.get('returnTo');router.push(target?.startsWith('/')&&!target.startsWith('//')&&!target.includes('\\')?target:'/');router.refresh()}

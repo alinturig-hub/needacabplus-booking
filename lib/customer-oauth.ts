@@ -1,3 +1,4 @@
+import {OAuthFlowError} from './oauth-errors';
 import {verifyIdentityToken} from './oauth-token';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {createRemoteJWKSet,SignJWT,importPKCS8} from 'jose';
@@ -29,8 +30,8 @@ export async function finishOAuth(provider:'google'|'apple',code:string,state:st
  let clientSecret=secrets.googleClientSecret;
  if(provider==='apple'){const key=await importPKCS8(secrets.applePrivateKey,'ES256');clientSecret=await new SignJWT({}).setProtectedHeader({alg:'ES256',kid:p.appleKeyId}).setIssuer(p.appleTeamId).setAudience('https://appleid.apple.com').setSubject(p.appleClientId).setIssuedAt().setExpirationTime('5m').sign(key)}
  const body=new URLSearchParams({client_id:clientId,client_secret:clientSecret,code,grant_type:'authorization_code',redirect_uri:redirectUri(provider),...(provider==='google'?{code_verifier:saved.verifier}:{})});
- const response=await fetch(provider==='google'?'https://oauth2.googleapis.com/token':'https://appleid.apple.com/auth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(10000),redirect:'error'});if(!response.ok)throw new AuthError('Provider sign-in could not be completed.');const data=await response.json() as {id_token?:unknown};if(typeof data.id_token!=='string')throw new AuthError('Missing identity token.');
- const payload=await verifyIdentityToken(data.id_token,provider,clientId,saved.nonce,provider==='google'?googleKeys:appleKeys);
+ const response=await fetch(provider==='google'?'https://oauth2.googleapis.com/token':'https://appleid.apple.com/auth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(10000),redirect:'error'});if(!response.ok){const rejected=await response.json().catch(()=>({})) as {error?:string};throw new OAuthFlowError(rejected.error==='invalid_client'?'provider_configuration':rejected.error==='invalid_grant'?'provider_code':'provider')};const data=await response.json() as {id_token?:unknown};if(typeof data.id_token!=='string')throw new AuthError('Missing identity token.');
+ const payload=await verifyIdentityToken(data.id_token,provider,clientId,saved.nonce,provider==='google'?googleKeys:appleKeys).catch(()=>{throw new OAuthFlowError('provider_identity')});
  if(payload.nonce!==saved.nonce||!payload.sub)throw new AuthError('Invalid sign-in response.');
  const existing=(await db.query('SELECT c.id,c.phone FROM customer_identities i JOIN customer_accounts c ON c.id=i.customer_id WHERE i.provider=$1 AND i.subject=$2',[provider,payload.sub])).rows[0];
  if(existing)return completeLogin(existing.id,existing.phone);
