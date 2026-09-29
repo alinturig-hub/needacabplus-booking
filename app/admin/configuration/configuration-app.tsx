@@ -15,7 +15,7 @@ const sections=[
  {id:'sms',group:'Integrations & keys',title:'SMS gateway',description:'Orion connection, signed URL, message templates and test messages.',keywords:'sms orion phone message test otp url header token',icon:MessageSquare},
  {id:'identity',group:'Integrations & keys',title:'Customer sign-in',description:'Google and Apple credentials, callback URLs and SMS verification.',keywords:'google apple oauth client id secret otp login registration verification authentication',icon:KeyRound},
  {id:'payments',group:'Integrations & keys',title:'Payments & Stripe',description:'Test or live mode, payment keys and webhook signing secret.',keywords:'stripe card wallet payment key secret sandbox',icon:CreditCard},
- {id:'bookings',group:'Booking operations',title:'Booking rules',description:'Account IDs, card or cash, capabilities and pickup timing.',keywords:'booking account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
+ {id:'bookings',group:'Booking operations',title:'Bookings',description:'Need A Cab Plus origin marker, account IDs, payments, capabilities and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
  {id:'pricing',group:'Booking operations',title:'Fares & demand',description:'Live quotes, Priority and prebook additions, and automatic demand pricing.',keywords:'pricing fare quote surcharge demand percent tariff',icon:BadgePoundSterling},
  {id:'dispatch',group:'Booking operations',title:'Dispatch rules',description:'Driver search, arrival buffers and the dispatch simulator.',keywords:'dispatch driver time simulation radius arrival',icon:Route},
 ] as const;
