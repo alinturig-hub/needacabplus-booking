@@ -65,10 +65,13 @@ export async function GET(request:Request){
   const normalizedBookingType=`lower(trim(${prebookType}))`;
   const asapBooking=`${normalizedBookingType} IN ('asap','asap priority','priority')`;
   const prebookBooking=`(${normalizedBookingType} IN ('advanced','advance','guarantee prebook','guarantee','prebook','pre-booking','scheduled') OR lower(COALESCE(raw_payload#>>'{booking,isPreBooking}',raw_payload#>>'{metadata,isPreBooking}',raw_payload#>>'{data,booking,isPreBooking}',raw_payload->>'isPreBooking','false')) IN ('true','1','yes'))`;
+  const nacService=`lower(trim(COALESCE(pricing_data->>'service','')))`;
+  const nacPriority=`(${needACabPlusOrigin} AND (${nacService}='priority' OR (${nacService}='' AND ${normalizedBookingType} IN ('asap','asap priority','priority'))))`;
+  const nacGuarantee=`(${needACabPlusOrigin} AND (${nacService}='guarantee' OR (${nacService}='' AND ${normalizedBookingType} IN ('advanced','advance','guarantee prebook','guarantee','prebook','pre-booking','scheduled'))))`;
   const [countResult,summaryResult,originResult,sourceResult,paymentResult,statusResult,liveResult]=await Promise.all([
    db.query<{total:string}>(`SELECT COUNT(*)::text AS total FROM bookings ${where}`,values),
    db.query<{status:string;total:string}>(`SELECT status,COUNT(*)::text AS total FROM bookings ${where} GROUP BY status`,values),
-   db.query<{need_a_cab_plus:string;autocab:string;asap:string;prebook:string}>(`SELECT COUNT(*) FILTER(WHERE ${needACabPlusOrigin})::text AS need_a_cab_plus,COUNT(*) FILTER(WHERE NOT ${needACabPlusOrigin})::text AS autocab,COUNT(*) FILTER(WHERE ${asapBooking})::text AS asap,COUNT(*) FILTER(WHERE ${prebookBooking})::text AS prebook FROM bookings ${where}`,values),
+   db.query<{need_a_cab_plus:string;autocab:string;asap:string;prebook:string;nac_priority:string;nac_guarantee:string}>(`SELECT COUNT(*) FILTER(WHERE ${needACabPlusOrigin})::text AS need_a_cab_plus,COUNT(*) FILTER(WHERE NOT ${needACabPlusOrigin})::text AS autocab,COUNT(*) FILTER(WHERE ${asapBooking})::text AS asap,COUNT(*) FILTER(WHERE ${prebookBooking})::text AS prebook,COUNT(*) FILTER(WHERE ${nacPriority})::text AS nac_priority,COUNT(*) FILTER(WHERE ${nacGuarantee})::text AS nac_guarantee FROM bookings ${where}`,values),
    db.query<{source:string}>('SELECT DISTINCT source FROM bookings WHERE source IS NOT NULL AND source<>\'\' ORDER BY source'),
    db.query<{payment_type:string}>('SELECT DISTINCT payment_type FROM bookings WHERE payment_type IS NOT NULL AND payment_type<>\'\' ORDER BY payment_type'),
    db.query<{status:string}>('SELECT DISTINCT status FROM bookings ORDER BY status'),
@@ -82,8 +85,8 @@ export async function GET(request:Request){
   ,booking_pickup_day(timeline_data,pickup_data)::text AS pickup_day FROM bookings ${where} ORDER BY updated_at DESC,created_at DESC LIMIT $${values.length+1} OFFSET $${values.length+2}`,dataValues);
   const pastPeriod=Boolean(period.end&&period.end<bookingPeriod(new URLSearchParams()).start!);
   const summary=Object.fromEntries(summaryResult.rows.map(row=>[row.status,Number(row.total)]));
-  const origin=originResult.rows[0];
-  return Response.json({pastPeriod,bookings:result.rows,total,page:safePage,pageSize,summary,originSummary:{autocab:Number(origin?.autocab||0),needACabPlus:Number(origin?.need_a_cab_plus||0)},timingSummary:{asap:Number(origin?.asap||0),prebook:Number(origin?.prebook||0)},livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
+  const origin=originResult.rows[0];const needACabPlus=Number(origin?.need_a_cab_plus||0);const nacPriorityCount=Number(origin?.nac_priority||0);const nacGuaranteeCount=Number(origin?.nac_guarantee||0);
+  return Response.json({pastPeriod,bookings:result.rows,total,page:safePage,pageSize,summary,originSummary:{autocab:Number(origin?.autocab||0),needACabPlus},nacServiceSummary:{priority:nacPriorityCount,guarantee:nacGuaranteeCount,unclassified:Math.max(0,needACabPlus-nacPriorityCount-nacGuaranteeCount)},timingSummary:{asap:Number(origin?.asap||0),prebook:Number(origin?.prebook||0)},livePassengerOnBoard:Number(liveResult.rows[0]?.total||0),period,statuses:statusResult.rows.map(row=>row.status),sources:sourceResult.rows.map(row=>row.source),payments:paymentResult.rows.map(row=>row.payment_type)},{headers:{'Cache-Control':'no-store'}})
  }catch(error){return unavailable(error)}
 }
 

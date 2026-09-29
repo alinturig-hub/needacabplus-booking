@@ -3,14 +3,14 @@ function load(path,deps={}){const mod={exports:{}};new Function('require','modul
 const {submitLiveCashBooking,readLiveAttempt}=load('lib/live-cash-booking.ts');
 const {saveAutocabBooking}=load('lib/autocab-bookings.ts',{'./dispatch-queue':load('lib/dispatch-queue.ts'),'./booking-requirements':load('lib/booking-requirements.ts'),'./booking-reference':load('lib/booking-reference.ts')});
 const id='00000000-0000-4000-8000-000000000001';
-const quote={id,pickup:'Station',destination:'Home',vias:[],vehicle:'saloon',totalPence:1200};
+const quote={id,pickup:'Station',destination:'Home',vias:[],vehicle:'saloon',totalPence:1200,service:'priority'};
 const body={name:'Passenger',telephoneNumber:'+447000000000',driverNote:'Entrance',customerEmail:'test@example.invalid',passengers:'1',luggage:0,pickup:{address:{text:'Station'}},destination:{address:{text:'Home'}},vias:[],pricing:{cost:7,bookingCost:7,price:12,bookingPrice:12},pickupDueTimeUtc:new Date().toISOString(),ourReference:'NAC-'+id};
 async function withDb(fn){const db=new PGlite();try{await db.exec(fs.readFileSync('db/init.sql','utf8'));await fn(db)}finally{await db.close()}}
 test('successful cash creation persists Autocab ID and cannot be sent twice',()=>withDb(async db=>{
  let sent=0;const send=async()=>{sent++;return {bookingId:123}};
  const result=await submitLiveCashBooking(db,quote,'customer',body,send);assert.equal(result.pending,false);assert.equal(result.externalBookingId,'123');assert.equal(sent,1);
  await submitLiveCashBooking(db,quote,'customer',body,send);assert.equal(sent,1);
- assert.equal((await db.query('SELECT user_id,payment_type FROM bookings')).rows[0].payment_type,'Cash');assert.equal(await readLiveAttempt(db,id,'another-customer'),null);
+ const saved=(await db.query('SELECT user_id,payment_type,booking_type,pricing_data FROM bookings')).rows[0];assert.equal(saved.payment_type,'Cash');assert.equal(saved.booking_type,'ASAP Priority');assert.equal(saved.pricing_data.service,'priority');assert.equal(await readLiveAttempt(db,id,'another-customer'),null);
  await assert.rejects(()=>submitLiveCashBooking(db,quote,'another-customer',body,send));assert.equal(sent,1);
 }));
 test('timeout is unresolved, concurrent/repeated submission is not replayed, webhook resolves it',()=>withDb(async db=>{
