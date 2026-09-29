@@ -5,8 +5,8 @@ import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,ChevronRight,CreditCard
 import CustomerSettings from './customer-settings';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
-import {DispatchSettings,PricingSettings,StripeSettings} from './operations-settings';
-import QuoteSettings from './quote-settings';
+import {DispatchSettings,StripeSettings} from './operations-settings';
+import PricingWorkspace from './pricing-workspace';
 import './configuration.css';
 
 const sections=[
@@ -38,7 +38,7 @@ export default function ConfigurationApp(){
  {visited.includes('identity')&&<div hidden={selected!=='identity'}><CustomerSettings section="identity"/></div>}
  {visited.includes('payments')&&<div hidden={selected!=='payments'}><StripeSettings/></div>}
  {visited.includes('bookings')&&<div hidden={selected!=='bookings'}><CustomerSettings section="bookings"/></div>}
- {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><QuoteSettings/><PricingSettings/></div>}
+ {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><PricingWorkspace/></div>}
  {visited.includes('dispatch')&&<div hidden={selected!=='dispatch'}><DispatchSettings/></div>}
  </div></div></div></main>
 }
