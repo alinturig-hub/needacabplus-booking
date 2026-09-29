@@ -2,6 +2,7 @@ import {archivedBookingStatus} from './dispatch-queue';
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import {bookingRequirements} from './booking-requirements';
+import {isNeedACabPlusReference,needACabPlusQuoteId} from './booking-reference';
 
 type JsonObject=Record<string,unknown>;
 const object=(value:unknown):JsonObject|undefined=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonObject:undefined;
@@ -69,11 +70,13 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
   onBoardAt:text(first(key(booking,'onBoardAt'),key(booking,'pickedUpAtTime'),eventStatus==='Passenger On Board'?new Date().toISOString():undefined)),completedAt:text(first(key(booking,'completedAt'),key(booking,'completedAtTime'),eventStatus==='Completed'?new Date().toISOString():undefined)),
   cancelledAt:text(first(key(booking,'cancelledAt'),key(booking,'cancelledAtTime'),eventStatus==='Cancelled'?new Date().toISOString():undefined))
  });
- const notes=cleanObject({driverNote:text(first(key(booking,'driverNote'),path(pickupRaw,'note'))),officeNote:text(key(booking,'officeNote')),flightDetails:text(first(key(booking,'flightDetails'),key(booking,'flightNumber'))),cabExchangeReference:text(first(key(booking,'cabExchangeAgentBookingRef'),key(booking,'cabExchangeReference'),key(booking,'cabExchangeRef'))) });
+ const ourReference=text(first(key(booking,'ourReference'),key(root,'ourReference')));
+ const yourReferences=object(first(key(booking,'yourReferences'),key(root,'yourReferences')));
+ const notes=cleanObject({driverNote:text(first(key(booking,'driverNote'),path(pickupRaw,'note'))),officeNote:text(key(booking,'officeNote')),flightDetails:text(first(key(booking,'flightDetails'),key(booking,'flightNumber'))),cabExchangeReference:text(first(key(booking,'cabExchangeAgentBookingRef'),key(booking,'cabExchangeReference'),key(booking,'cabExchangeRef'))),ourReference,yourReferences });
  const name=text(first(key(booking,'name'),key(booking,'customerName'),path(booking,'customer','name'),deepFind(booking,['passengerName'])));
  const phone=text(first(key(booking,'telephoneNumber'),key(booking,'phone'),key(booking,'phoneNumber'),path(booking,'customer','phone')));
  const email=text(first(key(booking,'customerEmail'),key(booking,'email'),path(booking,'customer','email')));
- const source=text(first(key(booking,'bookingSource'),key(booking,'source')));
+ const source=isNeedACabPlusReference(ourReference)?'WebApp':text(first(key(booking,'bookingSource'),key(booking,'source')));
  const payment=text(first(key(booking,'paymentType'),key(booking,'paymentMethod')));
  const price=number(first(pricing?.price,pricing?.fare));const farePence=price===undefined?0:Math.max(0,Math.round(price*100));
  const vias=first(key(booking,'vias'),key(booking,'viaPoints'));
@@ -87,7 +90,7 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
   ON CONFLICT (external_booking_id) WHERE external_booking_id IS NOT NULL DO UPDATE SET
    name=COALESCE($31,bookings.name),phone=COALESCE($32,bookings.phone),pickup=COALESCE($33,bookings.pickup),destination=COALESCE($34,bookings.destination),
    via_points=COALESCE($35::jsonb,bookings.via_points),pickup_note=COALESCE($36,bookings.pickup_note),fare_pence=CASE WHEN $37::integer>0 THEN $37 ELSE bookings.fare_pence END,
-   status=CASE WHEN regexp_replace(lower($30),'[^a-z]','','g')='bookingmodified' AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status WHEN bookings.status IN ('Completed','Cancelled','No Fare') AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status ELSE $9 END,original_booking_id=COALESCE($12,bookings.original_booking_id),booking_type=COALESCE($13,bookings.booking_type),source=COALESCE($14,bookings.source),payment_type=COALESCE($15,bookings.payment_type),
+   status=CASE WHEN regexp_replace(lower($30),'[^a-z]','','g')='bookingmodified' AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status WHEN bookings.status IN ('Completed','Cancelled','No Fare') AND $9 NOT IN ('Completed','Cancelled','No Fare') THEN bookings.status ELSE $9 END,original_booking_id=COALESCE($12,bookings.original_booking_id),booking_type=COALESCE($13,bookings.booking_type),source=CASE WHEN bookings.source='WebApp' OR $14='WebApp' THEN 'WebApp' ELSE COALESCE($14,bookings.source) END,payment_type=COALESCE($15,bookings.payment_type),
    priority=COALESCE($16,bookings.priority),street_pickup=COALESCE($17,bookings.street_pickup),customer_email=COALESCE($18,bookings.customer_email),passengers=COALESCE($19,bookings.passengers),luggage=COALESCE($20,bookings.luggage),
    pickup_data=COALESCE(bookings.pickup_data,'{}'::jsonb)||COALESCE($21::jsonb,'{}'::jsonb),destination_data=COALESCE(bookings.destination_data,'{}'::jsonb)||COALESCE($22::jsonb,'{}'::jsonb),
    vias_data=COALESCE($23::jsonb,bookings.vias_data),driver_data=COALESCE(bookings.driver_data,'{}'::jsonb)||COALESCE($24::jsonb,'{}'::jsonb),vehicle_data=COALESCE(bookings.vehicle_data,'{}'::jsonb)||COALESCE($25::jsonb,'{}'::jsonb),
@@ -101,8 +104,7 @@ export async function saveAutocabBooking(db:Pool,payload:unknown,eventType:strin
  const requirements=bookingRequirements(payload);
  if(Object.keys(requirements).length)await db.query("UPDATE bookings SET dispatch_requirements=COALESCE(dispatch_requirements,'{}'::jsonb)||$2::jsonb WHERE external_booking_id=$1",[externalId,JSON.stringify(requirements)]);
  // Match our persisted creation reference or the returned Autocab ID, including delayed webhooks.
- const ourReference=text(first(key(booking,'ourReference'),key(root,'ourReference')));
- const quoteId=ourReference?.match(/^NAC-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1]||null;
+ const quoteId=needACabPlusQuoteId(ourReference);
  const linked=await db.query("UPDATE web_booking_attempts SET state='confirmed',external_booking_id=$1,updated_at=now() WHERE external_booking_id=$1 OR (quote_id=$2::uuid AND (external_booking_id IS NULL OR external_booking_id=$1)) RETURNING user_id",[externalId,quoteId]);
  if(linked.rows[0])await db.query('UPDATE bookings SET user_id=$2 WHERE external_booking_id=$1',[externalId,linked.rows[0].user_id]);
  return {saved:true,externalBookingId:externalId,status:saved.rows[0]?.status||status};

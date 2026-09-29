@@ -4,6 +4,7 @@ import {defaultBookingPolicy} from '@/lib/booking-policy';
 import {smsPolicySchema,identityPolicySchema} from '@/lib/customer-security-policy';
 import {Button} from '@/components/ui/button';
 import BookingCapabilities from './booking-capabilities';
+import BookingReferenceAudit from './booking-reference-audit';
 import SmsTest from './sms-test';
 import {Input} from '@/components/ui/input';
 type Values=Record<string,string|number|boolean|number[]|null>;
@@ -35,6 +36,7 @@ export default function CustomerSettings({section}:{section:keyof typeof default
  {section==='sms'&&field('enabled')}{section==='bookings'?<>
  <section className="customer-settings-group"><header><h4>Webapp payments</h4><p>Enable cash, card or both. If both are off, new bookings are paused.</p></header><div className="customer-toggle-list">{['cashEnabled','cardEnabled','liveBookingsEnabled'].map(field)}</div>{!value.cashEnabled&&!value.cardEnabled&&<p role="status">Bookings paused: enable at least one payment method.</p>}{Boolean(value.liveBookingsEnabled)&&<p className="customer-settings-hint">Cash bookings will be sent to Autocab for dispatch. Live card bookings remain unavailable until payment processing is connected.</p>}</section><section className="customer-settings-group"><header><h4>Autocab accounts</h4><p>Use the account name as a label. The account ID is sent to Autocab as customerId. Leave the ID blank for a non-account booking.</p></header><div className="settings-grid customer-fields-grid">{['accountName','accountCustomerId','cashAccountName','cashAccountCustomerId','companyId'].map(field)}</div></section>
  <section className="customer-settings-group"><header><h4>Booking capabilities</h4><p>Choose from the enabled capabilities returned by Autocab. Only your selected capabilities are sent with each booking.</p></header><BookingCapabilities value={value.bookingCapabilities as number[]||[]} disabled={!loaded||busy} onChange={ids=>{update('bookingCapabilities',ids);setLists(current=>({...current,bookingCapabilities:ids.join(',')}))}}/></section>
+ <BookingReferenceAudit/>
  <section className="customer-settings-group"><header><h4>Pickup times</h4></header><div className="settings-grid customer-fields-grid">{['priorityDelayMinutes','minPrebookMinutes'].map(field)}</div></section>
  </>:<div className="settings-grid customer-fields-grid">{Object.keys(value).filter(key=>key!=='enabled'&&key!=='authHeader').map(field)}</div>}
  {section==='sms'&&<details className="customer-sms-advanced"><summary>Advanced authentication (optional)</summary><p>Orion uses the signature in your saved endpoint URL. Leave the header value blank unless your SMS provider specifically requires it.</p><div className="settings-grid customer-fields-grid">{field('authHeader')}{secretField('token','Authentication header value')}</div></details>}{section==='bookings'&&<p className="customer-settings-hint">Saved account IDs and capabilities apply to new quotes and their booking payloads. The live booking switch controls whether cash confirmations are sent to Autocab.</p>}</>}

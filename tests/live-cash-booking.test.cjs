@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');const {PGlite}=require('@electric-sql/pglite');
 function load(path,deps={}){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>deps[id]||require(id),mod,mod.exports);return mod.exports;}
 const {submitLiveCashBooking,readLiveAttempt}=load('lib/live-cash-booking.ts');
-const {saveAutocabBooking}=load('lib/autocab-bookings.ts',{'./dispatch-queue':load('lib/dispatch-queue.ts'),'./booking-requirements':load('lib/booking-requirements.ts')});
+const {saveAutocabBooking}=load('lib/autocab-bookings.ts',{'./dispatch-queue':load('lib/dispatch-queue.ts'),'./booking-requirements':load('lib/booking-requirements.ts'),'./booking-reference':load('lib/booking-reference.ts')});
 const id='00000000-0000-4000-8000-000000000001';
 const quote={id,pickup:'Station',destination:'Home',vias:[],vehicle:'saloon',totalPence:1200};
 const body={name:'Passenger',telephoneNumber:'+447000000000',driverNote:'Entrance',customerEmail:'test@example.invalid',passengers:'1',luggage:0,pickup:{address:{text:'Station'}},destination:{address:{text:'Home'}},vias:[],pricing:{cost:7,bookingCost:7,price:12,bookingPrice:12},pickupDueTimeUtc:new Date().toISOString(),ourReference:'NAC-'+id};
