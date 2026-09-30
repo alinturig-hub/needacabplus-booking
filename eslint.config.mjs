@@ -23,6 +23,15 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
+  {
+    files: ["tests/**/*.cjs"],
+    rules: {
+      // These tests intentionally use CommonJS and evaluate transpiled modules
+      // with injected dependencies, so ESM-only application rules do not apply.
+      "@typescript-eslint/no-require-imports": "off",
+      "@next/next/no-assign-module-variable": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
