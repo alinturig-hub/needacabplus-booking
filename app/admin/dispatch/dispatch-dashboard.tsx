@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {Activity,CarFront,Clock3,Radio,ShieldCheck,ArrowRight,Settings2} from 'lucide-react';
+import {Activity,CarFront,Clock3,Radio,ShieldCheck,ArrowRight,Settings2,LogOut} from 'lucide-react';
 import type {simulateDispatch} from '@/lib/dispatch-simulation';
 import styles from './dispatch-dashboard.module.css';
 import {BookingStory} from './booking-story';
@@ -45,8 +45,8 @@ export function DispatchDashboardView({data,selected,onSelect,analysis,error='',
  const events=data?.events.filter(event=>!job||event.booking_id===job.reference)||[];
  const plan=analysis?.result;
  const remaining=plan?.dispatchAt===null||plan?.dispatchAt===undefined?null:Math.ceil((plan.dispatchAt-now)/1000);
- return <div className={styles.page}>
-  <header className={styles.nav}><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link><nav aria-label="Admin navigation"><Link href="/admin">Bookings</Link><Link href="/admin/dispatch" aria-current="page">Dispatch Live</Link><Link href="/admin/drivers">Drivers</Link><Link href="/admin/vehicles">Vehicles</Link><Link href="/admin/live-map">Clear Map</Link><Link href="/admin/configuration">Configuration</Link></nav></header>
+ return <div className={`${styles.page} premium-admin`}>
+  <header className={`${styles.nav} brandbar`}><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Operations control</small></span></Link><nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Overview</Link><Link className="active" href="/admin/dispatch" aria-current="page">Live dispatch</Link><Link href="/admin/drivers">Drivers</Link><Link href="/admin/vehicles">Vehicles</Link><Link href="/admin/live-map">Live map</Link><Link href="/admin/configuration">Settings</Link></nav><Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link></header>
   <main className={styles.main}>
    <div className={styles.heading}><div><span className={styles.eyebrow}>OPERATIONS · DISPATCH COPILOT</span><h1>Every job. Every decision.</h1><p>Follow recommendations and incoming Autocab events as they happen.</p></div><div className={styles.connection}><span className={stale?styles.amber:styles.green}/>{stale?(data?'Updates delayed':'Connecting…'):'Connected · 5s refresh'}<small>Last update {clock(data?.serverTime||null)} · UK time</small></div></div>
    <div className={styles.banner}><ShieldCheck size={20}/><div><strong>Simulation mode — automatic sending is off</strong><span>Recommendations are calculated by dispatch rules. Autocab events show external activity; this dashboard does not send or reserve a job.</span></div><Link href="/admin/configuration"><Settings2 size={16}/>Dispatch settings</Link></div>

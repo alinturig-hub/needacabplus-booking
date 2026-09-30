@@ -36,3 +36,11 @@ test('admin login writes one host-only cookie that remains valid across requests
   for(const [name,value] of Object.entries(previous)){if(value===undefined)delete process.env[name==='email'?'ADMIN_EMAIL':name==='secret'?'ADMIN_SESSION_SECRET':'APP_ORIGIN'];else process.env[name==='email'?'ADMIN_EMAIL':name==='secret'?'ADMIN_SESSION_SECRET':'APP_ORIGIN']=value}
  }
 });
+
+test('admin logout controls disable Next.js router prefetch',()=>{
+ const files=['app/admin/admin-app.tsx','app/admin/fleet-app.tsx','app/admin/configuration/configuration-app.tsx','app/admin/dispatch/dispatch-dashboard.tsx','app/admin/driver-live-map.tsx'];
+ for(const file of files){
+  const source=fs.readFileSync(file,'utf8');
+  assert.match(source,/<Link prefetch=\{false\}[^>]+href="\/api\/admin\/logout"/,file);
+ }
+});

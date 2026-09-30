@@ -118,10 +118,10 @@ export default function DriverLiveMap(){
   if(!fittedRef.current&&hasBounds){fittedRef.current=true;if(drivers.length===1)map.flyTo({center:[drivers[0].longitude,drivers[0].latitude],zoom:13,duration:800});else map.fitBounds(bounds,{padding:60,maxZoom:14,duration:800})}
  },[drivers]);
  return(
-  <main className="admin-shell driver-live-shell">
-   <header className="brandbar"><Link className="brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link>
-    <nav className="admin-nav"><Link href="/admin">Bookings</Link><Link href="/admin/dispatch">Dispatch Live</Link><Link href="/admin/drivers">Drivers</Link><Link href="/admin/vehicles">Vehicles</Link><Link className="active" href="/admin/live-map">Clear Map</Link><Link href="/admin/configuration">Configuration</Link></nav>
-    <Link className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link>
+  <main className="admin-shell driver-live-shell premium-admin">
+   <header className="brandbar"><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Operations control</small></span></Link>
+    <nav className="admin-nav"><Link href="/admin">Overview</Link><Link href="/admin/dispatch">Live dispatch</Link><Link href="/admin/drivers">Drivers</Link><Link href="/admin/vehicles">Vehicles</Link><Link className="active" href="/admin/live-map">Live map</Link><Link href="/admin/configuration">Settings</Link></nav>
+    <Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link>
    </header>
    <div className="driver-live-body">
     <div className="driver-live-bar">
