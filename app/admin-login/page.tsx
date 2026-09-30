@@ -2,19 +2,19 @@
 import {FormEvent,useState} from 'react';
 import {ArrowRight,LockKeyhole} from 'lucide-react';
 import Link from 'next/link';
-import {useRouter} from 'next/navigation';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 
 export default function AdminLogin(){
- const router=useRouter();
  const [email,setEmail]=useState('admin@needacabplus.app');
  const [password,setPassword]=useState('');
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  async function submit(event:FormEvent){
   event.preventDefault();setBusy(true);setError('');
-  try{const response=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});const data=await response.json() as {error?:string};if(!response.ok)throw new Error(data.error);router.push('/admin');router.refresh()}
+  // A full navigation guarantees the browser commits the session cookie before loading the protected page.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  try{const response=await fetch('/api/admin/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});const data=await response.json() as {error?:string};if(!response.ok)throw new Error(data.error);window.location.href='/admin'}
   catch(reason){setError(reason instanceof Error?reason.message:'Unable to sign in.')}
   finally{setBusy(false)}
  }

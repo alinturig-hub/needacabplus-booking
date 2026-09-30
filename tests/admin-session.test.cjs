@@ -20,19 +20,16 @@ function cookieStore(){
  };
 }
 
-test('admin login writes distinct host and shared cookies and ignores stale legacy cookies',async()=>{
+test('admin login writes one host-only cookie that remains valid across requests',async()=>{
  const previous={email:process.env.ADMIN_EMAIL,secret:process.env.ADMIN_SESSION_SECRET,origin:process.env.APP_ORIGIN};
  process.env.ADMIN_EMAIL='admin@needacabplus.app';process.env.ADMIN_SESSION_SECRET='test-admin-session-secret-with-32-characters';process.env.APP_ORIGIN='https://webapp.needacabplus.app';
- const store=cookieStore();store.inject('nac_admin_session','stale-value');
+ const store=cookieStore();
  try{
   const security=loadSecurity(store);
   await security.setAdminSession();
-  assert.deepEqual(store.writes.map(write=>write.name),['nac_admin_session','nac_admin_session_v2','nac_admin_shared_session_v2']);
-  assert.equal(store.writes[1].options.domain,undefined);
-  assert.equal(store.writes[2].options.domain,'.needacabplus.app');
+  assert.deepEqual(store.writes.map(write=>write.name),['nac_admin_session_v3']);
+  assert.equal(store.writes[0].options.domain,undefined);
   assert.equal(await security.isAdmin(),true);
-  store.inject('nac_admin_session_v2','invalid');
-  assert.equal(await security.isAdmin(),true,'the valid shared cookie survives a stale host cookie');
   await security.clearAdminSession();
   assert.equal(await security.isAdmin(),false);
  }finally{
