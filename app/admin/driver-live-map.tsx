@@ -120,7 +120,7 @@ export default function DriverLiveMap(){
  return(
   <main className="admin-shell driver-live-shell premium-admin">
    <header className="brandbar"><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Operations control</small></span></Link>
-    <nav className="admin-nav"><Link href="/admin">Overview</Link><Link href="/admin/dispatch">Live dispatch</Link><Link href="/admin/drivers">Drivers</Link><Link href="/admin/vehicles">Vehicles</Link><Link className="active" href="/admin/live-map">Live map</Link><Link href="/admin/configuration">Settings</Link></nav>
+    <nav className="admin-nav"><Link href="/admin">Overview</Link><Link href="/admin/dispatch">Live dispatch</Link><Link className="active" href="/admin/live-map">Live map</Link><Link href="/admin/configuration">Settings</Link></nav>
     <Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link>
    </header>
    <div className="driver-live-body">
