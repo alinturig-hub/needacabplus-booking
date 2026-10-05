@@ -17,6 +17,14 @@ test('GPS lookup falls back to the street address when no useful place is nearby
  assert.equal(closestNearbyPlace(payload,50.371,-4.142),null);
 });
 
+test('GPS lookup understands Photon places and ignores named roads',()=>{
+ const payload={features:[
+  {properties:{name:'Southside Street',osm_key:'highway',osm_value:'residential'},geometry:{coordinates:[-4.142,50.37101]}},
+  {properties:{name:'The Navy Inn',osm_key:'amenity',osm_value:'pub'},geometry:{coordinates:[-4.142,50.371108]}}
+ ]};
+ assert.equal(closestNearbyPlace(payload,50.371,-4.142).name,'The Navy Inn');
+});
+
 test('current-address route requests nearby places only for the GPS pickup flow',async()=>{
  const calls=[],route={exports:{}};
  new Function('require','module','exports',ts.transpileModule(fs.readFileSync('app/api/address/current/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>id==='zod'?require(id):id==='@/lib/autocab-api'?{addressAtCoordinates:async(...args)=>{calls.push(args);return{text:args[3]?'The Navy Inn':'44 Devonport Road',id:'pickup',...(args[3]?{nearbyPlace:{name:'The Navy Inn',distanceMetres:12}}:{})}},AutocabApiError:class extends Error{},AutocabConfigurationError:class extends Error{}}:id==='@/lib/security'?{unavailable:error=>{throw error}}:require(id),route,route.exports);
