@@ -55,10 +55,10 @@ export default function QuoteChooser({pickup,destination,vias,initial,customer,p
   }))}</div>
   {errors[selected]&&<p className="error-message" role="alert">{errors[selected]}</p>}
   {guaranteed&&scheduled&&!dateValid&&<p role="alert" className="small-note">Choose a pick-up at least {config?.minPrebookMinutes??30} minutes from now.</p>}
-  <div className="ride-payment-methods" role="group" aria-label="Payment method">{config?.paymentMethods.map(method=><button type="button" key={method} aria-pressed={paymentMethod===method} onClick={()=>setPaymentMethod(method)}>{method==='cash'?'Cash to driver':'Card'}</button>)}</div>{config?.liveBookingsEnabled&&paymentMethod==='card'&&<p role="status" className="small-note">Live card bookings are not available yet. Choose cash to book.</p>}
+  <div className="ride-bottom-bar"><div className="ride-payment-methods" role="group" aria-label="Payment method">{config?.paymentMethods.map(method=><button type="button" key={method} aria-pressed={paymentMethod===method} onClick={()=>setPaymentMethod(method)}>{method==='cash'?'Cash to driver':'Card'}</button>)}</div>{config?.liveBookingsEnabled&&paymentMethod==='card'&&<p role="status" className="small-note">Live card bookings are not available yet. Choose cash to book.</p>}
   <div className="ride-checkout">{paymentMethod==='cash'?<div className="ride-payment">Cash to driver</div>:<Link className="ride-payment" href={customer?'/account':'/customer-login?returnTo=/'}><CreditCard size={22}/><span>{offers[selected]?.quote.paymentMethod==='cash'?'Cash to driver':paymentLabel}</span><ChevronRight size={19}/></Link>}
    {configError||errors[selected]||(current&&!valid&&!loading[selected]&&(!guaranteed||dateValid))?<Button type="button" className="primary-action" onClick={retry}>Refresh fares</Button>:<Button type="button" className="primary-action" disabled={!valid} onClick={()=>{if(current&&Date.parse(current.quote.expiresAt)>Date.now())onChoose(current)}}>{loading[selected]?'Finding your fare…':guaranteed&&!dateValid?'Choose pick-up time':`Choose ${guaranteed?'Guarantee':'Priority'}`}</Button>}
    <span className="ride-test-label">{config?.liveBookingsEnabled?'Cash paid to driver':'Booking preview · no charge'}</span>
-  </div>
+  </div></div>
  </div>
 }

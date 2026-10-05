@@ -346,6 +346,34 @@ html[data-theme=light] .premium-booking .brandbar,html[data-theme=light] .premiu
 
 .ride-payment-methods{display:flex;gap:10px;margin:16px 0}.ride-payment-methods button{flex:1;padding:12px 16px;border:1px solid var(--border,#48515f);border-radius:12px;background:transparent;color:inherit;font:inherit;cursor:pointer}.ride-payment-methods button[aria-pressed="true"]{background:#ddbf7d;color:#151a22;border-color:#ddbf7d}
 
+/* Route-first mobile ride selection. */
+.ride-map-route{display:none}.customer-stop-marker.route-stop{position:relative;width:22px;height:22px;border-width:5px;box-shadow:0 4px 14px #0009}.customer-stop-marker.route-stop span{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:block;padding:6px 9px;border-radius:8px;background:#183f31;color:#fff;font-size:11px;font-weight:750;line-height:1;white-space:nowrap;box-shadow:0 5px 16px #0006}.customer-stop-marker.route-stop.destination span{background:#202523}.ride-bottom-bar{position:sticky;bottom:-1px;z-index:5;background:var(--background);padding-top:4px}
+@media(max-width:700px){
+ .booking-shell .map-surface.ride-map{min-height:215px}
+ .ride-map-route{position:absolute;display:grid;grid-template-columns:30px minmax(0,1fr) 16px minmax(0,1fr) 30px;align-items:center;gap:6px;z-index:5;left:12px;right:12px;top:10px;min-height:50px;padding:7px 8px;border:1px solid #ffffff24;border-radius:13px;background:color-mix(in srgb,var(--background) 94%,transparent);color:var(--foreground);box-shadow:0 8px 25px #0007;backdrop-filter:blur(10px)}
+ .ride-map-route>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:700}.ride-map-route>svg{width:14px;color:var(--muted-foreground)}
+ .ride-map-route>button{display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:9px;background:transparent;color:var(--foreground)}.ride-map-route>button:last-child{background:var(--secondary)}.ride-map-route>button svg{width:18px}
+ .booking-shell .ride-map .customer-map-live{top:69px}
+ .booking-shell .booking-panel.ride-sheet.sheet-collapsed{height:clamp(410px,calc(var(--booking-viewport-height,100dvh)*.60 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 245px))!important;padding-left:12px;padding-right:12px;overflow-y:auto}
+ .booking-shell .ride-sheet .ride-route-details{display:none}
+ .booking-shell .ride-sheet h1{margin-bottom:7px}
+ .premium-booking .ride-picker{gap:6px}
+ .premium-booking .ride-time{min-height:34px;padding:7px 10px;font-size:12px}
+ .premium-booking .ride-options{gap:6px}
+ .premium-booking .ride-option{min-height:72px;padding:7px 9px;grid-template-columns:50px minmax(0,1fr) auto;gap:7px;border-radius:13px}
+ .premium-booking .ride-option.is-selected{padding:6px 8px}
+ .premium-booking .ride-car-art{width:50px;height:48px}.premium-booking .ride-car-art img{width:30px;height:50px;left:9px;top:-1px}
+ .premium-booking .ride-option-copy{gap:3px}.premium-booking .ride-option-copy strong{font-size:14px;line-height:17px}.premium-booking .ride-option-copy>small{font-size:10px}.premium-booking .ride-option-badge{padding:2px 5px;font-size:8px}
+ .premium-booking .ride-option-price{font-size:18px}
+ .ride-bottom-bar{margin:2px -1px 0;padding:5px 1px max(2px,env(safe-area-inset-bottom));border-top:1px solid var(--border)}
+ .ride-payment-methods{gap:7px;margin:0 0 6px}.ride-payment-methods button{min-height:38px;padding:7px 10px;border-radius:10px;font-size:12px}
+ .premium-booking .ride-checkout{position:relative;bottom:auto;margin:0;padding:0;border:0;background:transparent}
+ .premium-booking .ride-payment{min-height:34px;margin:0 0 6px;padding:7px 10px;border-radius:10px;font-size:11px}
+ .booking-shell .ride-sheet .primary-action{min-height:46px;justify-content:center}
+ .ride-test-label{margin-top:4px;font-size:8px}
+}
+html[data-theme=light] .ride-map-route{box-shadow:0 8px 25px #30303030;border-color:var(--border)}
+
 .capability-dialog{width:min(850px,calc(100vw - 32px));max-height:85dvh;padding:24px;border:1px solid #465060;border-radius:20px;background:#151b24;color:#eff2f6;margin:auto}.capability-dialog::backdrop{background:#0009}.capability-dialog header,.capability-dialog footer,.capability-filter{display:flex;align-items:center;gap:16px;justify-content:space-between}.capability-dialog header h3{margin:0}.capability-dialog header>button{background:none;color:inherit;border:0;font-size:32px;cursor:pointer}.capability-filter{margin:20px 0;flex-wrap:wrap}.capability-filter input{flex:1;min-width:160px;padding:12px;background:#0e141b;border:1px solid #465060;border-radius:10px;color:inherit}.capability-table{max-height:48dvh;overflow:auto}.capability-table table{width:100%;border-collapse:collapse}.capability-table th{position:sticky;top:0;background:#222b38;text-align:left;padding:12px}.capability-table td{padding:10px 12px;border-bottom:1px solid #343e4e}.capability-table tr.is-selected{background:#ddbf7d20}.capability-table input[type=checkbox]{width:20px!important;height:20px!important;min-height:20px!important;accent-color:#ddbf7d}.capability-table td button{border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:4px 0}.capability-table small{display:block;color:#aab8cc}.capability-dialog footer{padding-top:20px;color:#aab8cc;flex-wrap:wrap}.capability-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.capability-chips button{border:1px solid #59604e;background:#ddbf7d18;color:inherit;padding:8px 12px;border-radius:999px;cursor:pointer}.capability-chips span{margin-left:8px}
 
 .customer-settings .booking-capability-picker .customer-settings-actions{margin-top:0;padding-top:0;border-top:0;gap:10px;flex-direction:row;align-items:center;flex-wrap:wrap}.customer-settings .booking-capability-picker .customer-settings-actions button{width:auto;min-height:34px;padding:6px 14px;font-size:12px;line-height:1.4}.customer-settings .capability-chips{gap:6px;margin-top:10px}.customer-settings .capability-chips button{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:4px 10px;font-size:12px;line-height:1.4;max-width:100%;text-align:left;overflow-wrap:anywhere}.customer-settings .capability-chips span{margin-left:0;font-size:15px;flex-shrink:0}

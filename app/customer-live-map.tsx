@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Map as MapLibreMap,Marker,type StyleSpecification} from 'maplibre-gl';
+import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource,type StyleSpecification} from 'maplibre-gl';
 
 type Coordinate={latitude:number;longitude:number};
 type Vehicle=Coordinate&{id:string;recordedAt:string};
@@ -9,7 +9,7 @@ const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
 const style:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]};
 function heading(from:[number,number],to:[number,number]){const rad=Math.PI/180,d=(to[0]-from[0])*rad;return Math.atan2(Math.sin(d)*Math.cos(to[1]*rad),Math.cos(from[1]*rad)*Math.sin(to[1]*rad)-Math.sin(from[1]*rad)*Math.cos(to[1]*rad)*Math.cos(d))/rad}
 
-export default function CustomerLiveMap({pickup,destination,picker=false,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
+export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
  const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>());
  const callbacks=useRef({picker,onPickerMove,onPickerStart});
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
@@ -56,10 +56,32 @@ export default function CustomerLiveMap({pickup,destination,picker=false,cameraT
  },[vehicles]);
  useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.jumpTo({center:[cameraTarget.longitude,cameraTarget.latitude]})},[cameraTarget]);
  useEffect(()=>{
+  const map=mapRef.current;if(!map||!showRoute||!pickup||!destination)return;
+  const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates:[[pickup.longitude,pickup.latitude],[destination.longitude,destination.latitude]]}};
+  const draw=()=>{
+   const source=map.getSource('customer-route') as GeoJSONSource|undefined;
+   if(source)source.setData(route);
+   else{
+    map.addSource('customer-route',{type:'geojson',data:route});
+    map.addLayer({id:'customer-route-outline',type:'line',source:'customer-route',paint:{'line-color':'#fff','line-width':8,'line-opacity':.9}});
+    map.addLayer({id:'customer-route-line',type:'line',source:'customer-route',paint:{'line-color':'#c9a861','line-width':5,'line-opacity':1}});
+   }
+   const bounds=new LngLatBounds([pickup.longitude,pickup.latitude],[pickup.longitude,pickup.latitude]).extend([destination.longitude,destination.latitude]);
+   map.fitBounds(bounds,{padding:{top:125,bottom:50,left:55,right:55},maxZoom:15,duration:500});
+  };
+  if(map.loaded())draw();else map.once('load',draw);
+  return()=>{
+   map.off('load',draw);
+   if(map.getLayer('customer-route-line'))map.removeLayer('customer-route-line');
+   if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
+   if(map.getSource('customer-route'))map.removeSource('customer-route');
+  };
+ },[pickup,destination,showRoute]);
+ useEffect(()=>{
   const map=mapRef.current;if(!map)return;const stops:Marker[]=[];
-  if(!picker)for(const [point,label,kind] of [[pickup,'Pick-up','pickup'],[destination,'Destination','destination']] as const){if(!point)continue;const el=document.createElement('div');el.className=`customer-stop-marker ${kind}`;el.setAttribute('aria-label',label);stops.push(new Marker({element:el}).setLngLat([point.longitude,point.latitude]).addTo(map))}
+  if(!picker)for(const [point,label,kind] of [[pickup,'Pick-up','pickup'],[destination,'Drop-off','destination']] as const){if(!point)continue;const el=document.createElement('div');el.className=`customer-stop-marker ${kind}${showRoute?' route-stop':''}`;el.setAttribute('aria-label',label);if(showRoute){const text=document.createElement('span');text.textContent=label;el.appendChild(text)}stops.push(new Marker({element:el,anchor:'center'}).setLngLat([point.longitude,point.latitude]).addTo(map))}
   if(userLocation){const el=document.createElement('div');el.className='customer-gps-marker';el.setAttribute('aria-label','Your location');stops.push(new Marker({element:el}).setLngLat([userLocation.longitude,userLocation.latitude]).addTo(map))}
   return()=>stops.forEach(marker=>marker.remove());
- },[pickup,destination,picker,userLocation]);
+ },[pickup,destination,picker,userLocation,showRoute]);
  return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }
