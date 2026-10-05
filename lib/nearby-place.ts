@@ -7,6 +7,7 @@ function record(value:unknown):JsonRecord{return value!==null&&typeof value==='o
 function point(item:JsonRecord){const center=record(item.center),latitude=Number(item.lat??center.lat),longitude=Number(item.lon??center.lon);return Number.isFinite(latitude)&&Number.isFinite(longitude)?{latitude,longitude}:null}
 function radians(value:number){return value*Math.PI/180}
 export function distanceMetres(a:{latitude:number;longitude:number},b:{latitude:number;longitude:number}){const radius=6371000,dLat=radians(b.latitude-a.latitude),dLon=radians(b.longitude-a.longitude),x=Math.sin(dLat/2)**2+Math.cos(radians(a.latitude))*Math.cos(radians(b.latitude))*Math.sin(dLon/2)**2;return 2*radius*Math.asin(Math.sqrt(x))}
+export function inferredPlaceName(label:string){const first=label.split(',')[0]?.trim()||'';if(first.length<3||/^\d/.test(first)||/\b(?:road|street|lane|avenue|drive|close|way|court|crescent|square|parade|terrace|highway)\.?$/i.test(first))return null;return first}
 
 export function closestNearbyPlace(payload:unknown,latitude:number,longitude:number,maxDistance=60):NearbyPlace|null{
  const root=record(payload),elements=Array.isArray(root.elements)?root.elements as unknown[]:[],features=Array.isArray(root.features)?root.features as unknown[]:[];

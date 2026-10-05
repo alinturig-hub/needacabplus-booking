@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
 const moduleUnderTest={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync('lib/nearby-place.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(require,moduleUnderTest,moduleUnderTest.exports);
-const {closestNearbyPlace}=moduleUnderTest.exports;
+const {closestNearbyPlace,inferredPlaceName}=moduleUnderTest.exports;
 
 test('GPS lookup selects the closest useful named place within the pickup radius',()=>{
  const payload={elements:[
@@ -28,6 +28,10 @@ test('GPS lookup understands Photon places and ignores named roads',()=>{
 test('GPS lookup accepts a named Nominatim feature as a resilient fallback',()=>{
  const payload={name:'The Navy Inn',category:'amenity',type:'pub',lat:'50.371108',lon:'-4.142'};
  assert.equal(closestNearbyPlace(payload,50.371,-4.142).name,'The Navy Inn');
+});
+
+test('Autocab labels distinguish a place name from an ordinary street address',()=>{
+ assert.equal(inferredPlaceName('The Navy Inn, Southside Street, Plymouth'),'The Navy Inn');assert.equal(inferredPlaceName('Former House of Frasier, 40, Royal Parade, Plymouth'),'Former House of Frasier');assert.equal(inferredPlaceName('44 Devonport Road, Plymouth'),null);assert.equal(inferredPlaceName('Southside Street, Plymouth'),null);
 });
 
 test('current-address route requests nearby places only for the GPS pickup flow',async()=>{
