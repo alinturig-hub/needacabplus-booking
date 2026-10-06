@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource,type StyleSpecification} from 'maplibre-gl';
+import {customerRoadRoute} from '@/lib/customer-road-route';
 
 type Coordinate={latitude:number;longitude:number};
 type Vehicle=Coordinate&{id:string;recordedAt:string};
@@ -57,8 +58,10 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
  useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.jumpTo({center:[cameraTarget.longitude,cameraTarget.latitude]})},[cameraTarget]);
  useEffect(()=>{
   const map=mapRef.current;if(!map||!showRoute||!pickup||!destination)return;
-  const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates:[[pickup.longitude,pickup.latitude],[destination.longitude,destination.latitude]]}};
-  const draw=()=>{
+  const controller=new AbortController();let active=true;
+  const draw=async()=>{
+   let coordinates:number[][];try{coordinates=await customerRoadRoute([pickup,destination],controller.signal)}catch{return}if(!active)return;
+   const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}};
    const source=map.getSource('customer-route') as GeoJSONSource|undefined;
    if(source)source.setData(route);
    else{
@@ -66,12 +69,12 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
     map.addLayer({id:'customer-route-outline',type:'line',source:'customer-route',paint:{'line-color':'#fff','line-width':8,'line-opacity':.9}});
     map.addLayer({id:'customer-route-line',type:'line',source:'customer-route',paint:{'line-color':'#c9a861','line-width':5,'line-opacity':1}});
    }
-   const bounds=new LngLatBounds([pickup.longitude,pickup.latitude],[pickup.longitude,pickup.latitude]).extend([destination.longitude,destination.latitude]);
+   const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(coordinates[0] as [number,number],coordinates[0] as [number,number]));
    map.fitBounds(bounds,{padding:{top:125,bottom:50,left:55,right:55},maxZoom:15,duration:500});
   };
-  if(map.loaded())draw();else map.once('load',draw);
+  if(map.loaded())void draw();else map.once('load',draw);
   return()=>{
-   map.off('load',draw);
+   active=false;controller.abort();map.off('load',draw);
    if(map.getLayer('customer-route-line'))map.removeLayer('customer-route-line');
    if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
    if(map.getSource('customer-route'))map.removeSource('customer-route');

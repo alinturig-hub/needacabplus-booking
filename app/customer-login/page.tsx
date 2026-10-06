@@ -59,6 +59,8 @@ function CustomerLoginForm(){
    {providers.google&&<Link prefetch={false} href="/api/customer/auth/oauth/google"><span className="google-mark">G</span>Sign in with Google</Link>}
    {providers.apple&&<Link prefetch={false} href="/api/customer/auth/oauth/apple"><span className="apple-mark">●</span>Sign in with Apple</Link>}
   </div></>}
+  <button className="mobile-guest-button" type="button" disabled={busy} onClick={()=>void request('guest',{})}>Continue as Guest</button>
+  <p className="mobile-auth-benefit">Members can access saved places, journey history and membership fares. Guests can book without creating an account.</p>
   </div>
   <p className="mobile-auth-legal">By continuing, you agree to our <Link href="/terms">Terms &amp; Conditions</Link>, acknowledge our <Link href="/privacy">Privacy Policy</Link>, and confirm that you are over 18. We may send messages related to your journeys.</p>
  </section></main>;
