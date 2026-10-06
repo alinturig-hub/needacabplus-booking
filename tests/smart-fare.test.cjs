@@ -75,6 +75,13 @@ test('NOW accepts immediate bookings only and never inherits Priority additions'
  assert.equal(policyModule.quotePolicySchema.safeParse({serviceCapabilities:{asap:[42]}}).success,false);
  assert.equal(policyModule.quotePolicySchema.safeParse({smartFareCapabilities:[99],serviceCapabilities:{asap:[99]}}).success,false);
 });
+test('admin calculation exposes the same complete service fare without issuing a booking token',async()=>{
+ const h=harness({policy:{priorityUpliftMode:'fixed',priorityFixedAmount:2.5}});
+ const preview=await h.module.calculateQuote({...input,service:'priority'});
+ assert.equal(preview.basePence,1000);assert.equal(preview.upliftPence,250);assert.equal(preview.totalPence,1250);assert.equal(h.signed(),undefined);
+ const customer=await h.module.createQuote({...input,service:'priority'});
+ assert.equal(customer.quote.totalPence,preview.totalPence);assert.equal(h.signed().upliftPence,preview.upliftPence);
+});
 test('signal SQL runs against the application schema and counts overdue jobs but excludes future and allocated jobs',async()=>{
  const {PGlite}=require('@electric-sql/pglite');const db=new PGlite();
  try{

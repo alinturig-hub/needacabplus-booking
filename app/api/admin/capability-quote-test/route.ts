@@ -5,7 +5,7 @@ import {bookingQuote} from '@/lib/autocab-api';
 import {readAutocabCosts} from '@/lib/autocab-booking-request';
 import {buildAutocabQuoteRequest} from '@/lib/autocab-quote-request';
 import {firstPrebookTime} from '@/lib/prebook-time';
-import {loadQuotePolicy} from '@/lib/quotes';
+import {calculateQuote,loadQuotePolicy} from '@/lib/quotes';
 import {readFare} from '@/lib/quote-policy';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 
@@ -46,11 +46,14 @@ export async function POST(request:Request){
  try{
   const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy(),pickup=input.pickup.fullAddress,destination=input.destination.fullAddress;
   const scheduledAt=input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
+  // The customer preview uses the exact booking engine and saved capabilities.
+  // The optional capability field controls only the separate raw Autocab experiment.
+  const customerFare=calculateQuote({pickup,destination,vias:[],vehicle:'saloon',service:input.service,paymentMethod:input.paymentMethod,scheduledAt}).then(quote=>({ok:true as const,service:quote.service,basePence:quote.basePence,upliftPence:quote.upliftPence,totalPence:quote.totalPence,percent:quote.percent,fixedPence:quote.fixedPence,demand:quote.demand,capabilities:quote.autocabRequest?.capabilities||[],smartFare:quote.smartFare,scheduledAt:quote.scheduledAt,expiresAt:quote.expiresAt})).catch(error=>({ok:false as const,error:error instanceof Error?error.message:'Customer fare is unavailable.'}));
   if(input.capabilityId==null){
    const quoteRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:[],...(input.service==='asap'?{priorityDelayMinutes:0}:{})};
    const request=buildAutocabQuoteRequest({pickup,destination,vias:[],vehicle:'saloon',scheduledAt},[],new Date(),quoteRules);
    const [result]=await Promise.allSettled([bookingQuote(request)]);
-   return Response.json({testOnly:true,bookingCreated:false,capabilityId:null,service:input.service,paymentMethod:input.paymentMethod,scheduledAt,resolved:{pickup:addressLabel(pickup,input.pickup.address),destination:addressLabel(destination,input.destination.address)},control:settledResult(result,[],policy)},{headers:{'Cache-Control':'no-store'}});
+   return Response.json({testOnly:true,bookingCreated:false,capabilityId:null,service:input.service,paymentMethod:input.paymentMethod,scheduledAt,customerFare:await customerFare,resolved:{pickup:addressLabel(pickup,input.pickup.address),destination:addressLabel(destination,input.destination.address)},control:settledResult(result,[],policy)},{headers:{'Cache-Control':'no-store'}});
   }
   const common=serviceCapabilities(policy,rules.bookingCapabilities,input.service).filter(id=>id!==input.capabilityId),controlRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:common,...(input.service==='asap'?{priorityDelayMinutes:0}:{})},discountRules={...controlRules,bookingCapabilities:[...common,input.capabilityId]};
   const journey={pickup,destination,vias:[],vehicle:'saloon',scheduledAt};
@@ -58,6 +61,7 @@ export async function POST(request:Request){
   const [control,discounted]=await Promise.allSettled([bookingQuote(controlRequest),bookingQuote(discountRequest)]);
   return Response.json({
    testOnly:true,bookingCreated:false,capabilityId:input.capabilityId,service:input.service,paymentMethod:input.paymentMethod,scheduledAt,
+   customerFare:await customerFare,
    resolved:{pickup:addressLabel(pickup,input.pickup.address),destination:addressLabel(destination,input.destination.address)},
    control:settledResult(control,common,policy),
    discounted:settledResult(discounted,discountRules.bookingCapabilities,policy),

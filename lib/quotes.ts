@@ -44,7 +44,7 @@ export async function smartFareSnapshot(policy:Awaited<ReturnType<typeof loadQuo
   return {waiting,clear,fresh:true};
  }catch{return {waiting:null,clear:null,fresh:false}}
 }
-export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
+export async function calculateQuote(input:z.infer<typeof quoteRequestSchema>):Promise<FareQuote>{
  const policy=await loadQuotePolicy();if(!policy.enabled)throw new QuoteError('Live quotes are currently unavailable.');
  validateSchedule(input.service,input.scheduledAt,policy.minPrebookMinutes);
  const stops=[input.pickup,...input.vias,input.destination];if(new Set(stops.map(stop=>stop.text.toLowerCase())).size!==stops.length)throw new QuoteError('Choose a different address for each stop.');
@@ -83,6 +83,9 @@ export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
 
  const expiry=Math.min(Date.now()+policy.quoteValiditySeconds*1000,input.scheduledAt?Date.parse(input.scheduledAt)-policy.minPrebookMinutes*60000:Infinity);
  const quote:FareQuote={id:randomUUID(),liveBooking:bookingRules.liveBookingsEnabled,bookingRules,paymentMethod:bookingRules.paymentMethod,autocabRequest,autocabCosts:readAutocabCosts(response),vehicle:input.vehicle,service:input.service,scheduledAt:input.scheduledAt,pickup:input.pickup.text,destination:input.destination.text,vias:input.vias.map(v=>v.text),...fareBreakdown(basePence,percent,fixedPence),fixedPence,percent,demand,currency:'GBP',expiresAt:new Date(expiry).toISOString()};
- const signedQuote={...quote,...(smartFare?{smartFare}:{})};
- return {quote:publicFareQuote(signedQuote),token:signQuote(signedQuote)};
+ return {...quote,...(smartFare?{smartFare}:{})};
+}
+export async function createQuote(input:z.infer<typeof quoteRequestSchema>){
+ const quote=await calculateQuote(input);
+ return {quote:publicFareQuote(quote),token:signQuote(quote)};
 }
