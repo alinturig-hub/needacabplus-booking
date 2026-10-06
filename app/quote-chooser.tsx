@@ -13,12 +13,13 @@ export type QuoteSelection={quote:PublicFareQuote;token:string};
 type Config={enabled:boolean;minPrebookMinutes:number;vehicles:string[];paymentMethods:('cash'|'card')[];defaultPaymentMethod?:'cash'|'card';liveBookingsEnabled:boolean};
 const keyOf=(service:string,vehicle:string)=>`${service}:${vehicle}`;
 const localDate=(iso:string)=>{const date=new Date(iso);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};
-export default function QuoteChooser({pickup,destination,vias,initial,initialService='asap',customer,paymentLabel,onChoose}:{pickup:Record<string,unknown>|null;destination:Record<string,unknown>|null;vias:(Record<string,unknown>|null)[];initial:QuoteSelection|null;initialService?:'asap'|'priority'|'prebook'|'guarantee';customer:boolean;paymentLabel:string;onChoose:(value:QuoteSelection)=>void}){
+export default function QuoteChooser({pickup,destination,vias,initial,initialService='asap',customer,paymentLabel,onChoose}:{pickup:Record<string,unknown>|null;destination:Record<string,unknown>|null;vias:(Record<string,unknown>|null)[];initial:QuoteSelection|null;initialService?:'asap'|'prebook'|'guarantee';customer:boolean;paymentLabel:string;onChoose:(value:QuoteSelection)=>void}){
  const [selected,setSelected]=useState(initial?keyOf(initial.quote.service,initial.quote.vehicle):`${initialService}:saloon`),[scheduled,setScheduled]=useState(initial?.quote.scheduledAt?localDate(initial.quote.scheduledAt):''),[config,setConfig]=useState<Config|null>(null),[offers,setOffers]=useState<Record<string,QuoteSelection>>(initial?{[keyOf(initial.quote.service,initial.quote.vehicle)]:initial}:{}),[errors,setErrors]=useState<Record<string,string>>({}),[loading,setLoading]=useState<Record<string,boolean>>({}),[configError,setConfigError]=useState(''),[revision,setRevision]=useState(0),[now,setNow]=useState(Date.now);
  const [paymentMethod,setPaymentMethod]=useState<'cash'|'card'>(initial?.quote.paymentMethod||'cash');
  const cached=useRef(offers);
  const scheduleInput=useRef<HTMLInputElement>(null);
  const routeKey=JSON.stringify({pickup,destination,vias});
+ const displayedServices=[initialService,'priority'] as const;
  const scheduledService=selected.startsWith('prebook:')||selected.startsWith('guarantee:');
  const scheduledAt=scheduled&&Number.isFinite(new Date(scheduled).getTime())?new Date(scheduled).toISOString():null;
  const dateValid=Boolean(scheduledAt&&Date.parse(scheduledAt)>=now+(config?.minPrebookMinutes??30)*60000&&isPrebookInterval(Date.parse(scheduledAt)));
@@ -28,7 +29,11 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
   if(!config?.enabled||!config.paymentMethods.includes(paymentMethod))return;let active=true;const controller=new AbortController();
   const timer=setTimeout(async()=>{
    const route=JSON.parse(routeKey);const allowed=config.vehicles;
-   const jobs=allowed.flatMap(vehicle=>[{vehicle,service:'asap' as const,scheduledAt:null as string|null},{vehicle,service:'priority' as const,scheduledAt:null as string|null},...(scheduledAt&&Date.parse(scheduledAt)>=Date.now()+config.minPrebookMinutes*60000&&isPrebookInterval(Date.parse(scheduledAt))?[{vehicle,service:'prebook' as const,scheduledAt},{vehicle,service:'guarantee' as const,scheduledAt}]:[])]);
+   const baseScheduled=initialService==='prebook'||initialService==='guarantee';
+   const jobs=allowed.flatMap(vehicle=>[
+    {vehicle,service:'priority' as const,scheduledAt:null as string|null},
+    ...(!baseScheduled?[{vehicle,service:'asap' as const,scheduledAt:null as string|null}]:scheduledAt&&Date.parse(scheduledAt)>=Date.now()+config.minPrebookMinutes*60000&&isPrebookInterval(Date.parse(scheduledAt))?[{vehicle,service:initialService,scheduledAt}]:[]),
+   ]);
    await Promise.all(jobs.map(async job=>{
     const key=keyOf(job.service,job.vehicle),old=cached.current[key];
     if(old&&Boolean(old.quote.liveBooking)===config.liveBookingsEnabled&&old.quote.paymentMethod===paymentMethod&&old.quote.scheduledAt===job.scheduledAt&&Date.parse(old.quote.expiresAt)>Date.now())return;
@@ -39,7 +44,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
    }));clearTimeout(timeout);
   },350);const timeout=setTimeout(()=>{if(active){controller.abort();setLoading({});setConfigError('Some fares took too long. Please retry.')}},25000);
   return()=>{active=false;clearTimeout(timer);clearTimeout(timeout);controller.abort()};
- },[config,routeKey,scheduledAt,revision,paymentMethod]);
+ },[config,routeKey,scheduledAt,revision,paymentMethod,initialService]);
  const current=offers[selected],valid=Boolean(config?.enabled&&config.paymentMethods.includes(paymentMethod)&&current&&Boolean(current.quote.liveBooking)===config.liveBookingsEnabled&&current.quote.paymentMethod===paymentMethod&&!(config.liveBookingsEnabled&&paymentMethod==='card')&&Date.parse(current.quote.expiresAt)>now&&(!scheduledService||(dateValid&&current.quote.scheduledAt===scheduledAt))&&!loading[selected]);
  function retry(){setConfigError('');cached.current={};setOffers({});setRevision(v=>v+1)}
  function openSchedule(key=selected){
@@ -55,7 +60,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
   {scheduledService&&<label className="ride-schedule">Pick-up date & time<Input ref={scheduleInput} type="datetime-local" step={PREBOOK_INTERVAL_MINUTES*60} min={localDate(new Date(firstPrebookTime(config?.minPrebookMinutes??30,now)).toISOString())} max={localDate(new Date(now+366*86400000).toISOString())} value={scheduled} onChange={e=>{setScheduled(e.target.value);setConfigError('')}}/><small>Available every 5 minutes · your device’s local time</small></label>}
   {configError&&<p className="error-message" role="alert">{configError}</p>}{config&&!config.enabled&&<p role="status">Rides are temporarily unavailable.</p>}
   {!config&&!configError&&<p role="status">Finding your rides…</p>}
-  <div className="ride-options" role="group" aria-label="Choose a ride">{(['asap','priority','prebook','guarantee'] as const).flatMap(service=>available.map(v=>{
+  <div className="ride-options" role="group" aria-label="Choose a ride">{displayedServices.flatMap(service=>available.map(v=>{
    const isScheduled=service==='prebook'||service==='guarantee',key=keyOf(service,v.id),offer=offers[key],ready=offer&&offer.quote.paymentMethod===paymentMethod&&Date.parse(offer.quote.expiresAt)>now&&(!isScheduled||(dateValid&&offer.quote.scheduledAt===scheduledAt));
    const title=`${service==='asap'?'NOW':service==='priority'?'Priority':service==='prebook'?'Pre-book':'Guarantee'} ${v.id==='saloon'?'taxi':v.id==='estate'?'Estate':'XL'}`;
    return <button type="button" key={key} className={`ride-option ${selected===key?'is-selected':''}`} aria-pressed={selected===key} onClick={()=>isScheduled?openSchedule(key):setSelected(key)}>
