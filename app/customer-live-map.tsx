@@ -33,12 +33,12 @@ function drawRoute(map:MapLibreMap,coordinates:number[][]){
  applyMapTheme(map);
 }
 
-export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,cameraTarget,userLocation,onPickerMove,onPickerStart,onMapInteract}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void;onMapInteract?:()=>void}){
+export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
  const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null);
- const callbacks=useRef({picker,onPickerMove,onPickerStart,onMapInteract});
+ const callbacks=useRef({picker,onPickerMove,onPickerStart});
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
  const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null;
- useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart,onMapInteract}},[picker,onPickerMove,onPickerStart,onMapInteract]);
+ useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart}},[picker,onPickerMove,onPickerStart]);
  useEffect(()=>{
   if(!container.current)return;
   let map:MapLibreMap;
@@ -47,7 +47,7 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
   // Only gestures request a new address. Resizing the sheet and moving the camera
   // to a selected result must never start another reverse-geocoding request.
   let gesture=false;
-  map.on('movestart',event=>{if(event.originalEvent){gesture=true;callbacks.current.onMapInteract?.();if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
+  map.on('movestart',event=>{if(event.originalEvent){gesture=true;if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
   map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
   let activeStyle='openstreetmap',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
   const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
