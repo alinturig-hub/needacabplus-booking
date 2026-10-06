@@ -1,13 +1,13 @@
 import {OAuthFlowError} from './oauth-errors';
 import {verifyIdentityToken} from './oauth-token';
-import {randomBytes,randomUUID} from 'node:crypto';
+import {randomBytes} from 'node:crypto';
 import {createRemoteJWKSet,SignJWT,importPKCS8} from 'jose';
 import {cookies} from 'next/headers';
 import {database} from './database';
 import {loadIdentityPolicy,readConfiguration} from './app-configuration';
 import {decryptCredentials} from './credentials';
-import {hashPassword,findCustomerByEmail} from './customer-auth';
-import {AuthError,hash,beginChallenge,completeLogin} from './customer-verification';
+import {AuthError,hash} from './customer-verification';
+import {completeOAuthAccount} from './customer-oauth-account';
 const origin=process.env.CUSTOMER_APP_ORIGIN||'https://webapp.needacabplus.app';
 const googleKeys=createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 const appleKeys=createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
@@ -33,10 +33,7 @@ export async function finishOAuth(provider:'google'|'apple',code:string,state:st
  const response=await fetch(provider==='google'?'https://oauth2.googleapis.com/token':'https://appleid.apple.com/auth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(10000),redirect:'error'});if(!response.ok){const rejected=await response.json().catch(()=>({})) as {error?:string};throw new OAuthFlowError(rejected.error==='invalid_client'?'provider_configuration':rejected.error==='invalid_grant'?'provider_code':'provider')};const data=await response.json() as {id_token?:unknown};if(typeof data.id_token!=='string')throw new AuthError('Missing identity token.');
  const payload=await verifyIdentityToken(data.id_token,provider,clientId,saved.nonce,provider==='google'?googleKeys:appleKeys).catch(()=>{throw new OAuthFlowError('provider_identity')});
  if(payload.nonce!==saved.nonce||!payload.sub)throw new AuthError('Invalid sign-in response.');
- const existing=(await db.query('SELECT c.id,c.phone FROM customer_identities i JOIN customer_accounts c ON c.id=i.customer_id WHERE i.provider=$1 AND i.subject=$2',[provider,payload.sub])).rows[0];
- if(existing)return completeLogin(existing.id,existing.phone);
  if(typeof payload.email!=='string'||!(payload.email_verified===true||payload.email_verified==='true'))throw new AuthError('The provider did not verify an email address.');
- if(await findCustomerByEmail(payload.email))throw new AuthError('This email already has an account. Sign in with your email and password.');
  const fullName=typeof payload.name==='string'?payload.name:'Customer';
- return beginChallenge('social', '',{email:payload.email.toLowerCase(),passwordHash:await hashPassword(randomUUID()+randomUUID()),fullName,provider,subject:payload.sub},null,false);
+ return completeOAuthAccount(provider,payload.sub,payload.email.toLowerCase(),fullName);
 }

@@ -4,6 +4,7 @@ import {FormEvent,Suspense,useEffect,useRef,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import {ArrowLeft} from 'lucide-react';
+import {oauthMessages} from '@/lib/oauth-errors';
 
 type AuthResponse={error?:string;verificationRequired?:boolean;phoneRequired?:boolean;phone?:string;maskedPhone?:string;expiresIn?:number};
 
@@ -12,7 +13,8 @@ function CustomerLoginForm(){
  const startsWithVerification=params.get('verify')==='1'&&params.get('phone')!=='1';
  const [stage,setStage]=useState<'number'|'code'>(startsWithVerification?'code':'number');
  const [phone,setPhone]=useState(''),[sentTo,setSentTo]=useState(''),[code,setCode]=useState('');
- const [busy,setBusy]=useState(false),[error,setError]=useState(''),[providers,setProviders]=useState({google:false,apple:false});
+ const oauthError=params.get('error');
+ const [busy,setBusy]=useState(false),[error,setError]=useState(oauthError?(oauthMessages[oauthError]||oauthMessages.provider):''),[providers,setProviders]=useState({google:false,apple:false});
  const [resendIn,setResendIn]=useState(startsWithVerification?30:0);
 
  useEffect(()=>{fetch('/api/customer/auth/options',{cache:'no-store'}).then(r=>r.json() as Promise<{google:boolean;apple:boolean}>).then(setProviders).catch(()=>{})},[]);
