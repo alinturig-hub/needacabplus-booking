@@ -54,10 +54,19 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
   const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
   fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(data.provider==='maptiler'&&data.lightStyleUrl&&data.darkStyleUrl){styleUrls={lightStyleUrl:data.lightStyleUrl,darkStyleUrl:data.darkStyleUrl};syncTheme()}}).catch(()=>{});
   const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  let resizeFrame:number|null=null;
-  const observer=new ResizeObserver(()=>{if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;map.resize();if(map.loaded()&&routeCoordinates.current)fitRoute(map,routeCoordinates.current)})});observer.observe(container.current);
+  let resizeFrame:number|null=null,routeFitTimer:number|null=null;
+  const observer=new ResizeObserver(()=>{
+   if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);
+   resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;map.resize()});
+   // The ride sheet changes the map height continuously while it follows the
+   // passenger's finger. Fitting the route on every resize made MapLibre jump
+   // between zoom levels and reload tiles, which looked like a shaking map.
+   // Keep the canvas in sync during the gesture, then fit once after it settles.
+   if(routeFitTimer!==null)window.clearTimeout(routeFitTimer);
+   routeFitTimer=window.setTimeout(()=>{routeFitTimer=null;if(map.loaded()&&routeCoordinates.current)fitRoute(map,routeCoordinates.current)},180);
+  });observer.observe(container.current);
   const cars=markers.current;
-  return()=>{observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
+  return()=>{observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);if(routeFitTimer!==null)window.clearTimeout(routeFitTimer);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
  },[]);
  useEffect(()=>{
   let active=true,receivedStream=false;
