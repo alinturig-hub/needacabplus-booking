@@ -1,13 +1,14 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronRight,CreditCard,KeyRound,LayoutGrid,LogOut,MessageSquare,Route,Search,Settings2,ShieldCheck,Webhook} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronRight,CreditCard,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Webhook} from 'lucide-react';
 import CustomerSettings from './customer-settings';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
 import {DispatchSettings,StripeSettings} from './operations-settings';
 import PricingWorkspace from './pricing-workspace';
 import FleetApp,{type FleetResource} from '../fleet-app';
+import MapSettings from './map-settings';
 import './configuration.css';
 
 const sections=[
@@ -15,6 +16,7 @@ const sections=[
  {id:'webhooks',group:'Integrations & keys',title:'Webhooks',description:'Incoming booking events, provider endpoints and signing credentials.',keywords:'webhook inbound events dispatch accepted rejected modified',icon:Webhook},
  {id:'sms',group:'Integrations & keys',title:'SMS gateway',description:'Orion connection, signed URL, message templates and test messages.',keywords:'sms orion phone message test otp url header token',icon:MessageSquare},
  {id:'identity',group:'Integrations & keys',title:'Customer sign-in',description:'Google and Apple credentials, callback URLs and SMS verification.',keywords:'google apple oauth client id secret otp login registration verification authentication',icon:KeyRound},
+ {id:'maps',group:'Integrations & keys',title:'Maps & places',description:'Map display, MapTiler key, address autocomplete, GPS lookup and nearby places.',keywords:'map maptiler openstreetmap osm geocoding address search autocomplete gps places key',icon:Map},
  {id:'payments',group:'Integrations & keys',title:'Payments & Stripe',description:'Test or live mode, payment keys and webhook signing secret.',keywords:'stripe card wallet payment key secret sandbox',icon:CreditCard},
  {id:'bookings',group:'Operations',title:'Bookings',description:'Need A Cab Plus origin marker, account IDs, payments, capabilities and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
  {id:'pricing',group:'Operations',title:'Fares & demand',description:'Live quotes, Priority and prebook additions, and automatic demand pricing.',keywords:'pricing fare quote surcharge demand percent tariff',icon:BadgePoundSterling},
@@ -38,6 +40,7 @@ export default function ConfigurationApp(){
  {visited.includes('webhooks')&&<div hidden={selected!=='webhooks'} className="configuration-panel"><WebhookProviders/></div>}
  {visited.includes('sms')&&<div hidden={selected!=='sms'}><CustomerSettings section="sms"/></div>}
  {visited.includes('identity')&&<div hidden={selected!=='identity'}><CustomerSettings section="identity"/></div>}
+ {visited.includes('maps')&&<div hidden={selected!=='maps'}><MapSettings/></div>}
  {visited.includes('payments')&&<div hidden={selected!=='payments'}><StripeSettings/></div>}
  {visited.includes('bookings')&&<div hidden={selected!=='bookings'}><CustomerSettings section="bookings"/></div>}
  {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><PricingWorkspace/></div>}

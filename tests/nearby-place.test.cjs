@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
-const moduleUnderTest={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync('lib/nearby-place.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(require,moduleUnderTest,moduleUnderTest.exports);
+const moduleUnderTest={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync('lib/nearby-place.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>id==='./map-settings'?{readMapConfiguration:async()=>({settings:{searchProvider:'openstreetmap'},apiKey:''})}:id==='./maptiler-geocoding'?{nearestMapTilerPlace:()=>null,reverseMapTiler:async()=>[]}:require(id),moduleUnderTest,moduleUnderTest.exports);
 const {closestNearbyPlace,inferredPlaceName}=moduleUnderTest.exports;
 
 test('GPS lookup selects the closest useful named place within the pickup radius',()=>{

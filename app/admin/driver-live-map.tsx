@@ -4,10 +4,10 @@ import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {ArrowLeft,LogOut,MapPin,RefreshCw} from 'lucide-react';
 import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
+import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
 
 type Driver={driverId:string;callsign:string|null;name:string|null;phone:string|null;latitude:number;longitude:number;vehicleStatus:string;recordedAt:string};
 type LiveMarker={marker:Marker;coordinate:[number,number];recordedAt:number;heading:number;animationFrame:number|null};
-const rasterStyle={version:8 as const,sources:{osm:{type:'raster' as const,tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster' as const,source:'osm'}]};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
 function timeAgo(iso:string){const s=Math.floor((Date.now()-new Date(iso).getTime())/1000);if(s<60)return `${s}s ago`;if(s<3600)return `${Math.floor(s/60)}m ago`;return `${Math.floor(s/3600)}h ago`;}
 function markerLabel(driver:Driver){return(driver.callsign||driver.name||driver.driverId).trim().slice(0,4).toUpperCase();}
@@ -62,11 +62,9 @@ export default function DriverLiveMap(){
  },[]);
  useEffect(()=>{
   if(!mapContainer.current||mapRef.current)return;
-  const markers=markersRef.current;
-  const map=new MapLibreMap({container:mapContainer.current,style:rasterStyle,center:DEFAULT_CENTER,zoom:11,attributionControl:{compact:true}});
-  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
-  mapRef.current=map;
-  return()=>{markers.forEach(({marker,animationFrame})=>{if(animationFrame!==null)cancelAnimationFrame(animationFrame);marker.remove()});markers.clear();map.remove();mapRef.current=null;};
+  const markers=markersRef.current,controller=new AbortController();let map:MapLibreMap|null=null,disposed=false;
+  void configuredMapStyle('dark',controller.signal).then(style=>{if(disposed||!mapContainer.current)return;map=new MapLibreMap({container:mapContainer.current,style:style||openStreetMapStyle,center:DEFAULT_CENTER,zoom:11,attributionControl:{compact:true}});map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');mapRef.current=map});
+  return()=>{disposed=true;controller.abort();markers.forEach(({marker,animationFrame})=>{if(animationFrame!==null)cancelAnimationFrame(animationFrame);marker.remove()});markers.clear();map?.remove();mapRef.current=null;};
  },[]);
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;

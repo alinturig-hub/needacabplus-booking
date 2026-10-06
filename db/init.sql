@@ -356,6 +356,12 @@ ALTER TABLE booking_database_audits ADD COLUMN IF NOT EXISTS heartbeat_at timest
 ALTER TABLE booking_database_audits ADD COLUMN IF NOT EXISTS time_diagnostics jsonb;
 
 CREATE TABLE IF NOT EXISTS app_configuration(section text PRIMARY KEY CHECK(section IN ('bookings','sms','identity')),settings jsonb NOT NULL DEFAULT '{}',secrets_encrypted text NOT NULL DEFAULT '',updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS map_configuration(
+ id boolean PRIMARY KEY DEFAULT true CHECK(id),
+ settings jsonb NOT NULL DEFAULT '{}',
+ secrets_encrypted text NOT NULL DEFAULT '',
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
 ALTER TABLE customer_accounts ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz;
 CREATE TABLE IF NOT EXISTS customer_auth_challenges(id text PRIMARY KEY,purpose text NOT NULL,customer_id uuid REFERENCES customer_accounts(id),phone text NOT NULL DEFAULT '',payload_encrypted text NOT NULL DEFAULT '',code_hash text,attempts int NOT NULL DEFAULT 0,expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),consumed_at timestamptz);
 CREATE TABLE IF NOT EXISTS customer_trusted_devices(token_hash text PRIMARY KEY,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,expires_at timestamptz NOT NULL);

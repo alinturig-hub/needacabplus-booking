@@ -7,7 +7,7 @@ type Coordinate={latitude:number;longitude:number};
 type Vehicle=Coordinate&{id:string;recordedAt:string};
 type LiveMarker={marker:Marker;position:[number,number];target:[number,number];time:number;heading:number;frame:number|null};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
-const style:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]};
+const openStreetMapStyle:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]};
 function heading(from:[number,number],to:[number,number]){const rad=Math.PI/180,d=(to[0]-from[0])*rad;return Math.atan2(Math.sin(d)*Math.cos(to[1]*rad),Math.cos(from[1]*rad)*Math.sin(to[1]*rad)-Math.sin(from[1]*rad)*Math.cos(to[1]*rad)*Math.cos(d))/rad}
 function darkTheme(){return document.documentElement.dataset.theme==='dark'}
 function applyMapTheme(map:MapLibreMap){
@@ -26,6 +26,11 @@ function fitRoute(map:MapLibreMap,coordinates:number[][],duration=0){
  const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(first,first));
  map.fitBounds(bounds,{padding:{top:125,bottom:50,left:55,right:55},maxZoom:15,duration});
 }
+function drawRoute(map:MapLibreMap,coordinates:number[][]){
+ const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}},source=map.getSource('customer-route') as GeoJSONSource|undefined;
+ if(source)source.setData(route);else{map.addSource('customer-route',{type:'geojson',data:route});map.addLayer({id:'customer-route-outline',type:'line',source:'customer-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':10,'line-opacity':.88}});map.addLayer({id:'customer-route-line',type:'line',source:'customer-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#090a0a','line-width':6,'line-opacity':1}})}
+ applyMapTheme(map);
+}
 
 export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
  const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null);
@@ -35,15 +40,19 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
  useEffect(()=>{
   if(!container.current)return;
   let map:MapLibreMap;
-  try{map=new MapLibreMap({container:container.current,style,center:DEFAULT_CENTER,zoom:13,minZoom:5,maxZoom:19,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});}catch{queueMicrotask(()=>setMapError(true));return}
+  try{map=new MapLibreMap({container:container.current,style:openStreetMapStyle,center:DEFAULT_CENTER,zoom:13,minZoom:5,maxZoom:19,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});}catch{queueMicrotask(()=>setMapError(true));return}
   mapRef.current=map;map.touchZoomRotate.disableRotation();map.touchPitch.disable();
   // Only gestures request a new address. Resizing the sheet and moving the camera
   // to a selected result must never start another reverse-geocoding request.
   let gesture=false;
   map.on('movestart',event=>{if(event.originalEvent){gesture=true;if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
   map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
+  let activeStyle='openstreetmap',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
+  const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
+  const syncTheme=()=>{const next=styleUrls?(darkTheme()?styleUrls.darkStyleUrl:styleUrls.lightStyleUrl):null;if(next&&next!==activeStyle){activeStyle=next;map.setStyle(next);map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
   const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
-  const themeObserver=new MutationObserver(()=>{if(map.loaded())applyMapTheme(map)});themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(data.provider==='maptiler'&&data.lightStyleUrl&&data.darkStyleUrl){styleUrls={lightStyleUrl:data.lightStyleUrl,darkStyleUrl:data.darkStyleUrl};syncTheme()}}).catch(()=>{});
+  const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   let resizeFrame:number|null=null;
   const observer=new ResizeObserver(()=>{if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;map.resize();if(map.loaded()&&routeCoordinates.current)fitRoute(map,routeCoordinates.current)})});observer.observe(container.current);
   const cars=markers.current;
@@ -82,15 +91,7 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
   const draw=async()=>{
    let coordinates:number[][];try{coordinates=await customerRoadRoute([pickup,destination],controller.signal)}catch{return}if(!active)return;
    routeCoordinates.current=coordinates;
-   const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}};
-   const source=map.getSource('customer-route') as GeoJSONSource|undefined;
-   if(source)source.setData(route);
-   else{
-    map.addSource('customer-route',{type:'geojson',data:route});
-    map.addLayer({id:'customer-route-outline',type:'line',source:'customer-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':10,'line-opacity':.88}});
-    map.addLayer({id:'customer-route-line',type:'line',source:'customer-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#090a0a','line-width':6,'line-opacity':1}});
-   }
-   applyMapTheme(map);fitRoute(map,coordinates,500);
+   if(!map.isStyleLoaded()){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500);
   };
   if(map.loaded())void draw();else map.once('load',draw);
   return()=>{

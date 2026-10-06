@@ -1,3 +1,5 @@
+import {readMapConfiguration} from './map-settings';
+import {nearestMapTilerPlace,reverseMapTiler} from './maptiler-geocoding';
 type JsonRecord=Record<string,unknown>;
 export type NearbyPlace={name:string;type:string;latitude:number;longitude:number;distanceMetres:number};
 
@@ -18,5 +20,5 @@ export function closestNearbyPlace(payload:unknown,latitude:number,longitude:num
 
 export async function nearbyNamedPlace(latitude:number,longitude:number){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
- try{const urls=[`https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}&limit=10`,`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&namedetails=1`],responses=await Promise.allSettled(urls.map(url=>fetch(url,{headers:{Accept:'application/json','User-Agent':'NeedACabPlus/1.0 (webapp.needacabplus.app)'},signal:controller.signal,cache:'no-store'})));const places=(await Promise.all(responses.flatMap(result=>result.status==='fulfilled'&&result.value.ok?[result.value.json().then(payload=>closestNearbyPlace(payload,latitude,longitude)).catch(()=>null)]:[]))).filter((place):place is NearbyPlace=>Boolean(place));return places.sort((a,b)=>a.distanceMetres-b.distanceMetres)[0]||null}catch{return null}finally{clearTimeout(timer)}
+ try{const {settings,apiKey}=await readMapConfiguration();if(settings.searchProvider==='maptiler'&&apiKey){const features=await reverseMapTiler(latitude,longitude,apiKey,settings,controller.signal);return nearestMapTilerPlace(features,latitude,longitude,settings.nearbyPlaceRadiusMetres)}const urls=[`https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}&limit=10`,`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&namedetails=1`],responses=await Promise.allSettled(urls.map(url=>fetch(url,{headers:{Accept:'application/json','User-Agent':'NeedACabPlus/1.0 (webapp.needacabplus.app)'},signal:controller.signal,cache:'no-store'})));const places=(await Promise.all(responses.flatMap(result=>result.status==='fulfilled'&&result.value.ok?[result.value.json().then(payload=>closestNearbyPlace(payload,latitude,longitude)).catch(()=>null)]:[]))).filter((place):place is NearbyPlace=>Boolean(place));return places.sort((a,b)=>a.distanceMetres-b.distanceMetres)[0]||null}catch{return null}finally{clearTimeout(timer)}
 }
