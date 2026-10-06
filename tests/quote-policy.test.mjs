@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultQuotePolicy as defaults,quotePolicySchema,dynamicScheduleActive,priorityPercent,fareAdjustment,fareBreakdown,validateSchedule,readFare} from '../lib/quote-policy.ts';
+import {firstPrebookTime,isPrebookInterval} from '../lib/prebook-time.js';
 test('Priority uplift uses integer pence and predictable half-penny rounding',()=>{
  assert.deepEqual(fareBreakdown(1090,15),{basePence:1090,upliftPence:164,totalPence:1254});
  assert.equal(fareBreakdown(670,10).totalPence,737);
@@ -34,6 +35,12 @@ test('prebook exact boundary, ASAP restriction and invalid dates',()=>{
  assert.throws(()=>validateSchedule('priority','2026-09-27T10:30:00Z',30,now));
  assert.doesNotThrow(()=>validateSchedule('priority',null,30,now));
  assert.throws(()=>validateSchedule('guarantee','2026-09-27T10:30:00Z',60,now));
+ assert.throws(()=>validateSchedule('guarantee','2026-09-27T10:31:00Z',30,now));
+ assert.throws(()=>validateSchedule('guarantee','2026-09-27T10:30:01Z',30,now));
+ assert.equal(isPrebookInterval(Date.parse('2026-09-27T10:35:00Z')),true);
+ assert.equal(isPrebookInterval(Date.parse('2026-09-27T10:36:00Z')),false);
+ assert.equal(firstPrebookTime(45,Date.parse('2026-10-06T08:00:00Z')),Date.parse('2026-10-06T08:45:00Z'));
+ assert.equal(firstPrebookTime(45,Date.parse('2026-10-06T08:00:01Z')),Date.parse('2026-10-06T08:50:00Z'));
 });
 test('fare mapping never guesses cost or substitutes a demo fare',()=>{
  assert.equal(readFare({price:6.7,cost:4},'price','gbp'),670);

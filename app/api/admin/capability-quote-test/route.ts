@@ -1,0 +1,60 @@
+import {z} from 'zod';
+import {loadBookingPolicy} from '@/lib/app-configuration';
+import {bookingQuote,searchAddresses} from '@/lib/autocab-api';
+import {readAutocabCosts} from '@/lib/autocab-booking-request';
+import {buildAutocabQuoteRequest} from '@/lib/autocab-quote-request';
+import {firstPrebookTime} from '@/lib/prebook-time';
+import {loadQuotePolicy} from '@/lib/quotes';
+import {readFare} from '@/lib/quote-policy';
+import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
+
+export const dynamic='force-dynamic';
+const inputSchema=z.object({
+ capabilityId:z.number().int().positive().max(1000000),
+ pickup:z.string().trim().min(5).max(250),destination:z.string().trim().min(5).max(250),
+ service:z.enum(['priority','guarantee']).default('priority'),paymentMethod:z.enum(['cash','card']).default('cash'),
+}).strict().refine(value=>value.pickup.toLowerCase()!==value.destination.toLowerCase(),{message:'Use two different addresses.'});
+type JsonRecord=Record<string,unknown>;
+function record(value:unknown):JsonRecord{return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonRecord:{}}
+function scalar(value:unknown){return typeof value==='string'||typeof value==='number'||typeof value==='boolean'?value:null}
+function tariffEvidence(value:unknown,depth=0):Record<string,string|number|boolean>{
+ if(depth>5)return {};const found:Record<string,string|number|boolean>={};
+ if(Array.isArray(value)){for(const item of value)Object.assign(found,tariffEvidence(item,depth+1));return found}
+ for(const [key,nested] of Object.entries(record(value))){
+  if(['tariff','tariffid','tariffname','pricingtariff','pricingtariffid'].includes(key.toLowerCase())){const item=scalar(nested);if(item!==null)found[key]=item}
+  else if(nested&&typeof nested==='object')Object.assign(found,tariffEvidence(nested,depth+1));
+ }
+ return found;
+}
+function addressLabel(value:JsonRecord,fallback:string){for(const key of ['text','displayName','formattedAddress','address']){const item=value[key];if(typeof item==='string'&&item.trim())return item}return fallback}
+function quoteResult(response:unknown,capabilities:number[],policy:Awaited<ReturnType<typeof loadQuotePolicy>>){
+ const costs=readAutocabCosts(response);
+ return {ok:true as const,capabilities,pricePence:readFare(response,policy.pricePath,policy.priceUnit),cost:costs?.cost??null,bookingCost:costs?.bookingCost??null,tariff:tariffEvidence(response)};
+}
+function quoteError(reason:unknown,capabilities:number[]){return {ok:false as const,capabilities,error:reason instanceof Error?reason.message:'Autocab did not return a quote.'}}
+function settledResult(result:PromiseSettledResult<unknown>,capabilities:number[],policy:Awaited<ReturnType<typeof loadQuotePolicy>>){
+ if(result.status==='rejected')return quoteError(result.reason,capabilities);
+ try{return quoteResult(result.value,capabilities,policy)}catch(error){return quoteError(error,capabilities)}
+}
+
+export async function POST(request:Request){
+ if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ const parsed=inputSchema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return Response.json({error:parsed.error.issues[0].message},{status:400});
+ try{
+  const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy();
+  const [pickupMatches,destinationMatches]=await Promise.all([searchAddresses(input.pickup,rules.companyId),searchAddresses(input.destination,rules.companyId)]);
+  const pickup=pickupMatches[0],destination=destinationMatches[0];
+  if(!pickup||!destination)return Response.json({error:'Autocab could not resolve both test addresses.'},{status:422});
+  const scheduledAt=input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
+  const common=rules.bookingCapabilities.filter(id=>id!==input.capabilityId),controlRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:common},discountRules={...controlRules,bookingCapabilities:[...common,input.capabilityId]};
+  const journey={pickup,destination,vias:[],vehicle:'saloon',scheduledAt};
+  const controlRequest=buildAutocabQuoteRequest(journey,common,new Date(),controlRules),discountRequest=buildAutocabQuoteRequest(journey,discountRules.bookingCapabilities,new Date(),discountRules);
+  const [control,discounted]=await Promise.allSettled([bookingQuote(controlRequest),bookingQuote(discountRequest)]);
+  return Response.json({
+   testOnly:true,bookingCreated:false,capabilityId:input.capabilityId,service:input.service,paymentMethod:input.paymentMethod,scheduledAt,
+   resolved:{pickup:addressLabel(pickup,input.pickup),destination:addressLabel(destination,input.destination)},
+   control:settledResult(control,common,policy),
+   discounted:settledResult(discounted,discountRules.bookingCapabilities,policy),
+  },{headers:{'Cache-Control':'no-store'}});
+ }catch(error){return unavailable(error)}
+}

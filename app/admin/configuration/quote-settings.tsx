@@ -5,6 +5,7 @@ import {defaultQuotePolicy,type QuotePolicy} from '@/lib/quote-policy';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import HelpTip from './help-tip';
+import CapabilityQuoteTest from './capability-quote-test';
 
 const tips={
  base:'Autocab calculates the passenger fare first. The selected Priority or Guarantee addition is then added to that fare.',
@@ -39,5 +40,5 @@ export default function QuoteSettings({embedded=false}:{embedded?:boolean}){
    <div className="pricing-save-row"><Button disabled={busy} type="submit">{busy?'Saving…':'Save live fare settings'}</Button><span>Percentage and fixed amount are never combined for the same service.</span></div>
   </fieldset></form>
  </>;
- return embedded?<section className="pricing-workspace-section">{content}</section>:<section className="operations-settings pricing-workspace-section">{content}</section>;
+ return embedded?<section className="pricing-workspace-section">{content}<CapabilityQuoteTest/></section>:<section className="operations-settings pricing-workspace-section">{content}<CapabilityQuoteTest/></section>;
 }

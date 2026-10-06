@@ -9,9 +9,26 @@ type LiveMarker={marker:Marker;position:[number,number];target:[number,number];t
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
 const style:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]};
 function heading(from:[number,number],to:[number,number]){const rad=Math.PI/180,d=(to[0]-from[0])*rad;return Math.atan2(Math.sin(d)*Math.cos(to[1]*rad),Math.cos(from[1]*rad)*Math.sin(to[1]*rad)-Math.sin(from[1]*rad)*Math.cos(to[1]*rad)*Math.cos(d))/rad}
+function darkTheme(){return document.documentElement.dataset.theme==='dark'}
+function applyMapTheme(map:MapLibreMap){
+ const dark=darkTheme();
+ if(map.getLayer('osm')){
+  map.setPaintProperty('osm','raster-saturation',dark ? -0.72 : 0);
+  map.setPaintProperty('osm','raster-contrast',dark ? 0.2 : 0);
+  map.setPaintProperty('osm','raster-brightness-min',dark ? 0.04 : 0);
+  map.setPaintProperty('osm','raster-brightness-max',dark ? 0.42 : 1);
+ }
+ if(map.getLayer('customer-route-outline'))map.setPaintProperty('customer-route-outline','line-color',dark?'#050606':'#ffffff');
+ if(map.getLayer('customer-route-line'))map.setPaintProperty('customer-route-line','line-color',dark?'#ffffff':'#090a0a');
+}
+function fitRoute(map:MapLibreMap,coordinates:number[][],duration=0){
+ const first=coordinates[0] as [number,number];
+ const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(first,first));
+ map.fitBounds(bounds,{padding:{top:125,bottom:50,left:55,right:55},maxZoom:15,duration});
+}
 
 export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
- const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>());
+ const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null);
  const callbacks=useRef({picker,onPickerMove,onPickerStart});
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
  useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart}},[picker,onPickerMove,onPickerStart]);
@@ -25,9 +42,12 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
   let gesture=false;
   map.on('movestart',event=>{if(event.originalEvent){gesture=true;if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
   map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
-  const observer=new ResizeObserver(()=>map.resize());observer.observe(container.current);
+  const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
+  const themeObserver=new MutationObserver(()=>{if(map.loaded())applyMapTheme(map)});themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  let resizeFrame:number|null=null;
+  const observer=new ResizeObserver(()=>{if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;map.resize();if(map.loaded()&&routeCoordinates.current)fitRoute(map,routeCoordinates.current)})});observer.observe(container.current);
   const cars=markers.current;
-  return()=>{observer.disconnect();cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
+  return()=>{observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
  },[]);
  useEffect(()=>{
   let active=true,receivedStream=false;
@@ -61,20 +81,20 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
   const controller=new AbortController();let active=true;
   const draw=async()=>{
    let coordinates:number[][];try{coordinates=await customerRoadRoute([pickup,destination],controller.signal)}catch{return}if(!active)return;
+   routeCoordinates.current=coordinates;
    const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}};
    const source=map.getSource('customer-route') as GeoJSONSource|undefined;
    if(source)source.setData(route);
    else{
     map.addSource('customer-route',{type:'geojson',data:route});
-    map.addLayer({id:'customer-route-outline',type:'line',source:'customer-route',paint:{'line-color':'#fff','line-width':8,'line-opacity':.9}});
-    map.addLayer({id:'customer-route-line',type:'line',source:'customer-route',paint:{'line-color':'#c9a861','line-width':5,'line-opacity':1}});
+    map.addLayer({id:'customer-route-outline',type:'line',source:'customer-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':10,'line-opacity':.88}});
+    map.addLayer({id:'customer-route-line',type:'line',source:'customer-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#090a0a','line-width':6,'line-opacity':1}});
    }
-   const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(coordinates[0] as [number,number],coordinates[0] as [number,number]));
-   map.fitBounds(bounds,{padding:{top:125,bottom:50,left:55,right:55},maxZoom:15,duration:500});
+   applyMapTheme(map);fitRoute(map,coordinates,500);
   };
   if(map.loaded())void draw();else map.once('load',draw);
   return()=>{
-   active=false;controller.abort();map.off('load',draw);
+   active=false;controller.abort();routeCoordinates.current=null;map.off('load',draw);
    if(map.getLayer('customer-route-line'))map.removeLayer('customer-route-line');
    if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
    if(map.getSource('customer-route'))map.removeSource('customer-route');

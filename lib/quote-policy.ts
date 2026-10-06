@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {isPrebookInterval,PREBOOK_INTERVAL_MINUTES} from './prebook-time.js';
 export class QuoteError extends Error{}
 
 export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return value;const settings={...value} as Record<string,unknown>;delete settings.saloonCapabilities;delete settings.estateCapabilities;delete settings.xlCapabilities;if(settings.demandPercent===undefined&&typeof settings.highPercent==='number')settings.demandPercent=settings.highPercent;return settings},z.object({
@@ -23,6 +24,7 @@ export function validateSchedule(service:Service,scheduledAt:string|null,minimum
  if(service==='priority'){if(scheduledAt)throw new QuoteError('Priority is for ASAP journeys. Choose Guarantee for prebooking.');return}
  const when=scheduledAt?Date.parse(scheduledAt):NaN;
  if(!Number.isFinite(when)||when<now+minimum*60000)throw new QuoteError(`Prebook at least ${minimum} minutes in advance.`);
+ if(!isPrebookInterval(when))throw new QuoteError(`Choose a pickup time in ${PREBOOK_INTERVAL_MINUTES}-minute intervals.`);
  if(when>now+366*86400000)throw new QuoteError('Choose a date within the next year.');
 }
 export function dynamicScheduleActive(policy:QuotePolicy,now=new Date()){
