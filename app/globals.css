@@ -356,8 +356,9 @@ html[data-theme=light] .premium-booking .brandbar,html[data-theme=light] .premiu
 
 /* Ride chooser: medium by default, compact while the passenger explores the map. */
 @media(max-width:700px){
- .booking-shell.stage-1 .map-surface.ride-map{min-height:0}
- .booking-shell.stage-1 .booking-panel.ride-sheet{transition:height .24s cubic-bezier(.2,.8,.2,1)}
+ .booking-shell.stage-1{position:relative}
+ .booking-shell.stage-1 .map-surface.ride-map{flex:1 1 auto!important;width:100%!important;height:auto!important;min-height:0!important}
+ .booking-shell.stage-1 .booking-panel.ride-sheet{position:absolute!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;transition:height .24s cubic-bezier(.2,.8,.2,1)}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-dragging{transition:none}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-collapsed{height:clamp(270px,calc(var(--booking-viewport-height,100dvh)*.52 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-expanded{height:clamp(320px,calc(var(--booking-viewport-height,100dvh) - 22px - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 22px))!important}
