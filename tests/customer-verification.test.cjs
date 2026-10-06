@@ -23,15 +23,15 @@ test('OTP registration, limits, expiry, replay and trusted devices use real SQL'
  await query('INSERT INTO app_configuration(section,settings) VALUES($1,$2::jsonb)',['identity',JSON.stringify({registrationOtp:true,newDeviceOtp:true})]);
  await query('UPDATE app_configuration SET secrets_encrypted=$1 WHERE section=$2',[credentials.encryptCredentials({endpointQuery:'?endpoint_id=109&signature=test-only-signature'}),'sms']);
  const originalFetch=global.fetch;let deliveredCode,deliveries=0;
- global.fetch=async(url,options)=>{assert.equal(String(url),'https://sms.example.test/send?endpoint_id=109&signature=test-only-signature');assert.equal(options.method,'POST');const payload=JSON.parse(options.body);assert.deepEqual(Object.keys(payload).sort(),['customer_phone','message']);assert.match(payload.customer_phone,/^\+44/);deliveredCode=payload.message.match(/\b\d{6}\b/)[0];deliveries++;return new Response('{}',{status:200})};
+ global.fetch=async(url,options)=>{assert.equal(String(url),'https://sms.example.test/send?endpoint_id=109&signature=test-only-signature');assert.equal(options.method,'POST');const payload=JSON.parse(options.body);assert.deepEqual(Object.keys(payload).sort(),['customer_phone','message']);assert.match(payload.customer_phone,/^\+44/);deliveredCode=payload.message.match(/\b\d{4}\b/)[0];deliveries++;return new Response('{}',{status:200})};
  try{
   assert.equal(api.normalizePhone('07700 900123'),'+447700900123');
   const result=await api.beginChallenge('register','07700 900123',{email:'otp@example.test',passwordHash:'fixture',fullName:'Test Person'});
-  assert.equal(result.verificationRequired,true);assert.equal('code' in result,false);
+  assert.equal(result.verificationRequired,true);assert.equal(result.expiresIn,30);assert.equal('code' in result,false);
   assert.equal((await query('SELECT * FROM customer_accounts')).rows.length,0);
-  const saved=(await query('SELECT * FROM customer_auth_challenges')).rows[0];assert.notEqual(saved.code_hash,deliveredCode);assert.ok(!saved.payload_encrypted.includes('otp@example.test'));
+  const saved=(await query('SELECT * FROM customer_auth_challenges')).rows[0];assert.notEqual(saved.code_hash,deliveredCode);assert.ok(!saved.payload_encrypted.includes('otp@example.test'));assert.ok(new Date(saved.expires_at).getTime()-Date.now()<=31000);
   await assert.rejects(api.beginChallenge('register','07700 900123',{}),/Too many attempts/);assert.equal(deliveries,1);
-  const correct=deliveredCode;await assert.rejects(api.finishChallenge(correct==='000000'?'000001':'000000'),/Incorrect/);
+  const correct=deliveredCode;await assert.rejects(api.finishChallenge(correct==='0000'?'0001':'0000'),/Incorrect/);
   assert.equal((await query('SELECT attempts FROM customer_auth_challenges')).rows[0].attempts,1);
   await api.finishChallenge(correct);assert.equal(sessions.length,1);const customer=(await query('SELECT * FROM customer_accounts')).rows[0];assert.ok(customer.phone_verified_at);assert.ok(await api.trustedDevice(customer.id));
   await assert.rejects(api.finishChallenge(correct),/Start verification/);
@@ -39,7 +39,7 @@ test('OTP registration, limits, expiry, replay and trusted devices use real SQL'
   assert.ok(await api.trustedDevice(customer.id));
   assert.equal((await api.completeLogin(customer.id,customer.phone)).verificationRequired,true);assert.equal(sessions.length,1);
   const lastCode=deliveredCode;await query('UPDATE customer_auth_challenges SET attempts=5 WHERE consumed_at IS NULL');await assert.rejects(api.finishChallenge(lastCode),/too many attempts/);
-  await query("UPDATE customer_auth_challenges SET attempts=0,expires_at=now()-make_interval(secs=>1) WHERE consumed_at IS NULL");await assert.rejects(api.finishChallenge(lastCode),/expired/);
+  await query("UPDATE customer_auth_challenges SET attempts=0,expires_at=now()-make_interval(secs=>1) WHERE consumed_at IS NULL");await assert.rejects(api.finishChallenge(lastCode),/expired/);assert.equal((await api.challengeForResend()).phone,customer.phone);
   await query('DELETE FROM customer_auth_limits');global.fetch=async()=>new Response('',{status:500});
   const before=(await query('SELECT count(*) AS n FROM customer_auth_challenges')).rows[0].n;await assert.rejects(api.beginChallenge('register','07700 900124',{}),/rejected/);assert.equal((await query('SELECT count(*) AS n FROM customer_auth_challenges')).rows[0].n,before);
   assert.deepEqual(credentials.decryptCredentials(credentials.encryptCredentials({token:'private'})),{token:'private'});

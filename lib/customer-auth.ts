@@ -26,6 +26,7 @@ export async function createCustomer(input:{email:string;password:string;fullNam
 }
 
 export async function findCustomerByEmail(email:string){const result=await database().query<{id:string;email:string;password_hash:string;full_name:string;phone:string;stripe_customer_id:string|null}>('SELECT id,email,password_hash,full_name,phone,stripe_customer_id FROM customer_accounts WHERE lower(email)=lower($1)',[email.trim()]);return result.rows[0]||null}
+export async function findCustomerByPhone(phone:string){const local=phone.startsWith('+44')?'0'+phone.slice(3):phone,international=phone.startsWith('+')?'00'+phone.slice(1):phone,result=await database().query<{id:string;email:string;password_hash:string;full_name:string;phone:string;stripe_customer_id:string|null}>(`SELECT id,email,password_hash,full_name,phone,stripe_customer_id FROM customer_accounts WHERE regexp_replace(phone,'[ ()-]','','g')=ANY($1::text[]) ORDER BY phone_verified_at DESC NULLS LAST,created_at LIMIT 2`,[[phone,local,international]]);if(result.rows.length>1)throw new Error('Multiple accounts use this mobile number. Contact support.');return result.rows[0]||null}
 
 export async function setCustomerSession(customerId:string){
  const token=randomBytes(32).toString('base64url'),expiresAt=new Date(Date.now()+SESSION_SECONDS*1000);

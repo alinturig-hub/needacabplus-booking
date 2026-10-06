@@ -1,27 +1,65 @@
 'use client';
-import {oauthMessages} from '@/lib/oauth-errors';
-import Link from 'next/link';
-import {FormEvent,Suspense,useEffect,useState} from 'react';
+
+import {FormEvent,Suspense,useEffect,useRef,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
+import Link from 'next/link';
+import {ArrowLeft} from 'lucide-react';
+
+type AuthResponse={error?:string;verificationRequired?:boolean;phoneRequired?:boolean;phone?:string;maskedPhone?:string;expiresIn?:number};
+
 function CustomerLoginForm(){
- const router=useRouter(),params=useSearchParams();
- const [mode,setMode]=useState<'login'|'register'>('login'),[stage,setStage]=useState<'credentials'|'phone'|'verify'>(params.get('phone')?'phone':params.get('verify')?'verify':'credentials'),[busy,setBusy]=useState(false),[error,setError]=useState(params.get('error')?(oauthMessages[params.get('error')!]||oauthMessages.provider):''),[message,setMessage]=useState(''),[providers,setProviders]=useState({google:false,apple:false});
- const [resendIn,setResendIn]=useState(params.get('verify')?60:0);
- const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[fullName,setFullName]=useState(''),[phone,setPhone]=useState(''),[code,setCode]=useState('');
+ const router=useRouter(),params=useSearchParams(),codeInput=useRef<HTMLInputElement>(null);
+ const startsWithVerification=params.get('verify')==='1'&&params.get('phone')!=='1';
+ const [stage,setStage]=useState<'number'|'code'>(startsWithVerification?'code':'number');
+ const [phone,setPhone]=useState(''),[sentTo,setSentTo]=useState(''),[code,setCode]=useState('');
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[providers,setProviders]=useState({google:false,apple:false});
+ const [resendIn,setResendIn]=useState(startsWithVerification?30:0);
+
  useEffect(()=>{fetch('/api/customer/auth/options',{cache:'no-store'}).then(r=>r.json() as Promise<{google:boolean;apple:boolean}>).then(setProviders).catch(()=>{})},[]);
- useEffect(()=>{const saved=localStorage.getItem('nac-theme'),dark=saved==='dark'||(saved!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light'},[]);
- useEffect(()=>{if(resendIn<=0)return;const timer=setInterval(()=>setResendIn(value=>Math.max(0,value-1)),1000);return()=>clearInterval(timer)},[resendIn]);
- function finish(){const target=params.get('returnTo');router.push(target?.startsWith('/')&&!target.startsWith('//')&&!target.includes('\\')?target:'/');router.refresh()}
- async function perform(action:string,body:unknown){setBusy(true);setError('');setMessage('');try{const r=await fetch('/api/customer/auth/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await r.json() as {error?:string;verificationRequired?:boolean;phoneRequired?:boolean;maskedPhone?:string};if(!r.ok)throw Error(data.error||'Unable to continue.');if(data.verificationRequired){setStage(data.phoneRequired?'phone':'verify');setCode('');if(!data.phoneRequired)setResendIn(60);setMessage(data.phoneRequired?'Add your mobile number to complete your account.':action==='resend'?'A new verification code has been sent.':'Verification code sent to '+(data.maskedPhone||'your mobile')+'.')}else finish()}catch(e){setError(e instanceof Error?e.message:'Unable to continue.')}finally{setBusy(false)}}
- function submit(e:FormEvent){e.preventDefault();void perform(stage==='verify'?'verify':stage==='phone'?'phone':mode,stage==='verify'?{code}:stage==='phone'?{phone}:mode==='login'?{email,password}:{email,password,fullName,phone})}
- return <main className="customer-auth-shell premium-booking premium-customer"><section className="customer-auth-card"><Link className="brand login-brand" href="/"><span className="brandmark">N<span>+</span></span><span>NEED A CAB <b>PLUS</b></span></Link><span className="eyebrow">YOUR JOURNEY, READY WHEN YOU ARE</span><h1>{stage==='verify'?'Verify your mobile':stage==='phone'?'Your mobile number':mode==='login'?'Welcome back.':'Create your account.'}</h1><p className="auth-intro">{stage==='verify'?'One quick security check, then you can continue your booking.':stage==='phone'?'Add a number so we can send driver and journey updates.':mode==='login'?'Continue your saved journey and manage upcoming trips.':'Save your places, payment card and journey history.'}</p>
- {stage==='credentials'&&<><div className="customer-auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Sign in</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Create account</button></div><div className="social-signin">{(['google','apple'] as const).map(provider=>providers[provider]?<a className="social-signin-button" key={provider} href={'/api/customer/auth/oauth/'+provider}>Continue with {provider==='google'?'Google':'Apple'}</a>:<button className="social-signin-button" key={provider} disabled>{provider==='google'?'Google':'Apple'} · not available yet</button>)}</div><p className="muted">Or continue with email</p></>}
- <form onSubmit={submit}>{stage==='credentials'&&<>{mode==='register'&&<><label>Full name<Input required minLength={2} maxLength={100} autoComplete="name" value={fullName} onChange={e=>setFullName(e.target.value)}/></label><label>Mobile number<Input required type="tel" autoComplete="tel" placeholder="+44…" value={phone} onChange={e=>setPhone(e.target.value)}/></label></>}<label>Email address<Input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Password<Input required minLength={mode==='register'?10:1} maxLength={200} type="password" autoComplete={mode==='login'?'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)}/></label></>}
- {stage==='phone'&&<label>Mobile number<Input required type="tel" autoComplete="tel" placeholder="+44…" value={phone} onChange={e=>setPhone(e.target.value)}/></label>}
- {stage==='verify'&&<><p className="muted">Enter the six-digit code sent by SMS. It expires after five minutes.</p><label>Verification code<Input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/[^0-9]/g,''))}/></label></>}
- {error&&<p className="error-message" role="alert">{error}</p>}{message&&<p role="status">{message}</p>}<Button className="primary-action" disabled={busy}>{busy?'Please wait…':stage==='verify'?'Verify and continue':stage==='phone'?'Continue':mode==='login'?'Sign in':'Create account'}</Button></form>
- <div className="auth-secondary-actions">{stage==='verify'&&<button type="button" disabled={busy||resendIn>0} onClick={()=>void perform('resend',{})}>{resendIn>0?`Resend code in ${resendIn}s`:'Resend code'}</button>}{stage!=='credentials'&&<button type="button" disabled={busy} onClick={()=>{setStage('credentials');setError('');setMessage('');setResendIn(0)}}>Start again</button>}<Link className="text-link" href="/">← Back to booking</Link></div></section></main>
+ useEffect(()=>{if(resendIn<=0)return;const timer=window.setInterval(()=>setResendIn(value=>Math.max(0,value-1)),1000);return()=>window.clearInterval(timer)},[resendIn]);
+ useEffect(()=>{if(stage==='code')codeInput.current?.focus()},[stage]);
+
+ function finish(){const value=params.get('returnTo'),target=value?.startsWith('/')&&!value.startsWith('//')&&!value.includes('\\')?value:'/';router.replace(target);router.refresh()}
+ function displayNumber(value:string){return value.startsWith('+44')?`+44 ${value.slice(3)}`:value}
+ function submittedNumber(){const value=phone.replace(/[ ()-]/g,'');return value.startsWith('+')||value.startsWith('00')?value:`+44${value.replace(/^0/,'')}`}
+
+ async function request(action:string,body:unknown){
+  setBusy(true);setError('');
+  try{
+   const response=await fetch(`/api/customer/auth/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json() as AuthResponse;
+   if(!response.ok)throw new Error(data.error||'Unable to continue. Please try again.');
+   if(data.verificationRequired){setStage(data.phoneRequired?'number':'code');setCode('');setSentTo(current=>data.phone||current||submittedNumber());setResendIn(data.expiresIn||30)}else finish();
+  }catch(reason){setError(reason instanceof Error?reason.message:'Unable to continue. Please try again.')}finally{setBusy(false)}
+ }
+ function submitPhone(event:FormEvent){event.preventDefault();void request(params.get('phone')==='1'?'phone':'mobile',{phone:submittedNumber()})}
+ function updateCode(value:string){const next=value.replace(/\D/g,'').slice(0,4);setCode(next);if(next.length===4&&!busy)void request('verify',{code:next})}
+ function restart(){setStage('number');setCode('');setError('');setResendIn(0)}
+
+ if(stage==='code')return <main className="mobile-auth-shell"><section className="mobile-auth-card mobile-code-card">
+  <button className="mobile-auth-back" type="button" aria-label="Back" onClick={restart}><ArrowLeft/></button>
+  <div className="mobile-code-content"><h1>Enter the code</h1><p>An SMS code was sent to <strong>{sentTo?displayNumber(sentTo):'your mobile'}</strong></p>
+   <label className="otp-entry" aria-label="Four-digit verification code"><input ref={codeInput} value={code} onChange={event=>updateCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={4}/><span className="otp-cells" aria-hidden="true">{[0,1,2,3].map(index=><span className={index===Math.min(code.length,3)?'active':''} key={index}>{code[index]||''}</span>)}</span></label>
+   {busy&&<p className="mobile-auth-status" role="status">Checking code…</p>}
+   {error&&<p className="mobile-auth-error" role="alert">{error}</p>}
+   {resendIn>0?<p className="mobile-resend">Resend code in <strong>{resendIn}</strong></p>:<button className="mobile-resend-button" disabled={busy} onClick={()=>void request('resend',{})}>Resend code</button>}
+  </div>
+ </section></main>;
+
+ const hasSocial=providers.google||providers.apple;
+ return <main className="mobile-auth-shell"><section className="mobile-auth-card mobile-number-card">
+  <div className="mobile-auth-brand" aria-label="Need A Cab Plus"><span>N+</span><strong>NEED A CAB PLUS</strong></div>
+  <div className="mobile-number-content"><h1>Enter your number</h1><form onSubmit={submitPhone}>
+   <label className="mobile-phone-field"><span className="phone-flag" aria-hidden="true">🇬🇧</span><span className="phone-chevron" aria-hidden="true">⌄</span><span className="phone-prefix">+44</span><input required aria-label="Mobile number" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="7713702869" value={phone} onChange={event=>setPhone(event.target.value)} /></label>
+   {error&&<p className="mobile-auth-error" role="alert">{error}</p>}
+   <button className="mobile-login-button" disabled={busy}>{busy?'Sending code…':'Log In'}</button>
+  </form>
+  {hasSocial&&<><div className="mobile-auth-or"><span/>Or<span/></div><div className="mobile-socials">
+   {providers.google&&<Link prefetch={false} href="/api/customer/auth/oauth/google"><span className="google-mark">G</span>Sign in with Google</Link>}
+   {providers.apple&&<Link prefetch={false} href="/api/customer/auth/oauth/apple"><span className="apple-mark">●</span>Sign in with Apple</Link>}
+  </div></>}
+  </div>
+  <p className="mobile-auth-legal">By continuing, you agree to our <Link href="/terms">Terms &amp; Conditions</Link>, acknowledge our <Link href="/privacy">Privacy Policy</Link>, and confirm that you are over 18. We may send messages related to your journeys.</p>
+ </section></main>;
 }
-export default function CustomerLogin(){return <Suspense fallback={<p>Loading…</p>}><CustomerLoginForm/></Suspense>}
+
+export default function CustomerLogin(){return <Suspense fallback={<main className="mobile-auth-shell"/>}><CustomerLoginForm/></Suspense>}
