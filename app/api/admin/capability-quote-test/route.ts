@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {loadBookingPolicy} from '@/lib/app-configuration';
-import {bookingQuote,searchAddresses} from '@/lib/autocab-api';
+import {bookingQuote} from '@/lib/autocab-api';
 import {readAutocabCosts} from '@/lib/autocab-booking-request';
 import {buildAutocabQuoteRequest} from '@/lib/autocab-quote-request';
 import {firstPrebookTime} from '@/lib/prebook-time';
@@ -9,11 +9,13 @@ import {readFare} from '@/lib/quote-policy';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 
 export const dynamic='force-dynamic';
+const fullAddress=z.object({text:z.string().trim().min(1).max(500),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
+const selectedAddress=z.object({address:z.string().trim().min(1).max(500),fullAddress,placeID:z.string().nullable().optional(),customAddressID:z.union([z.string(),z.number()]).nullable().optional()}).strict();
 const inputSchema=z.object({
  capabilityId:z.number().int().positive().max(1000000),
- pickup:z.string().trim().min(5).max(250),destination:z.string().trim().min(5).max(250),
+ pickup:selectedAddress,destination:selectedAddress,
  service:z.enum(['priority','guarantee']).default('priority'),paymentMethod:z.enum(['cash','card']).default('cash'),
-}).strict().refine(value=>value.pickup.toLowerCase()!==value.destination.toLowerCase(),{message:'Use two different addresses.'});
+}).strict().refine(value=>value.pickup.address.toLowerCase()!==value.destination.address.toLowerCase(),{message:'Use two different addresses.'});
 type JsonRecord=Record<string,unknown>;
 function record(value:unknown):JsonRecord{return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonRecord:{}}
 function scalar(value:unknown){return typeof value==='string'||typeof value==='number'||typeof value==='boolean'?value:null}
@@ -41,10 +43,7 @@ export async function POST(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  const parsed=inputSchema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return Response.json({error:parsed.error.issues[0].message},{status:400});
  try{
-  const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy();
-  const [pickupMatches,destinationMatches]=await Promise.all([searchAddresses(input.pickup,rules.companyId),searchAddresses(input.destination,rules.companyId)]);
-  const pickup=pickupMatches[0],destination=destinationMatches[0];
-  if(!pickup||!destination)return Response.json({error:'Autocab could not resolve both test addresses.'},{status:422});
+  const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy(),pickup=input.pickup.fullAddress,destination=input.destination.fullAddress;
   const scheduledAt=input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
   const common=rules.bookingCapabilities.filter(id=>id!==input.capabilityId),controlRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:common},discountRules={...controlRules,bookingCapabilities:[...common,input.capabilityId]};
   const journey={pickup,destination,vias:[],vehicle:'saloon',scheduledAt};
@@ -52,7 +51,7 @@ export async function POST(request:Request){
   const [control,discounted]=await Promise.allSettled([bookingQuote(controlRequest),bookingQuote(discountRequest)]);
   return Response.json({
    testOnly:true,bookingCreated:false,capabilityId:input.capabilityId,service:input.service,paymentMethod:input.paymentMethod,scheduledAt,
-   resolved:{pickup:addressLabel(pickup,input.pickup),destination:addressLabel(destination,input.destination)},
+   resolved:{pickup:addressLabel(pickup,input.pickup.address),destination:addressLabel(destination,input.destination.address)},
    control:settledResult(control,common,policy),
    discounted:settledResult(discounted,discountRules.bookingCapabilities,policy),
   },{headers:{'Cache-Control':'no-store'}});
