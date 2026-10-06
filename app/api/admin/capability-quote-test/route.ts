@@ -15,7 +15,7 @@ const selectedAddress=z.object({address:z.string().trim().min(1).max(500),fullAd
 const inputSchema=z.object({
  capabilityId:z.number().int().positive().max(1000000).nullable().optional(),
  pickup:selectedAddress,destination:selectedAddress,
- service:z.enum(['asap','priority','guarantee']).default('asap'),paymentMethod:z.enum(['cash','card']).default('cash'),
+ service:z.enum(['asap','priority','prebook','guarantee']).default('asap'),paymentMethod:z.enum(['cash','card']).default('cash'),
 }).strict().refine(value=>value.pickup.address.toLowerCase()!==value.destination.address.toLowerCase(),{message:'Use two different addresses.'});
 type JsonRecord=Record<string,unknown>;
 function record(value:unknown):JsonRecord{return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonRecord:{}}
@@ -45,7 +45,7 @@ export async function POST(request:Request){
  const parsed=inputSchema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return Response.json({error:parsed.error.issues[0].message},{status:400});
  try{
   const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy(),pickup=input.pickup.fullAddress,destination=input.destination.fullAddress;
-  const scheduledAt=input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
+  const scheduledAt=input.service==='prebook'||input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
   // The customer preview uses the exact booking engine and saved capabilities.
   // The optional capability field controls only the separate raw Autocab experiment.
   const customerFare=calculateQuote({pickup,destination,vias:[],vehicle:'saloon',service:input.service,paymentMethod:input.paymentMethod,scheduledAt}).then(quote=>({ok:true as const,service:quote.service,basePence:quote.basePence,upliftPence:quote.upliftPence,totalPence:quote.totalPence,percent:quote.percent,fixedPence:quote.fixedPence,demand:quote.demand,capabilities:quote.autocabRequest?.capabilities||[],smartFare:quote.smartFare,scheduledAt:quote.scheduledAt,expiresAt:quote.expiresAt})).catch(error=>({ok:false as const,error:error instanceof Error?error.message:'Customer fare is unavailable.'}));

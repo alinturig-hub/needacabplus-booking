@@ -20,6 +20,7 @@ test('fixed passenger price includes markup while independent operator costs rem
 test('prebook time survives unchanged and invalid passenger counts or expired quotes are rejected',()=>{
  const q={...quote(),service:'guarantee',scheduledAt:'2026-10-25T02:30:00.000Z'};
  assert.equal(buildAutocabBookingRequest(q,passenger,now).pickupDueTimeUtc,q.scheduledAt);
+ assert.equal(buildAutocabBookingRequest({...q,service:'prebook'},passenger,now).pickupDueTimeUtc,q.scheduledAt);
  assert.throws(()=>buildAutocabBookingRequest(q,{...passenger,passengers:5},now),/capacity/);
  assert.throws(()=>buildAutocabBookingRequest({...q,expiresAt:now.toISOString()},passenger,now),/expired/);
  assert.throws(()=>buildAutocabBookingRequest({...q,autocabCosts:undefined},passenger,now),/verified Autocab cost/);

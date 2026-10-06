@@ -28,6 +28,9 @@ test('dynamic pricing schedule uses UK days and supports overnight windows',()=>
 });
 test('prebook exact boundary, ASAP restriction and invalid dates',()=>{
  const now=Date.parse('2026-09-27T10:00:00Z');
+ assert.doesNotThrow(()=>validateSchedule('prebook','2026-09-27T10:30:00Z',30,now));
+ assert.throws(()=>validateSchedule('prebook','2026-09-27T10:29:59Z',30,now));
+ assert.throws(()=>validateSchedule('prebook',null,30,now));
  assert.doesNotThrow(()=>validateSchedule('guarantee','2026-09-27T10:30:00Z',30,now));
  assert.throws(()=>validateSchedule('guarantee','2026-09-27T10:29:59Z',30,now));
  assert.throws(()=>validateSchedule('guarantee',null,30,now));
@@ -57,21 +60,31 @@ test('settings reject reversed thresholds, negative notice and unordered surchar
  assert.equal(quotePolicySchema.safeParse({...defaults,lowPercent:25,demandPercent:20}).success,false);
 });
 
+test('saved three-service settings migrate safely to the four-service structure',()=>{
+ const migrated=quotePolicySchema.parse({serviceCapabilities:{asap:[],priority:[9],guarantee:[11]}});
+ assert.deepEqual(migrated.serviceCapabilities.prebook,[]);
+ assert.equal(migrated.prebookPercent,0);
+ assert.equal(migrated.prebookFixedAmount,0);
+});
+
 test('fixed addition is exclusive and defaults to zero',()=>{
- assert.equal(defaults.priorityFixedAmount,0);assert.equal(defaults.guaranteeFixedAmount,0);
+ assert.equal(defaults.priorityFixedAmount,0);assert.equal(defaults.prebookFixedAmount,0);assert.equal(defaults.guaranteeFixedAmount,0);
  assert.throws(()=>fareBreakdown(1000,20,150));
  assert.equal(fareBreakdown(1090,0,125).totalPence,1215);
  assert.equal(fareBreakdown(1000,0,250).totalPence,1250);
- assert.equal(quotePolicySchema.parse({priorityFixedAmount:1.25,guaranteeFixedAmount:2.50}).guaranteeFixedAmount,2.5);
+ const parsed=quotePolicySchema.parse({priorityFixedAmount:1.25,prebookFixedAmount:1,guaranteeFixedAmount:2.50});
+ assert.equal(parsed.prebookFixedAmount,1);assert.equal(parsed.guaranteeFixedAmount,2.5);
  for(const amount of [-1,1.001,1001,Infinity])assert.equal(quotePolicySchema.safeParse({priorityFixedAmount:amount}).success,false);
  for(const amount of [-1,0.5,NaN,Infinity])assert.throws(()=>fareBreakdown(1000,20,amount));
 });
 
 test('service modes ignore inactive amounts and do not combine charges',()=>{
- const p={...defaults,priorityFixedAmount:1.5,guaranteeFixedAmount:2};
+ const p={...defaults,priorityFixedAmount:1.5,prebookFixedAmount:1,guaranteeFixedAmount:2};
  assert.deepEqual(fareAdjustment({...p,dynamicPricingEnabled:true,demandPercent:20},'priority',4,1),{percent:20,fixedPence:0,demand:'demand'});
  assert.deepEqual(fareAdjustment({...p,priorityUpliftMode:'fixed'},'priority',4,1),{percent:0,fixedPence:150,demand:'fixed'});
- assert.deepEqual(fareAdjustment(p,'guarantee',null,null),{percent:20,fixedPence:0,demand:'prebook'});
+ assert.deepEqual(fareAdjustment(p,'prebook',null,null),{percent:0,fixedPence:0,demand:'prebook'});
+ assert.deepEqual(fareAdjustment({...p,prebookUpliftMode:'fixed'},'prebook',null,null),{percent:0,fixedPence:100,demand:'fixed'});
+ assert.deepEqual(fareAdjustment(p,'guarantee',null,null),{percent:20,fixedPence:0,demand:'guarantee'});
  assert.deepEqual(fareAdjustment({...p,guaranteeUpliftMode:'fixed'},'guarantee',null,null),{percent:0,fixedPence:200,demand:'fixed'});
  assert.equal(quotePolicySchema.safeParse({priorityUpliftMode:'both'}).success,false);
 });

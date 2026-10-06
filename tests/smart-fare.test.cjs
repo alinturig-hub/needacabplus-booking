@@ -59,12 +59,12 @@ test('shadow compares fares without changing the customer price',async()=>{
  const h=harness({policy:{smartFareMode:'shadow'}}),result=await h.module.createQuote(input);
  assert.equal(result.quote.totalPence,1000);assert.equal(h.calls.length,2);assert.equal(h.signed().smartFare.candidatePence,800);assert.equal(h.signed().smartFare.reason,'shadow');
 });
-test('Priority and Guarantee have separate capabilities and keep configured additions',async()=>{
- for(const service of ['priority','guarantee']){
-  const h=harness({policy:{serviceCapabilities:{priority:[9],guarantee:[11]},priorityUpliftMode:'fixed',priorityFixedAmount:2,guaranteePercent:20}});
-  const scheduledAt=service==='guarantee'?new Date(Math.ceil((Date.now()+3600000)/300000)*300000).toISOString():null;
+test('Priority, Pre-book and Guarantee have separate capabilities and additions',async()=>{
+ for(const [service,capability,totalPence] of [['priority',9,1200],['prebook',10,1100],['guarantee',11,1200]]){
+  const h=harness({policy:{serviceCapabilities:{priority:[9],prebook:[10],guarantee:[11]},priorityUpliftMode:'fixed',priorityFixedAmount:2,prebookUpliftMode:'fixed',prebookFixedAmount:1,guaranteePercent:20}});
+  const scheduledAt=service==='priority'?null:new Date(Math.ceil((Date.now()+3600000)/300000)*300000).toISOString();
   const result=await h.module.createQuote({...input,service,scheduledAt});
-  assert.equal(result.quote.totalPence,1200);assert.equal(h.calls.length,1);assert.deepEqual(h.calls[0].capabilities,service==='priority'?[7,9]:[7,11]);
+  assert.equal(result.quote.totalPence,totalPence);assert.equal(h.calls.length,1);assert.deepEqual(h.calls[0].capabilities,[7,capability]);
  }
  const h=harness({policy:{serviceCapabilities:{priority:[42,9]}}});await h.module.createQuote({...input,service:'priority'});assert.deepEqual(h.calls[0].capabilities,[7,42,9]);
 });
