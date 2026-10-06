@@ -4,6 +4,12 @@ export class QuoteError extends Error{}
 
 export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return value;const settings={...value} as Record<string,unknown>;delete settings.saloonCapabilities;delete settings.estateCapabilities;delete settings.xlCapabilities;if(settings.demandPercent===undefined&&typeof settings.highPercent==='number')settings.demandPercent=settings.highPercent;return settings},z.object({
  enabled:z.boolean().default(true),minPrebookMinutes:z.number().int().min(1).max(10080).default(30),
+ serviceCapabilities:z.object({asap:z.array(z.number().int().positive()).max(30).default([]),priority:z.array(z.number().int().positive()).max(30).default([]),guarantee:z.array(z.number().int().positive()).max(30).default([])}).strict().default({}),
+ smartFareMode:z.enum(['off','shadow','live']).default('shadow'),
+ smartFareCapabilities:z.array(z.number().int().positive()).max(30).default([42]),
+ smartFareMinClear:z.number().int().min(1).max(1000).default(5),
+ smartFareMaxWaitingRatio:z.number().min(0).max(1).default(0.25),
+ smartFareFreshnessSeconds:z.number().int().min(15).max(300).default(120),
  priorityUpliftMode:z.enum(['percentage','fixed']).default('percentage'),guaranteeUpliftMode:z.enum(['percentage','fixed']).default('percentage'),
  priorityFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),guaranteeFixedAmount:z.number().min(0).max(1000).multipleOf(0.01).default(0),
  guaranteePercent:z.number().min(0).max(100).default(20),
@@ -16,12 +22,12 @@ export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='o
  demandWindowMinutes:z.number().int().min(1).max(120).default(15),quoteValiditySeconds:z.number().int().min(60).max(600).default(180),
  pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('outward.price'),
  priceUnit:z.enum(['gbp','pence']).default('gbp'),
-}).strict().refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'}).refine(v=>v.demandPercent>=v.lowPercent,{message:'Demand percentage must be at least the base Priority percentage.'}));
+}).strict().refine(v=>!v.serviceCapabilities.asap.some(id=>id===42||v.smartFareCapabilities.includes(id)),{message:'Put NOW discount capabilities in the quiet-time selection, not standard capabilities.'}).refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'}).refine(v=>v.demandPercent>=v.lowPercent,{message:'Demand percentage must be at least the base Priority percentage.'}));
 export type QuotePolicy=z.infer<typeof quotePolicySchema>;
 export const defaultQuotePolicy=quotePolicySchema.parse({});
-export type Service='priority'|'guarantee';
+export type Service='asap'|'priority'|'guarantee';
 export function validateSchedule(service:Service,scheduledAt:string|null,minimum:number,now=Date.now()){
- if(service==='priority'){if(scheduledAt)throw new QuoteError('Priority is for ASAP journeys. Choose Guarantee for prebooking.');return}
+ if(service!=='guarantee'){if(scheduledAt)throw new QuoteError('NOW and Priority are for immediate journeys. Choose Guarantee for prebooking.');return}
  const when=scheduledAt?Date.parse(scheduledAt):NaN;
  if(!Number.isFinite(when)||when<now+minimum*60000)throw new QuoteError(`Prebook at least ${minimum} minutes in advance.`);
  if(!isPrebookInterval(when))throw new QuoteError(`Choose a pickup time in ${PREBOOK_INTERVAL_MINUTES}-minute intervals.`);
@@ -41,6 +47,7 @@ export function priorityPercent(policy:QuotePolicy,waiting:number|null,clear:num
  return {level:'base',percent:policy.lowPercent};
 }
 export function fareAdjustment(policy:QuotePolicy,service:Service,waiting:number|null,clear:number|null){
+ if(service==='asap')return {percent:0,fixedPence:0,demand:'normal'};
  const mode=service==='priority'?policy.priorityUpliftMode:policy.guaranteeUpliftMode;
  if(mode==='fixed')return {percent:0,fixedPence:Math.round((service==='priority'?policy.priorityFixedAmount:policy.guaranteeFixedAmount)*100),demand:'fixed'};
  const priority=priorityPercent(policy,waiting,clear);

@@ -1,9 +1,10 @@
 import {database} from '@/lib/database';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 import {quotePolicySchema} from '@/lib/quote-policy';
-import {loadQuotePolicy,demandSnapshot} from '@/lib/quotes';
+import {loadQuotePolicy,demandSnapshot,smartFareSnapshot} from '@/lib/quotes';
+import {smartFareDecision} from '@/lib/smart-fare';
 export const dynamic='force-dynamic';
-export async function GET(){if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const policy=await loadQuotePolicy();return Response.json({policy,demand:await demandSnapshot(policy)},{headers:{'Cache-Control':'no-store'}})}catch(error){return unavailable(error)}}
+export async function GET(){if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const policy=await loadQuotePolicy();const [demand,signal]=await Promise.all([demandSnapshot(policy),smartFareSnapshot(policy)]);return Response.json({policy,demand,smartFare:{...signal,...smartFareDecision(policy,signal)}},{headers:{'Cache-Control':'no-store'}})}catch(error){return unavailable(error)}}
 export async function PUT(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  const result=quotePolicySchema.safeParse(await request.json().catch(()=>null));if(!result.success)return Response.json({error:result.error.issues[0].message},{status:400});

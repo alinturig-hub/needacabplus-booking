@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {serviceCapabilities} from '@/lib/smart-fare';
 import {loadBookingPolicy} from '@/lib/app-configuration';
 import {bookingQuote} from '@/lib/autocab-api';
 import {readAutocabCosts} from '@/lib/autocab-booking-request';
@@ -14,7 +15,7 @@ const selectedAddress=z.object({address:z.string().trim().min(1).max(500),fullAd
 const inputSchema=z.object({
  capabilityId:z.number().int().positive().max(1000000),
  pickup:selectedAddress,destination:selectedAddress,
- service:z.enum(['priority','guarantee']).default('priority'),paymentMethod:z.enum(['cash','card']).default('cash'),
+ service:z.enum(['asap','priority','guarantee']).default('asap'),paymentMethod:z.enum(['cash','card']).default('cash'),
 }).strict().refine(value=>value.pickup.address.toLowerCase()!==value.destination.address.toLowerCase(),{message:'Use two different addresses.'});
 type JsonRecord=Record<string,unknown>;
 function record(value:unknown):JsonRecord{return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as JsonRecord:{}}
@@ -45,7 +46,7 @@ export async function POST(request:Request){
  try{
   const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy(),pickup=input.pickup.fullAddress,destination=input.destination.fullAddress;
   const scheduledAt=input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
-  const common=rules.bookingCapabilities.filter(id=>id!==input.capabilityId),controlRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:common},discountRules={...controlRules,bookingCapabilities:[...common,input.capabilityId]};
+  const common=serviceCapabilities(policy,rules.bookingCapabilities,input.service).filter(id=>id!==input.capabilityId),controlRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:common,...(input.service==='asap'?{priorityDelayMinutes:0}:{})},discountRules={...controlRules,bookingCapabilities:[...common,input.capabilityId]};
   const journey={pickup,destination,vias:[],vehicle:'saloon',scheduledAt};
   const controlRequest=buildAutocabQuoteRequest(journey,common,new Date(),controlRules),discountRequest=buildAutocabQuoteRequest(journey,discountRules.bookingCapabilities,new Date(),discountRules);
   const [control,discounted]=await Promise.allSettled([bookingQuote(controlRequest),bookingQuote(discountRequest)]);

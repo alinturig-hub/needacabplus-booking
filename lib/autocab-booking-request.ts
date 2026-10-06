@@ -23,7 +23,7 @@ export function buildAutocabBookingRequest(quote:FareQuote,details:z.infer<typeo
  if(!Number.isSafeInteger(quote.totalPence)||quote.totalPence<=0)throw new Error('The final fare is invalid.');
  const quotedCapacity=Number(quote.autocabRequest.passengers);
  if(!Number.isInteger(quotedCapacity)||passenger.passengers>quotedCapacity)throw new Error('Passenger count exceeds the quoted vehicle capacity.');
- const due=quote.service==='priority'?new Date(now.getTime()+(quote.bookingRules?.priorityDelayMinutes||0)*60000).toISOString():quote.scheduledAt;
+ const due=quote.service!=='guarantee'?new Date(now.getTime()+(quote.service==='priority'?(quote.bookingRules?.priorityDelayMinutes||0):0)*60000).toISOString():quote.scheduledAt;
  if(!due||!Number.isFinite(Date.parse(due))||Date.parse(due)<now.getTime())throw new Error('Invalid pickup time.');
  const source=quote.autocabRequest;
  const reference=`NAC-${quote.id}`;
