@@ -13,7 +13,7 @@ export const dynamic='force-dynamic';
 const fullAddress=z.object({text:z.string().trim().min(1).max(500),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
 const selectedAddress=z.object({address:z.string().trim().min(1).max(500),fullAddress,placeID:z.string().nullable().optional(),customAddressID:z.union([z.string(),z.number()]).nullable().optional()}).strict();
 const inputSchema=z.object({
- capabilityId:z.number().int().positive().max(1000000),
+ capabilityId:z.number().int().positive().max(1000000).nullable().optional(),
  pickup:selectedAddress,destination:selectedAddress,
  service:z.enum(['asap','priority','guarantee']).default('asap'),paymentMethod:z.enum(['cash','card']).default('cash'),
 }).strict().refine(value=>value.pickup.address.toLowerCase()!==value.destination.address.toLowerCase(),{message:'Use two different addresses.'});
@@ -46,6 +46,12 @@ export async function POST(request:Request){
  try{
   const input=parsed.data,rules=await loadBookingPolicy(),policy=await loadQuotePolicy(),pickup=input.pickup.fullAddress,destination=input.destination.fullAddress;
   const scheduledAt=input.service==='guarantee'?new Date(firstPrebookTime(rules.minPrebookMinutes)).toISOString():null;
+  if(input.capabilityId==null){
+   const quoteRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:[],...(input.service==='asap'?{priorityDelayMinutes:0}:{})};
+   const request=buildAutocabQuoteRequest({pickup,destination,vias:[],vehicle:'saloon',scheduledAt},[],new Date(),quoteRules);
+   const [result]=await Promise.allSettled([bookingQuote(request)]);
+   return Response.json({testOnly:true,bookingCreated:false,capabilityId:null,service:input.service,paymentMethod:input.paymentMethod,scheduledAt,resolved:{pickup:addressLabel(pickup,input.pickup.address),destination:addressLabel(destination,input.destination.address)},control:settledResult(result,[],policy)},{headers:{'Cache-Control':'no-store'}});
+  }
   const common=serviceCapabilities(policy,rules.bookingCapabilities,input.service).filter(id=>id!==input.capabilityId),controlRules={...rules,paymentMethod:input.paymentMethod,bookingCapabilities:common,...(input.service==='asap'?{priorityDelayMinutes:0}:{})},discountRules={...controlRules,bookingCapabilities:[...common,input.capabilityId]};
   const journey={pickup,destination,vias:[],vehicle:'saloon',scheduledAt};
   const controlRequest=buildAutocabQuoteRequest(journey,common,new Date(),controlRules),discountRequest=buildAutocabQuoteRequest(journey,discountRules.bookingCapabilities,new Date(),discountRules);
