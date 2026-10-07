@@ -21,11 +21,11 @@ function applyMapTheme(map:MapLibreMap){
  if(map.getLayer('customer-route-outline'))map.setPaintProperty('customer-route-outline','line-color',dark?'#050606':'#ffffff');
  if(map.getLayer('customer-route-line'))map.setPaintProperty('customer-route-line','line-color',dark?'#ffffff':'#090a0a');
 }
-function fitRoute(map:MapLibreMap,coordinates:number[][],duration=0,mobileBottomRatio=.62){
+function fitRoute(map:MapLibreMap,coordinates:number[][],duration=0,mobileBottomRatio=.62,mobileTopPadding=125){
  const first=coordinates[0] as [number,number];
  const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(first,first));
- const bottom=window.matchMedia('(max-width:700px)').matches?Math.max(50,Math.round(map.getContainer().clientHeight*mobileBottomRatio)):50;
- map.fitBounds(bounds,{padding:{top:125,bottom,left:55,right:55},maxZoom:15,duration});
+ const mobile=window.matchMedia('(max-width:700px)').matches,bottom=mobile?Math.max(50,Math.round(map.getContainer().clientHeight*mobileBottomRatio)):50;
+ map.fitBounds(bounds,{padding:{top:mobile?mobileTopPadding:125,bottom,left:55,right:55},maxZoom:15,duration});
 }
 function drawRoute(map:MapLibreMap,coordinates:number[][]){
  const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}},source=map.getSource('customer-route') as GeoJSONSource|undefined;
@@ -33,12 +33,12 @@ function drawRoute(map:MapLibreMap,coordinates:number[][]){
  applyMapTheme(map);
 }
 
-export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,routeBottomRatio=.62,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;routeBottomRatio?:number;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
- const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null),routeBottomRatioRef=useRef(routeBottomRatio);
+export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,routeBottomRatio=.62,routeTopPadding=125,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;routeBottomRatio?:number;routeTopPadding?:number;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
+ const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null),routeBottomRatioRef=useRef(routeBottomRatio),routeTopPaddingRef=useRef(routeTopPadding);
  const callbacks=useRef({picker,onPickerMove,onPickerStart});
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
  const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null;
- useEffect(()=>{routeBottomRatioRef.current=routeBottomRatio},[routeBottomRatio]);
+ useEffect(()=>{routeBottomRatioRef.current=routeBottomRatio;routeTopPaddingRef.current=routeTopPadding},[routeBottomRatio,routeTopPadding]);
  useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart}},[picker,onPickerMove,onPickerStart]);
  useEffect(()=>{
   if(!container.current)return;
@@ -98,7 +98,7 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
    const routePickup={latitude:pickupLatitude,longitude:pickupLongitude},routeDestination={latitude:destinationLatitude,longitude:destinationLongitude};
    let coordinates:number[][];try{coordinates=await customerRoadRoute([routePickup,routeDestination],controller.signal)}catch{return}if(!active)return;
    routeCoordinates.current=coordinates;
-   if(!map.isStyleLoaded()){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current);
+   if(!map.isStyleLoaded()){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current);
   };
   if(map.loaded())void draw();else map.once('load',draw);
   return()=>{
@@ -110,9 +110,9 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
  },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,showRoute]);
  useEffect(()=>{
   const map=mapRef.current,coordinates=routeCoordinates.current;if(!map||!showRoute||!coordinates)return;
-  const timer=window.setTimeout(()=>{map.resize();fitRoute(map,coordinates,420,routeBottomRatio)},260);
+  const timer=window.setTimeout(()=>{map.resize();fitRoute(map,coordinates,420,routeBottomRatio,routeTopPadding)},260);
   return()=>window.clearTimeout(timer);
- },[routeBottomRatio,showRoute]);
+ },[routeBottomRatio,routeTopPadding,showRoute]);
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;const stops:Marker[]=[];
   const pickupPoint=pickupLatitude===null||pickupLongitude===null?null:{latitude:pickupLatitude,longitude:pickupLongitude},destinationPoint=destinationLatitude===null||destinationLongitude===null?null:{latitude:destinationLatitude,longitude:destinationLongitude};
