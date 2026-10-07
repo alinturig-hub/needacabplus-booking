@@ -434,3 +434,93 @@ html[data-theme=light] .ride-map-route{box-shadow:0 8px 25px #30303030;border-co
 .capability-dialog{width:min(850px,calc(100vw - 32px));max-height:85dvh;padding:24px;border:1px solid #465060;border-radius:20px;background:#151b24;color:#eff2f6;margin:auto}.capability-dialog::backdrop{background:#0009}.capability-dialog header,.capability-dialog footer,.capability-filter{display:flex;align-items:center;gap:16px;justify-content:space-between}.capability-dialog header h3{margin:0}.capability-dialog header>button{background:none;color:inherit;border:0;font-size:32px;cursor:pointer}.capability-filter{margin:20px 0;flex-wrap:wrap}.capability-filter input{flex:1;min-width:160px;padding:12px;background:#0e141b;border:1px solid #465060;border-radius:10px;color:inherit}.capability-table{max-height:48dvh;overflow:auto}.capability-table table{width:100%;border-collapse:collapse}.capability-table th{position:sticky;top:0;background:#222b38;text-align:left;padding:12px}.capability-table td{padding:10px 12px;border-bottom:1px solid #343e4e}.capability-table tr.is-selected{background:#ddbf7d20}.capability-table input[type=checkbox]{width:20px!important;height:20px!important;min-height:20px!important;accent-color:#ddbf7d}.capability-table td button{border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:4px 0}.capability-table small{display:block;color:#aab8cc}.capability-dialog footer{padding-top:20px;color:#aab8cc;flex-wrap:wrap}.capability-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.capability-chips button{border:1px solid #59604e;background:#ddbf7d18;color:inherit;padding:8px 12px;border-radius:999px;cursor:pointer}.capability-chips span{margin-left:8px}
 
 .customer-settings .booking-capability-picker .customer-settings-actions{margin-top:0;padding-top:0;border-top:0;gap:10px;flex-direction:row;align-items:center;flex-wrap:wrap}.customer-settings .booking-capability-picker .customer-settings-actions button{width:auto;min-height:34px;padding:6px 14px;font-size:12px;line-height:1.4}.customer-settings .capability-chips{gap:6px;margin-top:10px}.customer-settings .capability-chips button{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:4px 10px;font-size:12px;line-height:1.4;max-width:100%;text-align:left;overflow-wrap:anywhere}.customer-settings .capability-chips span{margin-left:0;font-size:15px;flex-shrink:0}
+
+/* Customer WebApp — premium mobility visual system. */
+.premium-booking{
+ --background:#0f1113;--foreground:#f7f3ea;--card:#171a1d;--card-foreground:#f7f3ea;
+ --popover:#202429;--popover-foreground:#f7f3ea;--primary:#d6b66d;--primary-foreground:#17130b;
+ --secondary:#202429;--secondary-foreground:#f7f3ea;--muted:#292e34;--muted-foreground:#b8b4ac;
+ --accent:#292e34;--accent-foreground:#fff;--border:#343a40;--input:#59616a;--ring:#d6b66d;
+ --booking-surface:#171a1d;--booking-raised:#202429;--booking-soft-gold:#d6b66d14;
+ --booking-live:#2fcb91;--booking-danger:#f27676;
+ background:var(--background);color:var(--foreground);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+html[data-theme=light] .premium-booking{
+ --background:#f5f1e9;--foreground:#171a1d;--card:#fff;--card-foreground:#171a1d;
+ --popover:#fff;--popover-foreground:#171a1d;--primary:#8a682f;--primary-foreground:#17130b;
+ --secondary:#eee8de;--secondary-foreground:#171a1d;--muted:#eee8de;--muted-foreground:#626660;
+ --accent:#e7dfd3;--accent-foreground:#171a1d;--border:#d8d0c2;--input:#91897d;--ring:#8a682f;
+ --booking-surface:#fffcf7;--booking-raised:#fff;--booking-soft-gold:#c9a65a12;
+ --booking-live:#13795b;--booking-danger:#a33a3a;
+}
+.premium-booking .brandbar{background:color-mix(in srgb,var(--background) 96%,transparent);border-color:var(--border);box-shadow:0 8px 28px #00000016;backdrop-filter:blur(18px)}
+.premium-booking .brand{color:var(--foreground);letter-spacing:.075em}.premium-booking .brand b{color:var(--foreground)}
+.premium-booking .brandmark{background:linear-gradient(145deg,#ead393,#c5a052);color:#17130b;box-shadow:0 5px 18px #0003}
+.premium-booking .theme-toggle{background:var(--booking-raised);border-color:var(--border);color:var(--primary);box-shadow:0 3px 12px #00000012}
+.premium-booking .admin-link{color:var(--muted-foreground)}
+.premium-booking .booking-panel{background:var(--booking-surface);border-color:var(--border);color:var(--foreground);box-shadow:0 -14px 45px #0000002b}
+.premium-booking :is(h1,h2,h3,strong){letter-spacing:-.018em}.premium-booking h1{font-weight:760}
+.premium-booking .mobile-handle{background:var(--booking-surface)}.premium-booking .mobile-handle:after{background:color-mix(in srgb,var(--primary) 55%,var(--muted-foreground))}
+.premium-booking .booking-home-kicker{color:var(--primary);letter-spacing:.17em}
+.premium-booking .booking-home-actions>button,.premium-booking .booking-home-search{background:var(--booking-raised);border-color:var(--border);box-shadow:0 8px 25px #0000000d;transition:transform .16s,border-color .16s,box-shadow .16s}
+.premium-booking .booking-home-actions>button:hover,.premium-booking .booking-home-search:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary) 58%,var(--border));box-shadow:0 12px 30px #00000016}
+.premium-booking .booking-home-actions>button>span{background:var(--booking-soft-gold);color:var(--primary);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent)}
+.premium-booking .booking-home-search>span{background:var(--secondary);color:var(--muted-foreground);font-weight:700}
+.premium-booking .booking-home-history>button>svg:first-child{background:var(--secondary);color:var(--primary)}
+.premium-booking .booking-home-nav{background:color-mix(in srgb,var(--booking-surface) 97%,transparent);border-color:var(--border);box-shadow:0 -8px 28px #0000000d;backdrop-filter:blur(18px)}
+.premium-booking .route-fields{background:var(--booking-raised);border:1px solid var(--border);box-shadow:0 8px 24px #0000000d}
+.premium-booking .field-body input{font-weight:560}.premium-booking .field-body input::placeholder{color:var(--muted-foreground)}
+.premium-booking :is(.map-input-button,.location-input-button,.back-button,.add-via,.theme-toggle,.address-clear-button){background:var(--secondary);border-color:var(--border);color:var(--primary)}
+.premium-booking .address-results{background:var(--booking-raised);border-color:var(--border);box-shadow:0 18px 46px #0005}
+.premium-booking .place-shortcuts>a,.premium-booking .place-shortcuts>button,.premium-booking .place-button-wrap{background:var(--booking-raised);border-color:var(--border);box-shadow:0 5px 16px #0000000a}
+.premium-booking .primary-action{background:var(--primary)!important;color:var(--primary-foreground)!important;border:1px solid color-mix(in srgb,var(--primary) 70%,#fff)!important;border-radius:14px;box-shadow:0 9px 24px #0003;font-weight:760;transition:transform .16s,filter .16s,box-shadow .16s}
+.premium-booking .primary-action:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.05);box-shadow:0 13px 30px #0004}
+html[data-theme=light] .premium-booking .primary-action{background:#171a1d!important;color:#fffdf8!important;border-color:#c9a65a!important;box-shadow:0 10px 28px #171a1d2c}
+.premium-booking .ride-time{background:var(--booking-raised);border:1px solid color-mix(in srgb,var(--border) 75%,transparent)}
+.premium-booking .ride-option{background:var(--booking-raised);border-color:var(--border);box-shadow:0 7px 22px #0000000d}
+.premium-booking .ride-option:hover{border-color:color-mix(in srgb,var(--primary) 70%,var(--border))}
+.premium-booking .ride-option.is-selected{background:linear-gradient(135deg,var(--booking-soft-gold),var(--booking-raised));border-color:var(--primary);box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 28%,transparent),0 10px 28px #00000016}
+.premium-booking .ride-option-badge{background:var(--booking-soft-gold);border-color:color-mix(in srgb,var(--primary) 65%,transparent);color:var(--primary)}
+.premium-booking .ride-checkout,.premium-booking .ride-bottom-bar{background:var(--booking-surface);border-color:var(--border)}
+.premium-booking .ride-payment,.premium-booking .payment-row{background:var(--booking-raised);border:1px solid var(--border);box-shadow:0 6px 20px #0000000b}
+.premium-booking .ride-payment-methods button{background:var(--booking-raised);border-color:var(--border)}
+.premium-booking .ride-payment-methods button[aria-pressed=true]{background:var(--foreground);border-color:var(--foreground);color:var(--background);font-weight:730}
+.premium-booking :is(.route-summary,.pickup-card,.reference){background:var(--booking-raised);border-color:var(--border);box-shadow:0 7px 24px #0000000c}
+.premium-booking .chosen-car{border-color:var(--border)}.premium-booking .chosen-car>svg{color:color-mix(in srgb,var(--primary) 34%,var(--muted-foreground))}
+.premium-booking .details-form label,.premium-booking .note-label{color:var(--foreground);font-weight:650}
+.premium-booking .details-form input,.premium-booking .note-label textarea{background:var(--booking-raised);color:var(--foreground);border:1px solid var(--border);box-shadow:0 5px 18px #00000009}
+.premium-booking .details-form input:focus,.premium-booking .note-label textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--booking-soft-gold);outline:0}
+.premium-booking .payment-row>svg,.premium-booking .pickup-card>svg{color:var(--primary)}
+.premium-booking .customer-map-live{border-color:color-mix(in srgb,var(--booking-live) 70%,#0b2a20);background:color-mix(in srgb,var(--booking-live) 23%,#0b1612 77%);color:#e9fff6;box-shadow:0 8px 25px #0006}
+.premium-booking .customer-map-live>span{background:#38e4aa;box-shadow:0 0 0 5px #38e4aa25}
+.premium-booking .ride-map-route{background:color-mix(in srgb,var(--booking-surface) 94%,transparent);border-color:color-mix(in srgb,var(--border) 75%,transparent);box-shadow:0 10px 30px #0007}
+.premium-booking .pickup-confirmation{background:var(--booking-raised);border-color:color-mix(in srgb,var(--primary) 52%,var(--border));box-shadow:0 24px 70px #0007}
+.premium-booking .pickup-confirmation strong{background:var(--background);border-color:var(--border)}
+.premium-booking .pickup-confirmation-actions button:first-child{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+.premium-booking .pickup-confirmation-actions button:last-child{background:var(--secondary);border-color:var(--border);color:var(--foreground)}
+
+/* Customer account follows the same restrained visual language. */
+.premium-customer.customer-account-shell{background:var(--background)}
+.premium-customer .customer-account-body>h1{font-weight:760}
+.premium-customer .account-profile>div,.premium-customer .wallet-card,.premium-customer .journey-history{background:var(--booking-raised);border-color:var(--border);box-shadow:0 10px 34px #00000012}
+.premium-customer .trip-card,.premium-customer .saved-card,.premium-customer .empty-wallet{background:var(--booking-surface);border-color:var(--border)}
+.premium-customer .wallet-card>header button{background:var(--primary);color:var(--primary-foreground);border:1px solid var(--primary)}
+html[data-theme=light] .premium-customer .wallet-card>header button{background:#171a1d;color:#fffdf8;border-color:#c9a65a}
+
+/* Phone access — compact, calm and consistent with the booking experience. */
+.mobile-auth-shell{--auth-bg:#0f1113;--auth-surface:#171a1d;--auth-raised:#202429;--auth-text:#f7f3ea;--auth-muted:#b8b4ac;--auth-border:#343a40;--auth-gold:#d6b66d;--auth-danger:#f27676;background:var(--auth-bg);color:var(--auth-text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+html[data-theme=light] .mobile-auth-shell{--auth-bg:#f5f1e9;--auth-surface:#fffcf7;--auth-raised:#fff;--auth-text:#171a1d;--auth-muted:#626660;--auth-border:#d8d0c2;--auth-gold:#8a682f;--auth-danger:#a33a3a}
+.mobile-auth-card{background:var(--auth-surface);color:var(--auth-text);box-shadow:0 20px 65px #0000001f}
+.mobile-auth-brand>span{background:linear-gradient(145deg,#ead393,#c5a052);color:#17130b;box-shadow:0 5px 18px #0002}.mobile-auth-brand strong{letter-spacing:.09em}
+.mobile-number-content h1,.mobile-code-content h1{font-weight:760;letter-spacing:-.04em}
+.mobile-phone-field{background:var(--auth-raised);border:1px solid var(--auth-border);box-shadow:0 6px 20px #0000000b}
+.mobile-phone-field input{color:var(--auth-text)}.mobile-phone-field input::placeholder,.phone-chevron{color:var(--auth-muted)}
+.mobile-phone-field:focus-within{border-color:var(--auth-gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--auth-gold) 13%,transparent)}
+.mobile-login-button{background:var(--auth-gold);color:#17130b;border:1px solid color-mix(in srgb,var(--auth-gold) 70%,#fff);box-shadow:0 9px 25px #0003;font-weight:760}
+html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;border-color:#c9a65a}
+.mobile-auth-or,.mobile-auth-legal,.mobile-auth-benefit,.mobile-code-content>p,.mobile-code-content .mobile-resend{color:var(--auth-muted)}.mobile-auth-or span{background:var(--auth-border)}
+.mobile-socials a,.mobile-guest-button{background:var(--auth-raised);border-color:var(--auth-border);color:var(--auth-text);box-shadow:0 5px 18px #0000000a}
+.mobile-guest-button{color:var(--auth-gold)}.mobile-auth-legal a,.mobile-resend-button{color:var(--auth-gold)}
+.mobile-auth-back{color:var(--auth-text)}.otp-cells>span{background:var(--auth-raised);color:var(--auth-text);border-color:transparent}.otp-cells>span.active{background:var(--auth-surface);border-color:var(--auth-gold)}
+.mobile-auth-error{color:var(--auth-danger)!important;background:color-mix(in srgb,var(--auth-danger) 10%,var(--auth-surface));border-color:color-mix(in srgb,var(--auth-danger) 42%,var(--auth-border))}
+@media(max-width:600px){.mobile-auth-shell{background:var(--auth-surface)}.mobile-auth-card{box-shadow:none}}

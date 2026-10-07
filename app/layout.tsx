@@ -2,4 +2,5 @@ import type { Metadata } from 'next';
 import './globals.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 export const metadata: Metadata = {title:'Need A Cab Plus | Book your trip',description:'Plan your journey with Need A Cab Plus.',icons:{icon:'/favicon.svg',shortcut:'/favicon.svg'}};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en"><body>{children}</body></html>}
+const themeScript=`(()=>{try{const saved=localStorage.getItem('nac-theme')||'system';document.documentElement.dataset.theme=saved==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):saved}catch{document.documentElement.dataset.theme='light'}})()`;
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeScript}}/></head><body>{children}</body></html>}
