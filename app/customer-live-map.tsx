@@ -24,7 +24,7 @@ function applyMapTheme(map:MapLibreMap){
 function fitRoute(map:MapLibreMap,coordinates:number[][],duration=0){
  const first=coordinates[0] as [number,number];
  const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(first,first));
- const bottom=window.matchMedia('(max-width:700px)').matches?Math.max(50,Math.round(map.getContainer().clientHeight*.52)):50;
+ const bottom=window.matchMedia('(max-width:700px)').matches?Math.max(50,Math.round(map.getContainer().clientHeight*.64)):50;
  map.fitBounds(bounds,{padding:{top:125,bottom,left:55,right:55},maxZoom:15,duration});
 }
 function drawRoute(map:MapLibreMap,coordinates:number[][]){

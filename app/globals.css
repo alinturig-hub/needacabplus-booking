@@ -360,7 +360,7 @@ html[data-theme=light] .premium-booking .brandbar,html[data-theme=light] .premiu
  .booking-shell.stage-1 .map-surface.ride-map{flex:1 1 auto!important;width:100%!important;height:auto!important;min-height:0!important}
  .booking-shell.stage-1 .booking-panel.ride-sheet{position:absolute!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;transition:height .24s cubic-bezier(.2,.8,.2,1)}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-dragging{transition:none}
- .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-collapsed{height:clamp(270px,calc(var(--booking-viewport-height,100dvh)*.52 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important}
+ .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-collapsed{height:clamp(360px,calc(var(--booking-viewport-height,100dvh)*.64 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-expanded{height:clamp(320px,calc(var(--booking-viewport-height,100dvh) - 22px - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 22px))!important}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-compact{height:clamp(278px,calc(var(--booking-viewport-height,100dvh)*.36 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important;overflow:hidden}
  .booking-shell.stage-1 .ride-sheet.sheet-compact .ride-time,.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-schedule,.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-option:not(.is-selected){display:none}
