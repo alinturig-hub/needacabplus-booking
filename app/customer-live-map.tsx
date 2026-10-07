@@ -101,9 +101,14 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    routeCoordinates.current=coordinates;
    if(!map.isStyleLoaded()){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current);
   };
-  if(map.loaded())void draw();else map.once('load',draw);
+  // `loaded()` also becomes false while new tiles are being fetched after a
+  // camera move. The one-time `load` event has already fired by then, so a
+  // changed stop could otherwise remove the old route and never draw the new
+  // one. Route drawing only needs the style to be ready.
+  if(map.isStyleLoaded())void draw();else map.once('style.load',draw);
   return()=>{
    active=false;controller.abort();routeCoordinates.current=null;map.off('load',draw);
+   map.off('style.load',draw);
    if(map.getLayer('customer-route-line'))map.removeLayer('customer-route-line');
    if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
    if(map.getSource('customer-route'))map.removeSource('customer-route');
