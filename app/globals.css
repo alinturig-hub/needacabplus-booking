@@ -373,7 +373,7 @@ html[data-theme=light] .premium-booking .brandbar,html[data-theme=light] .premiu
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-dragging{transition:none}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-collapsed{height:clamp(350px,calc(var(--booking-viewport-height,100dvh)*.62 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important}
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-expanded{height:clamp(320px,calc(var(--booking-viewport-height,100dvh) - 22px - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 22px))!important}
- .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-compact{height:clamp(278px,calc(var(--booking-viewport-height,100dvh)*.36 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important;overflow:hidden}
+ .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-compact{height:clamp(315px,calc(var(--booking-viewport-height,100dvh)*.405 - var(--sheet-drag,0px)),calc(var(--booking-viewport-height,100dvh) - 90px))!important;overflow:hidden}
  .booking-shell.stage-1 .ride-sheet.sheet-compact .ride-time,.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-schedule,.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-option:not(.is-selected){display:none}
  .booking-shell.stage-1 .ride-sheet.sheet-compact .ride-picker{gap:4px}
  .booking-shell.stage-1 .ride-sheet.sheet-compact h1{margin-bottom:4px}
