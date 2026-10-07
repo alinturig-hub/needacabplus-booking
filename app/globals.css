@@ -446,11 +446,11 @@ html[data-theme=light] .ride-map-route{box-shadow:0 8px 25px #30303030;border-co
  background:var(--background);color:var(--foreground);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
 html[data-theme=light] .premium-booking{
- --background:#f5f1e9;--foreground:#171a1d;--card:#fff;--card-foreground:#171a1d;
+ --background:#f6f6f3;--foreground:#171a1d;--card:#fff;--card-foreground:#171a1d;
  --popover:#fff;--popover-foreground:#171a1d;--primary:#8a682f;--primary-foreground:#17130b;
- --secondary:#eee8de;--secondary-foreground:#171a1d;--muted:#eee8de;--muted-foreground:#626660;
- --accent:#e7dfd3;--accent-foreground:#171a1d;--border:#d8d0c2;--input:#91897d;--ring:#8a682f;
- --booking-surface:#fffcf7;--booking-raised:#fff;--booking-soft-gold:#c9a65a12;
+ --secondary:#f1f1ee;--secondary-foreground:#171a1d;--muted:#f1f1ee;--muted-foreground:#626660;
+ --accent:#e9e8e3;--accent-foreground:#171a1d;--border:#deded9;--input:#8c8d88;--ring:#8a682f;
+ --booking-surface:#fff;--booking-raised:#fff;--booking-soft-gold:#c9a65a0d;
  --booking-live:#13795b;--booking-danger:#a33a3a;
 }
 .premium-booking .brandbar{background:color-mix(in srgb,var(--background) 96%,transparent);border-color:var(--border);box-shadow:0 8px 28px #00000016;backdrop-filter:blur(18px)}
@@ -498,6 +498,12 @@ html[data-theme=light] .premium-booking .primary-action{background:#171a1d!impor
 .premium-booking .pickup-confirmation strong{background:var(--background);border-color:var(--border)}
 .premium-booking .pickup-confirmation-actions button:first-child{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
 .premium-booking .pickup-confirmation-actions button:last-child{background:var(--secondary);border-color:var(--border);color:var(--foreground)}
+html[data-theme=light] .premium-booking .brandbar{background:#fff}
+html[data-theme=light] .premium-booking .booking-panel{background:#fff}
+html[data-theme=light] .premium-booking .ride-option.is-selected{background:#fff;border-color:#96712f;box-shadow:0 0 0 1px #96712f26,0 9px 25px #171a1d12}
+html[data-theme=light] .premium-booking .ride-option:not(.is-selected){box-shadow:0 5px 18px #171a1d0a}
+html[data-theme=light] .premium-booking .mobile-handle:after{background:linear-gradient(90deg,#e6c87f,#b98e3f)}
+html[data-theme=light] .premium-booking .ride-map-route{background:#fffffff5;border-color:#e1e1dc;box-shadow:0 8px 25px #171a1d20}
 
 /* Customer account follows the same restrained visual language. */
 .premium-customer.customer-account-shell{background:var(--background)}
@@ -509,7 +515,7 @@ html[data-theme=light] .premium-customer .wallet-card>header button{background:#
 
 /* Phone access — compact, calm and consistent with the booking experience. */
 .mobile-auth-shell{--auth-bg:#0f1113;--auth-surface:#171a1d;--auth-raised:#202429;--auth-text:#f7f3ea;--auth-muted:#b8b4ac;--auth-border:#343a40;--auth-gold:#d6b66d;--auth-danger:#f27676;background:var(--auth-bg);color:var(--auth-text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-html[data-theme=light] .mobile-auth-shell{--auth-bg:#f5f1e9;--auth-surface:#fffcf7;--auth-raised:#fff;--auth-text:#171a1d;--auth-muted:#626660;--auth-border:#d8d0c2;--auth-gold:#8a682f;--auth-danger:#a33a3a}
+html[data-theme=light] .mobile-auth-shell{--auth-bg:#f6f6f3;--auth-surface:#fff;--auth-raised:#fff;--auth-text:#171a1d;--auth-muted:#626660;--auth-border:#deded9;--auth-gold:#8a682f;--auth-danger:#a33a3a}
 .mobile-auth-card{background:var(--auth-surface);color:var(--auth-text);box-shadow:0 20px 65px #0000001f}
 .mobile-auth-brand>span{background:linear-gradient(145deg,#ead393,#c5a052);color:#17130b;box-shadow:0 5px 18px #0002}.mobile-auth-brand strong{letter-spacing:.09em}
 .mobile-number-content h1,.mobile-code-content h1{font-weight:760;letter-spacing:-.04em}
