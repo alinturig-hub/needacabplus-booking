@@ -33,11 +33,12 @@ function drawRoute(map:MapLibreMap,coordinates:number[][]){
  applyMapTheme(map);
 }
 
-export default function CustomerLiveMap({pickup,destination,picker=false,showRoute=false,routeBottomRatio=.62,routeTopPadding=125,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;picker?:boolean;showRoute?:boolean;routeBottomRatio?:number;routeTopPadding?:number;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
- const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null),routeBottomRatioRef=useRef(routeBottomRatio),routeTopPaddingRef=useRef(routeTopPadding);
+export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=false,showRoute=false,routeBottomRatio=.62,routeTopPadding=125,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;waypoints?:Coordinate[];picker?:boolean;showRoute?:boolean;routeBottomRatio?:number;routeTopPadding?:number;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
+ const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null),routeBottomRatioRef=useRef(routeBottomRatio),routeTopPaddingRef=useRef(routeTopPadding),waypointsRef=useRef(waypoints);
  const callbacks=useRef({picker,onPickerMove,onPickerStart});
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
- const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null;
+ const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null,waypointKey=waypoints.map(point=>`${point.latitude},${point.longitude}`).join(';');
+ useEffect(()=>{waypointsRef.current=waypoints},[waypoints]);
  useEffect(()=>{routeBottomRatioRef.current=routeBottomRatio;routeTopPaddingRef.current=routeTopPadding},[routeBottomRatio,routeTopPadding]);
  useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart}},[picker,onPickerMove,onPickerStart]);
  useEffect(()=>{
@@ -96,7 +97,7 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
   const controller=new AbortController();let active=true;
   const draw=async()=>{
    const routePickup={latitude:pickupLatitude,longitude:pickupLongitude},routeDestination={latitude:destinationLatitude,longitude:destinationLongitude};
-   let coordinates:number[][];try{coordinates=await customerRoadRoute([routePickup,routeDestination],controller.signal)}catch{return}if(!active)return;
+   let coordinates:number[][];try{coordinates=await customerRoadRoute([routePickup,...waypointsRef.current,routeDestination],controller.signal)}catch{return}if(!active)return;
    routeCoordinates.current=coordinates;
    if(!map.isStyleLoaded()){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current);
   };
@@ -107,7 +108,7 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
    if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
    if(map.getSource('customer-route'))map.removeSource('customer-route');
   };
- },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,showRoute]);
+ },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,showRoute]);
  useEffect(()=>{
   const map=mapRef.current,coordinates=routeCoordinates.current;if(!map||!showRoute||!coordinates)return;
   const timer=window.setTimeout(()=>{map.resize();fitRoute(map,coordinates,420,routeBottomRatio,routeTopPadding)},260);
@@ -116,9 +117,10 @@ export default function CustomerLiveMap({pickup,destination,picker=false,showRou
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;const stops:Marker[]=[];
   const pickupPoint=pickupLatitude===null||pickupLongitude===null?null:{latitude:pickupLatitude,longitude:pickupLongitude},destinationPoint=destinationLatitude===null||destinationLongitude===null?null:{latitude:destinationLatitude,longitude:destinationLongitude};
-  if(!picker)for(const [point,label,kind] of [[pickupPoint,'Pick-up','pickup'],[destinationPoint,'Drop-off','destination']] as const){if(!point)continue;const el=document.createElement('div');el.className=`customer-stop-marker ${kind}${showRoute?' route-stop':''}`;el.setAttribute('aria-label',label);if(showRoute){const text=document.createElement('span');text.textContent=label;el.appendChild(text)}stops.push(new Marker({element:el,anchor:'center'}).setLngLat([point.longitude,point.latitude]).addTo(map))}
+  const routeStops:[Coordinate|null,string,string][]=[[pickupPoint,'Pick-up','pickup'],...waypointsRef.current.map((point,index)=>[point,`Stop ${index+1}`,'via'] as [Coordinate,string,string]),[destinationPoint,'Drop-off','destination']];
+  if(!picker)for(const [point,label,kind] of routeStops){if(!point)continue;const el=document.createElement('div');el.className=`customer-stop-marker ${kind}${showRoute?' route-stop':''}`;el.setAttribute('aria-label',label);if(showRoute){const text=document.createElement('span');text.textContent=label;el.appendChild(text)}stops.push(new Marker({element:el,anchor:'center'}).setLngLat([point.longitude,point.latitude]).addTo(map))}
   if(userLocation){const el=document.createElement('div');el.className='customer-gps-marker';el.setAttribute('aria-label','Your location');stops.push(new Marker({element:el}).setLngLat([userLocation.longitude,userLocation.latitude]).addTo(map))}
   return()=>stops.forEach(marker=>marker.remove());
- },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,picker,userLocation,showRoute]);
+ },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,picker,userLocation,showRoute]);
  return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }
