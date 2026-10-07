@@ -548,7 +548,7 @@ html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;bor
  .booking-shell.stage-0.stop-editor .route-builder{grid-template-columns:minmax(0,1fr) 38px;gap:10px}
  .booking-shell.stage-0.stop-editor .route-fields{padding:5px 12px;border-radius:17px;box-shadow:0 8px 24px #0002}
  .booking-shell.stage-0.stop-editor .route-fields label{min-height:51px}
- .booking-shell.stage-0.stop-editor .field-body>span{display:none}
+ .booking-shell.stage-0.stop-editor .field-body>span:first-child{display:none}
  .booking-shell.stage-0.stop-editor .field-body input{font-size:15px!important;font-weight:560}
  .booking-shell.stage-0.stop-editor .add-via{width:38px;height:38px;margin-top:13px}
  .booking-shell.stage-0.stop-editor .customer-map-live{top:16px;right:14px}
