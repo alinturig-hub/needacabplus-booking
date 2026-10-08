@@ -96,3 +96,12 @@ test('paid membership uses a final service addon without changing NOW Smart Fare
  assert.equal(membershipAddonPercent(policy,null,'priority'),null);
  assert.equal(membershipAddonPercent({...policy,membership:{...policy.membership,enabled:false}},'silver','priority'),null);
 });
+test('marketing settings keep loyalty, retention and re-engagement independently configurable',()=>{
+ const migrated=quotePolicySchema.parse({...defaults,promotions:{enabled:true,allowWithMembership:true,allowWithLoyalty:false,maximumFareDiscountPercent:25,aiDraftsEnabled:true,requireManualApproval:true}});
+ assert.equal(migrated.promotions.retention.enabled,false);
+ assert.equal(migrated.promotions.reengagement.inactiveDays,30);
+ const configured=quotePolicySchema.parse({...migrated,promotions:{...migrated.promotions,retention:{...migrated.promotions.retention,enabled:true,minimumCompletedRides:8,rewardType:'points',rewardValue:250},reengagement:{...migrated.promotions.reengagement,enabled:true,inactiveDays:45,rewardType:'percentage',rewardValue:12}}});
+ assert.equal(configured.promotions.retention.minimumCompletedRides,8);
+ assert.equal(configured.promotions.reengagement.rewardValue,12);
+ assert.equal(quotePolicySchema.safeParse({...configured,promotions:{...configured.promotions,reengagement:{...configured.promotions.reengagement,inactiveDays:0}}}).success,false);
+});
