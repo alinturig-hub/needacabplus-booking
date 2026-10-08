@@ -27,7 +27,15 @@ export async function bootstrapTaxiCrmReader(){
     await pool.query(defaults.tables_sql);await pool.query(defaults.sequences_sql);
    }
   }
+  const readerConnection=process.env.TAXICRM_DATABASE_URL?.trim();
+  if(!readerConnection)throw new Error('TAXICRM_DATABASE_URL is required to verify the permanent reader.');
+  const reader=new Pool({connectionString:readerConnection,max:1,connectionTimeoutMillis:5000,query_timeout:8000,ssl:readerConnection.includes('sslmode=require')?{rejectUnauthorized:false}:undefined});
+  try{
+   const identity=(await reader.query("SELECT current_user database_user,current_setting('default_transaction_read_only') read_only")).rows[0];
+   if(identity?.database_user!=='needacabplus_reader'||identity?.read_only!=='on')throw new Error('The permanent TaxiCRM connection is not the restricted reader.');
+  }finally{await reader.end()}
   console.log(`TaxiCRM read-only role ready across ${schemas.length} application schemas.`);
+  console.log('TaxiCRM permanent reader connection verified.');
   return true;
  }finally{await pool.end()}
 }
