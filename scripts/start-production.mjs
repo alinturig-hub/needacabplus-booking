@@ -4,10 +4,6 @@ import pg from 'pg';
 
 const {Pool}=pg;
 if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required');
-if(process.env.TAXICRM_BOOTSTRAP_DATABASE_URL||process.env.TAXICRM_READER_PASSWORD){
- const {bootstrapTaxiCrmReader}=await import('./bootstrap-taxicrm-reader.mjs');
- await bootstrapTaxiCrmReader();
-}
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('sslmode=require')?{rejectUnauthorized:false}:undefined});
 function retentionDays(){const value=Number(process.env.DRIVER_POSITION_RETENTION_DAYS||90);return Number.isFinite(value)&&value>0?Math.floor(value):90}
 try{
@@ -17,6 +13,9 @@ try{
 finally{await pool.end()}
 
 const child=spawn(process.execPath,['server.js'],{stdio:'inherit',env:process.env});
+if(process.env.TAXICRM_BOOTSTRAP_DATABASE_URL||process.env.TAXICRM_READER_PASSWORD){
+ void import('./bootstrap-taxicrm-reader.mjs').then(({bootstrapTaxiCrmReader})=>bootstrapTaxiCrmReader()).catch(error=>console.error(`TaxiCRM bootstrap failed (${typeof error?.code==='string'?error.code:error instanceof Error?error.name:'unknown'}).`));
+}
 // One resumable, versioned audit requested by the operator; never writes to Autocab.
 let audit,retryTimer,closing=false,retries=0;
 function launchAudit(){
