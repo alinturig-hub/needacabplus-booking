@@ -19,6 +19,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.mjs ./scripts/start-production.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/bootstrap-taxicrm-reader.mjs ./scripts/bootstrap-taxicrm-reader.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-bookings.mjs ./scripts/audit-bookings.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/compare-booking.mjs ./scripts/compare-booking.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-fetch.mjs ./scripts/audit-fetch.mjs
