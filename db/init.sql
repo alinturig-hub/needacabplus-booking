@@ -254,6 +254,82 @@ CREATE TABLE IF NOT EXISTS customer_sessions (
 CREATE INDEX IF NOT EXISTS idx_customer_sessions_customer
   ON customer_sessions(customer_id,expires_at DESC);
 
+CREATE TABLE IF NOT EXISTS customer_memberships (
+  customer_id uuid PRIMARY KEY REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  tier_id text NOT NULL CHECK(tier_id IN ('member','bronze','silver','gold')),
+  status text NOT NULL CHECK(status IN ('trialing','active','past_due','cancelled','expired')),
+  stripe_subscription_id text,
+  starts_at timestamptz NOT NULL DEFAULT now(),
+  renews_at timestamptz,
+  ends_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_memberships_stripe ON customer_memberships(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS customer_loyalty_accounts (
+  customer_id uuid PRIMARY KEY REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  points_balance bigint NOT NULL DEFAULT 0 CHECK(points_balance>=0),
+  lifetime_points bigint NOT NULL DEFAULT 0 CHECK(lifetime_points>=0),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS customer_loyalty_ledger (
+  id uuid PRIMARY KEY,
+  customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  booking_id uuid REFERENCES bookings(id) ON DELETE SET NULL,
+  event_type text NOT NULL CHECK(event_type IN ('ride','distance','promotion','redemption','expiry','adjustment')),
+  points bigint NOT NULL CHECK(points<>0),
+  description text NOT NULL DEFAULT '',
+  metadata jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_customer_loyalty_ledger_customer ON customer_loyalty_ledger(customer_id,created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_loyalty_booking_award ON customer_loyalty_ledger(booking_id) WHERE booking_id IS NOT NULL AND event_type='ride';
+
+CREATE OR REPLACE FUNCTION award_completed_booking_loyalty() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE policy jsonb; ride_points numeric; distance_points numeric; miles numeric; awarded bigint;
+BEGIN
+ IF NEW.status<>'Completed' OR COALESCE(OLD.status,'')='Completed' OR NEW.user_id IS NULL OR NOT EXISTS(SELECT 1 FROM customer_accounts WHERE id::text=NEW.user_id) THEN RETURN NEW; END IF;
+ SELECT settings->'liveQuotes'->'loyalty' INTO policy FROM operations_settings WHERE id='pricing';
+ IF COALESCE((policy->>'enabled')::boolean,false)=false THEN RETURN NEW; END IF;
+ ride_points:=COALESCE((policy->>'pointsPerCompletedRide')::numeric,0);
+ distance_points:=COALESCE((policy->>'pointsPerMile')::numeric,0);
+ BEGIN
+  miles:=COALESCE(NULLIF(NEW.pricing_data->>'distanceMiles','')::numeric,NULLIF(NEW.pricing_data->>'mileage','')::numeric,NULLIF(NEW.raw_payload#>>'{pricing,distanceMiles}','')::numeric,0);
+ EXCEPTION WHEN OTHERS THEN miles:=0; END;
+ awarded:=GREATEST(0,FLOOR(ride_points+GREATEST(0,miles)*distance_points))::bigint;
+ IF awarded=0 THEN RETURN NEW; END IF;
+ INSERT INTO customer_loyalty_ledger(id,customer_id,booking_id,event_type,points,description,metadata)
+ VALUES(md5('loyalty:ride:'||NEW.id::text)::uuid,NEW.user_id::uuid,NEW.id,'ride',awarded,'Completed journey',jsonb_build_object('distanceMiles',miles))
+ ON CONFLICT DO NOTHING;
+ IF FOUND THEN
+  INSERT INTO customer_loyalty_accounts(customer_id,points_balance,lifetime_points) VALUES(NEW.user_id::uuid,awarded,awarded)
+  ON CONFLICT(customer_id) DO UPDATE SET points_balance=customer_loyalty_accounts.points_balance+EXCLUDED.points_balance,lifetime_points=customer_loyalty_accounts.lifetime_points+EXCLUDED.lifetime_points,updated_at=now();
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS award_completed_booking_loyalty_trigger ON bookings;
+CREATE TRIGGER award_completed_booking_loyalty_trigger AFTER UPDATE OF status ON bookings FOR EACH ROW EXECUTE FUNCTION award_completed_booking_loyalty();
+
+CREATE TABLE IF NOT EXISTS marketing_campaigns (
+  id uuid PRIMARY KEY,
+  name text NOT NULL,
+  status text NOT NULL CHECK(status IN ('draft','approved','active','paused','ended')) DEFAULT 'draft',
+  created_by text NOT NULL CHECK(created_by IN ('admin','ai')) DEFAULT 'admin',
+  objective text NOT NULL DEFAULT '',
+  audience_rules jsonb NOT NULL DEFAULT '{}',
+  reward_rules jsonb NOT NULL DEFAULT '{}',
+  budget_rules jsonb NOT NULL DEFAULT '{}',
+  explanation text NOT NULL DEFAULT '',
+  starts_at timestamptz,
+  ends_at timestamptz,
+  approved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK(created_by<>'ai' OR status<>'active' OR approved_at IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_marketing_campaigns_status ON marketing_campaigns(status,starts_at,ends_at);
+
 CREATE TABLE IF NOT EXISTS customer_places (
   id uuid PRIMARY KEY,
   customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,

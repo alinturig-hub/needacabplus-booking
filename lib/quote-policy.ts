@@ -2,6 +2,21 @@ import {z} from 'zod';
 import {isPrebookInterval,PREBOOK_INTERVAL_MINUTES} from './prebook-time.js';
 export class QuoteError extends Error{}
 
+export const membershipTierIds=['member','bronze','silver','gold'] as const;
+export type MembershipTierId=typeof membershipTierIds[number];
+const membershipTier=z.object({
+ name:z.string().trim().min(1).max(40),enabled:z.boolean(),monthlyPrice:z.number().min(0).max(1000).multipleOf(0.01),
+ priorityAddonPercent:z.number().min(0).max(100).nullable(),prebookAddonPercent:z.number().min(0).max(100).nullable(),guaranteeAddonPercent:z.number().min(0).max(100).nullable(),
+}).strict();
+export const defaultMembership={enabled:false,tiers:{
+ member:{name:'Member',enabled:true,monthlyPrice:0,priorityAddonPercent:null,prebookAddonPercent:null,guaranteeAddonPercent:null},
+ bronze:{name:'Bronze',enabled:true,monthlyPrice:0,priorityAddonPercent:null,prebookAddonPercent:null,guaranteeAddonPercent:null},
+ silver:{name:'Silver',enabled:true,monthlyPrice:0,priorityAddonPercent:null,prebookAddonPercent:null,guaranteeAddonPercent:null},
+ gold:{name:'Gold',enabled:true,monthlyPrice:0,priorityAddonPercent:0,prebookAddonPercent:0,guaranteeAddonPercent:0},
+},billingInterval:'month' as const};
+export const defaultLoyalty={enabled:false,pointsPerCompletedRide:0,pointsPerMile:0,pencePerPoint:1,minimumRedemptionPoints:100,maximumFareDiscountPercent:25,pointsExpireMonths:12};
+export const defaultPromotions={enabled:false,allowWithMembership:true,allowWithLoyalty:false,maximumFareDiscountPercent:30,aiDraftsEnabled:false,requireManualApproval:true as const};
+
 export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return value;const settings={...value} as Record<string,unknown>;delete settings.saloonCapabilities;delete settings.estateCapabilities;delete settings.xlCapabilities;if(settings.demandPercent===undefined&&typeof settings.highPercent==='number')settings.demandPercent=settings.highPercent;return settings},z.object({
  enabled:z.boolean().default(true),minPrebookMinutes:z.number().int().min(1).max(10080).default(30),
  serviceCapabilities:z.object({asap:z.array(z.number().int().positive()).max(30).default([]),priority:z.array(z.number().int().positive()).max(30).default([]),prebook:z.array(z.number().int().positive()).max(30).default([]),guarantee:z.array(z.number().int().positive()).max(30).default([])}).strict().default({}),
@@ -22,10 +37,19 @@ export const quotePolicySchema=z.preprocess(value=>{if(!value||typeof value!=='o
  demandWindowMinutes:z.number().int().min(1).max(120).default(15),quoteValiditySeconds:z.number().int().min(60).max(600).default(180),
  pricePath:z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/).max(100).default('outward.price'),
  priceUnit:z.enum(['gbp','pence']).default('gbp'),
+ membership:z.object({enabled:z.boolean(),tiers:z.object({member:membershipTier,bronze:membershipTier,silver:membershipTier,gold:membershipTier}).strict(),billingInterval:z.enum(['month','year'])}).strict().default(defaultMembership),
+ loyalty:z.object({enabled:z.boolean(),pointsPerCompletedRide:z.number().int().min(0).max(100000),pointsPerMile:z.number().min(0).max(10000),pencePerPoint:z.number().int().min(1).max(1000),minimumRedemptionPoints:z.number().int().min(1).max(1000000),maximumFareDiscountPercent:z.number().min(0).max(100),pointsExpireMonths:z.number().int().min(1).max(120)}).strict().default(defaultLoyalty),
+ promotions:z.object({enabled:z.boolean(),allowWithMembership:z.boolean(),allowWithLoyalty:z.boolean(),maximumFareDiscountPercent:z.number().min(0).max(100),aiDraftsEnabled:z.boolean(),requireManualApproval:z.literal(true)}).strict().default(defaultPromotions),
 }).strict().refine(v=>!v.serviceCapabilities.asap.some(id=>id===42||v.smartFareCapabilities.includes(id)),{message:'Put NOW discount capabilities in the quiet-time selection, not standard capabilities.'}).refine(v=>v.lowPercent<=v.mediumPercent&&v.mediumPercent<=v.highPercent,{message:'Priority percentages must increase from low to high demand.'}).refine(v=>v.mediumRatio<v.highRatio,{message:'High demand threshold must exceed the medium threshold.'}).refine(v=>v.demandPercent>=v.lowPercent,{message:'Demand percentage must be at least the base Priority percentage.'}));
 export type QuotePolicy=z.infer<typeof quotePolicySchema>;
 export const defaultQuotePolicy=quotePolicySchema.parse({});
 export type Service='asap'|'priority'|'prebook'|'guarantee';
+export function membershipAddonPercent(policy:QuotePolicy,tierId:MembershipTierId|null,service:Service){
+ if(!policy.membership.enabled||!tierId||service==='asap')return null;
+ const tier=policy.membership.tiers[tierId];
+ if(!tier.enabled)return null;
+ return service==='priority'?tier.priorityAddonPercent:service==='prebook'?tier.prebookAddonPercent:tier.guaranteeAddonPercent;
+}
 export function validateSchedule(service:Service,scheduledAt:string|null,minimum:number,now=Date.now()){
  if(service!=='prebook'&&service!=='guarantee'){if(scheduledAt)throw new QuoteError('NOW and Priority are for immediate journeys. Choose Pre-book or Guarantee for a scheduled journey.');return}
  const when=scheduledAt?Date.parse(scheduledAt):NaN;

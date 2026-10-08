@@ -9,12 +9,13 @@ const requestModule=load('lib/autocab-quote-request.ts');
 const bookingModule=load('lib/autocab-booking-request.ts');
 const place=text=>({text,coordinate:{latitude:50.37,longitude:-4.14},zoneId:1});
 const input={pickup:place('Public station'),destination:place('Public hospital'),vias:[],vehicle:'saloon',service:'asap',paymentMethod:'cash',scheduledAt:null};
-function harness({policy={},waiting=0,cars=8,staleBookings=false,staleCars=false,discount=8,discountFails=false,signalsFail=false,signalDb=null}={}){
+function harness({policy={},waiting=0,cars=8,staleBookings=false,staleCars=false,discount=8,discountFails=false,signalsFail=false,signalDb=null,tierId=null}={}){
  const settings=policyModule.quotePolicySchema.parse({smartFareMode:'live',...policy});
  const rules=load('lib/booking-policy.ts').bookingPolicySchema.parse({bookingCapabilities:[7,42],priorityDelayMinutes:7,paymentMethod:'cash'});
  const calls=[];let signed;
  const db={query:async sql=>{
   if(sql.includes("settings->'liveQuotes'"))return {rows:[{policy:settings}]};
+  if(sql.includes('FROM customer_memberships'))return {rows:tierId?[{tier_id:tierId}]:[]};
   if(signalDb)return signalDb.query(sql);
   if(signalsFail)throw new Error('feed unavailable');
   if(sql.includes('max(updated_at)'))return {rows:[{latest:new Date(Date.now()-(staleBookings?600000:0))}]};
@@ -67,6 +68,12 @@ test('Priority, Pre-book and Guarantee have separate capabilities and additions'
   assert.equal(result.quote.totalPence,totalPence);assert.equal(h.calls.length,1);assert.deepEqual(h.calls[0].capabilities,[7,capability]);
  }
  const h=harness({policy:{serviceCapabilities:{priority:[42,9]}}});await h.module.createQuote({...input,service:'priority'});assert.deepEqual(h.calls[0].capabilities,[7,42,9]);
+});
+test('authenticated member receives the configured final addon and comparison fare',async()=>{
+ const h=harness({tierId:'silver',policy:{lowPercent:20,mediumPercent:20,highPercent:20,membership:{...policyModule.defaultMembership,enabled:true,tiers:{...policyModule.defaultMembership.tiers,silver:{...policyModule.defaultMembership.tiers.silver,priorityAddonPercent:10}}}}});
+ const result=await h.module.createQuote({...input,service:'priority'},'11111111-1111-4111-8111-111111111111');
+ assert.equal(result.quote.totalPence,1100);assert.equal(result.quote.standardTotalPence,1200);assert.equal(result.quote.membershipTier,'Silver');assert.equal(result.quote.membershipSavingPence,100);
+ assert.equal(h.signed().percent,10);assert.equal(h.signed().membership.tierId,'silver');
 });
 test('NOW accepts immediate bookings only and never inherits Priority additions',()=>{
  assert.throws(()=>policyModule.validateSchedule('asap',new Date().toISOString(),30));

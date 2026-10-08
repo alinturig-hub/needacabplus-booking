@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultQuotePolicy as defaults,quotePolicySchema,dynamicScheduleActive,priorityPercent,fareAdjustment,fareBreakdown,validateSchedule,readFare} from '../lib/quote-policy.ts';
+import {defaultQuotePolicy as defaults,quotePolicySchema,dynamicScheduleActive,priorityPercent,fareAdjustment,fareBreakdown,membershipAddonPercent,validateSchedule,readFare} from '../lib/quote-policy.ts';
 import {firstPrebookTime,isPrebookInterval} from '../lib/prebook-time.js';
 test('Priority uplift uses integer pence and predictable half-penny rounding',()=>{
  assert.deepEqual(fareBreakdown(1090,15),{basePence:1090,upliftPence:164,totalPence:1254});
@@ -87,4 +87,12 @@ test('service modes ignore inactive amounts and do not combine charges',()=>{
  assert.deepEqual(fareAdjustment(p,'guarantee',null,null),{percent:20,fixedPence:0,demand:'guarantee'});
  assert.deepEqual(fareAdjustment({...p,guaranteeUpliftMode:'fixed'},'guarantee',null,null),{percent:0,fixedPence:200,demand:'fixed'});
  assert.equal(quotePolicySchema.safeParse({priorityUpliftMode:'both'}).success,false);
+});
+test('paid membership uses a final service addon without changing NOW Smart Fare',()=>{
+ const policy=quotePolicySchema.parse({...defaults,membership:{...defaults.membership,enabled:true,tiers:{...defaults.membership.tiers,silver:{...defaults.membership.tiers.silver,priorityAddonPercent:10,guaranteeAddonPercent:5}}}});
+ assert.equal(membershipAddonPercent(policy,'silver','priority'),10);
+ assert.equal(membershipAddonPercent(policy,'silver','guarantee'),5);
+ assert.equal(membershipAddonPercent(policy,'silver','asap'),null);
+ assert.equal(membershipAddonPercent(policy,null,'priority'),null);
+ assert.equal(membershipAddonPercent({...policy,membership:{...policy.membership,enabled:false}},'silver','priority'),null);
 });

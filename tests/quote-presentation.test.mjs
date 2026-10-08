@@ -7,6 +7,11 @@ test('passenger response contains only final price, never internal markup or Aut
  assert.equal(value.totalPence,1200);
  for(const field of ['basePence','upliftPence','percent','demand','autocabRequest','autocabCosts'])assert.equal(field in value,false);
 });
+test('member fare exposes only the comparison price, tier label and saving',()=>{
+ const value=publicFareQuote({id:'id',vehicle:'saloon',service:'priority',scheduledAt:null,pickup:'Station',destination:'Library',vias:[],totalPence:1100,basePence:1000,upliftPence:100,percent:10,demand:'membership-silver',currency:'GBP',expiresAt:'later',membership:{tierId:'silver',tierName:'Silver',standardTotalPence:1200,savingPence:100}});
+ assert.equal(value.totalPence,1100);assert.equal(value.standardTotalPence,1200);assert.equal(value.membershipTier,'Silver');assert.equal(value.membershipSavingPence,100);
+ assert.equal('basePence' in value,false);assert.equal('percent' in value,false);
+});
 test('Autocab payload preserves address coordinates, zone, via order, capability IDs and UTC schedule',()=>{
  const place=id=>({text:`Public place ${id}`,coordinate:{latitude:50+id/100,longitude:-4},zoneId:id,zone:{id},id:String(id)});
  const input={pickup:place(1),destination:place(4),vias:[place(2),place(3)],vehicle:'xl',scheduledAt:'2026-10-25T02:30:00.000Z'};

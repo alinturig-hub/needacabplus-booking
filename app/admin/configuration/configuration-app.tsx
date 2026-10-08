@@ -19,7 +19,7 @@ const sections=[
  {id:'maps',group:'Integrations & keys',title:'Maps & places',description:'Map display, MapTiler key, address autocomplete, GPS lookup and nearby places.',keywords:'map maptiler openstreetmap osm geocoding address search autocomplete gps places key',icon:Map},
  {id:'payments',group:'Integrations & keys',title:'Payments & Stripe',description:'Test or live mode, payment keys and webhook signing secret.',keywords:'stripe card wallet payment key secret sandbox',icon:CreditCard},
  {id:'bookings',group:'Operations',title:'Bookings',description:'Need A Cab Plus origin marker, account IDs, payments, capabilities and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
- {id:'pricing',group:'Operations',title:'Fares & demand',description:'Live quotes, Priority and prebook additions, and automatic demand pricing.',keywords:'pricing fare quote surcharge demand percent tariff',icon:BadgePoundSterling},
+ {id:'pricing',group:'Operations',title:'Fares & promotions',description:'Live fares, paid membership, loyalty, promotions and demand pricing.',keywords:'pricing fare quote surcharge demand membership loyalty promotion discount tariff',icon:BadgePoundSterling},
  {id:'dispatch',group:'Operations',title:'Dispatch rules',description:'Driver search, arrival buffers and the dispatch simulator.',keywords:'dispatch driver time simulation radius arrival',icon:Route},
  {id:'fleet',group:'Operations',title:'Fleet',description:'Drivers, vehicles, synchronization status and Autocab fleet records.',keywords:'fleet drivers vehicles cars callsign registration sync autocab',icon:CarFront},
 ] as const;
