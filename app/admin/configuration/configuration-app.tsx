@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronDown,ChevronRight,CreditCard,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Webhook} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Webhook} from 'lucide-react';
 import CustomerSettings from './customer-settings';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
@@ -9,11 +9,13 @@ import {DispatchSettings,StripeSettings} from './operations-settings';
 import PricingWorkspace from './pricing-workspace';
 import FleetApp,{type FleetResource} from '../fleet-app';
 import MapSettings from './map-settings';
+import TaxiCrmDatabaseSettings from './taxicrm-database-settings';
 import './configuration.css';
 
 const sections=[
  {id:'webhooks',group:'Settings',title:'Webhooks',description:'Incoming booking events, provider endpoints and signing credentials.',keywords:'webhook inbound events dispatch accepted rejected modified',icon:Webhook},
  {id:'api',group:'Settings',title:'API',description:'Autocab connections, base URLs, authentication headers, keys and booking endpoints.',keywords:'autocab api token bearer basic company endpoint url header connection drivers vehicles',icon:Braces},
+ {id:'taxicrm',group:'Settings',title:'TaxiCRM Database',description:'Permanent read-only access, connection health and source table inventory.',keywords:'taxicrm database postgres bookings history reader connection tables schema',icon:Database},
  {id:'sms',group:'Settings',title:'SMS gateway',description:'Orion connection, signed URL, message templates and test messages.',keywords:'sms orion phone message test otp url header token',icon:MessageSquare},
  {id:'maps',group:'Settings',title:'Maps & places',description:'Map display, MapTiler key, address autocomplete, GPS lookup and nearby places.',keywords:'map maptiler openstreetmap osm geocoding address search autocomplete gps places key',icon:Map},
  {id:'payments',group:'Settings',title:'Payments',description:'Stripe test or live mode, payment keys and webhook signing secret.',keywords:'stripe card wallet payment key secret sandbox billing',icon:CreditCard},
@@ -37,6 +39,7 @@ export default function ConfigurationApp(){
  {current&&<header className="configuration-section-heading"><button type="button" onClick={()=>open('overview')}>Configuration</button><ChevronRight size={14}/><span>{current.title}</span><p>{current.description}</p></header>}
  {/* Retain visited panels so navigating between sections does not discard unsaved edits. */}
  {visited.includes('api')&&<div hidden={selected!=='api'} className="configuration-panel"><ApiConnections/></div>}
+ {visited.includes('taxicrm')&&<div hidden={selected!=='taxicrm'}><TaxiCrmDatabaseSettings/></div>}
  {visited.includes('webhooks')&&<div hidden={selected!=='webhooks'} className="configuration-panel"><WebhookProviders/></div>}
  {visited.includes('sms')&&<div hidden={selected!=='sms'}><CustomerSettings section="sms"/></div>}
  {visited.includes('identity')&&<div hidden={selected!=='identity'}><CustomerSettings section="identity"/></div>}

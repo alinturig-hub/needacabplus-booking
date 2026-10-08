@@ -4,6 +4,10 @@ import pg from 'pg';
 
 const {Pool}=pg;
 if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required');
+if(process.env.TAXICRM_BOOTSTRAP_DATABASE_URL||process.env.TAXICRM_READER_PASSWORD){
+ const {bootstrapTaxiCrmReader}=await import('./bootstrap-taxicrm-reader.mjs');
+ await bootstrapTaxiCrmReader();
+}
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('sslmode=require')?{rejectUnauthorized:false}:undefined});
 function retentionDays(){const value=Number(process.env.DRIVER_POSITION_RETENTION_DAYS||90);return Number.isFinite(value)&&value>0?Math.floor(value):90}
 try{
