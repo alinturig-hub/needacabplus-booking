@@ -22,8 +22,8 @@ type ActiveMembership={tierId:MembershipTierId;tierName:string};
 async function activeMembership(customerId:string|null,policy:QuotePolicy):Promise<ActiveMembership|null>{
  if(!customerId||!policy.membership.enabled)return null;
  const result=await database().query<{tier_id:string}>(`SELECT tier_id FROM customer_memberships
-  WHERE customer_id=$1 AND status IN ('active','trialing') AND starts_at<=now()
-  AND (ends_at IS NULL OR ends_at>now()) ORDER BY updated_at DESC LIMIT 1`,[customerId]);
+  WHERE customer_id=$1 AND (status IN ('active','trialing') OR (status='grace_period' AND $2::boolean=true AND grace_ends_at>now())) AND starts_at<=now()
+  AND (ends_at IS NULL OR ends_at>now()) ORDER BY updated_at DESC LIMIT 1`,[customerId,policy.membership.dunning.keepBenefitsDuringGrace]);
  const tierId=result.rows[0]?.tier_id as MembershipTierId|undefined;
  if(!tierId||!Object.hasOwn(policy.membership.tiers,tierId)||!policy.membership.tiers[tierId].enabled)return null;
  return {tierId,tierName:policy.membership.tiers[tierId].name};

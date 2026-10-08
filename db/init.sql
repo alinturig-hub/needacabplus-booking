@@ -266,6 +266,41 @@ CREATE TABLE IF NOT EXISTS customer_memberships (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_memberships_stripe ON customer_memberships(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL;
+ALTER TABLE customer_memberships DROP CONSTRAINT IF EXISTS customer_memberships_status_check;
+ALTER TABLE customer_memberships ADD CONSTRAINT customer_memberships_status_check CHECK(status IN ('trialing','active','payment_failed','grace_period','past_due','cancelled','expired'));
+ALTER TABLE customer_memberships ADD COLUMN IF NOT EXISTS payment_failed_at timestamptz;
+ALTER TABLE customer_memberships ADD COLUMN IF NOT EXISTS grace_ends_at timestamptz;
+ALTER TABLE customer_memberships ADD COLUMN IF NOT EXISTS failed_payment_count integer NOT NULL DEFAULT 0 CHECK(failed_payment_count>=0);
+ALTER TABLE customer_memberships ADD COLUMN IF NOT EXISTS last_invoice_id text;
+ALTER TABLE customer_memberships ADD COLUMN IF NOT EXISTS cancellation_reason text;
+
+CREATE TABLE IF NOT EXISTS membership_payment_events (
+  stripe_event_id text PRIMARY KEY,
+  event_type text NOT NULL,
+  stripe_subscription_id text,
+  customer_id uuid REFERENCES customer_accounts(id) ON DELETE SET NULL,
+  outcome text NOT NULL DEFAULT 'received',
+  received_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_membership_payment_events_customer ON membership_payment_events(customer_id,received_at DESC);
+
+CREATE TABLE IF NOT EXISTS customer_notifications (
+  id uuid PRIMARY KEY,
+  customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,
+  category text NOT NULL CHECK(category IN ('membership_payment_failed','membership_cancelled','membership_recovered')),
+  title text NOT NULL,
+  message text NOT NULL,
+  channel text NOT NULL CHECK(channel IN ('in_app','sms','email')),
+  state text NOT NULL CHECK(state IN ('pending','sent','failed')) DEFAULT 'pending',
+  source_event_id text,
+  provider_reference text,
+  failure_reason text,
+  read_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  sent_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_customer_notifications_customer ON customer_notifications(customer_id,created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_notifications_event_channel ON customer_notifications(source_event_id,channel) WHERE source_event_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS customer_loyalty_accounts (
   customer_id uuid PRIMARY KEY REFERENCES customer_accounts(id) ON DELETE CASCADE,
