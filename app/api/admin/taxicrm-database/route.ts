@@ -1,11 +1,15 @@
 import {isAdmin,sameOrigin} from '@/lib/security';
 import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfigurationError,verifyTaxiCrmDatabase} from '@/lib/taxicrm-database';
-import {inspectTaxiCrmBookingMapping,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
+import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 
 export const dynamic='force-dynamic';
 
-export async function GET(){
+export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(new URL(request.url).searchParams.get('schema')==='1'){
+  try{return Response.json(await inspectTaxiCrmBookingSchema(),{headers:{'Cache-Control':'no-store'}})}
+  catch{return Response.json({error:'TaxiCRM schema could not be inspected.'},{status:502})}
+ }
  return Response.json({configured:taxiCrmDatabaseConfigured(),bookingReadEnabled:taxiCrmBookingReadEnabled()},{headers:{'Cache-Control':'no-store'}});
 }
 
