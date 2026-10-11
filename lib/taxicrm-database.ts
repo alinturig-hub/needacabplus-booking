@@ -59,6 +59,7 @@ export type TaxiCrmDatabaseSnapshot={
 export function taxiCrmDatabaseConfigured(){return Boolean(process.env.TAXICRM_DATABASE_URL?.trim())}
 export function taxiCrmBookingReadEnabled(){return process.env.TAXICRM_BOOKINGS_READ_ENABLED?.trim().toLowerCase()==='true'}
 export function taxiCrmLiveReadEnabled(){return process.env.TAXICRM_LIVE_READ_ENABLED?.trim().toLowerCase()==='true'}
+export function taxiCrmDispatchReadEnabled(){return process.env.TAXICRM_DISPATCH_READ_ENABLED?.trim().toLowerCase()==='true'}
 
 export async function verifyTaxiCrmDatabase():Promise<TaxiCrmDatabaseSnapshot>{
  return withTaxiCrmReadOnly(async client=>{

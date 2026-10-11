@@ -96,7 +96,7 @@ const column=(mapping:TaxiCrmBookingMapping,field:Field)=>mapping.fields[field]?
 function localTime(columnInfo:Column){const name=`booking.${ident(columnInfo.name)}`;if(columnInfo.dataType==='timestamp with time zone')return `(${name} AT TIME ZONE 'Europe/London')`;if(columnInfo.dataType==='date'||columnInfo.dataType==='timestamp without time zone')return name;return `(NULLIF(${name}::text,'')::timestamptz AT TIME ZONE 'Europe/London')`}
 const valuesOf=(row:Record<string,unknown>,name:string)=>row[name]===null||row[name]===undefined?'':String(row[name]);
 const farePence=(value:unknown,columnInfo?:Column)=>{const amount=Number(value);if(!Number.isFinite(amount))return 0;return Math.round(amount*(columnInfo&&/(pence|penny|cents?)/i.test(columnInfo.name)?1:100))};
-const normalizedStatus=(value:string)=>{
+export const normalizedStatus=(value:string)=>{
  const key=value.toUpperCase().replace(/[^A-Z0-9]/g,'');
  return ({BOOKED:'Booked',CREATED:'Booked',DISPATCHED:'Dispatched',ACCEPTED:'Driver Accepted',ARRIVED:'Arrived',POB:'Passenger On Board',PASSENGERONBOARD:'Passenger On Board',COMPLETED:'Completed',CANCELLED:'Cancelled',REJECTED:'Rejected',NOFARE:'No Fare',RUNNINGLATE:'Running Late',MODIFIED:'Modified'} as Record<string,string>)[key]||value;
 };
