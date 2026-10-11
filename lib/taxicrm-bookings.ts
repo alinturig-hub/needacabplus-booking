@@ -21,6 +21,7 @@ const tableName=(mapping:TaxiCrmBookingMapping)=>`${ident(mapping.schema)}.${ide
 const globalCache=globalThis as unknown as {taxiCrmBookingMapping?:{expires:number;value:TaxiCrmBookingMapping}};
 
 export class TaxiCrmBookingSchemaError extends Error{}
+export class TaxiCrmBookingExportLimitError extends Error{}
 
 function mappedFields(columns:Column[]){
  const byName=new Map(columns.map(column=>[normalized(column.name),column]));
@@ -130,6 +131,7 @@ export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCr
    client.query<{direct:string}>(`SELECT COUNT(*) FILTER(WHERE ${directExpression})::text direct FROM ${table} ${where}`,values),
   ]);
   const total=Number(countRows.rows[0]?.total||0),totalPages=Math.max(1,Math.ceil(total/pageSize)),safePage=exporting?1:Math.min(page,totalPages),orderInfo=mapping.fields.updatedAt||mapping.fields.createdAt||mapping.fields.pickupAt;
+  if(exporting&&total>pageSize)throw new TaxiCrmBookingExportLimitError('This export exceeds 50,000 bookings. Choose a shorter date range or apply filters.');
   const rowValues=[...values,pageSize,(safePage-1)*pageSize];
   const fields:[Field,string][]=[['id','id'],['reference','reference'],['status','status'],['customerName','customer_name'],['phone','phone'],['pickup','pickup'],['destination','destination'],['source','source'],['payment','payment'],['fare','fare'],['createdAt','created_at'],['updatedAt','updated_at'],['pickupAt','pickup_at'],['bookingType','booking_type'],['driver','driver'],['vehicle','vehicle'],['passengers','passengers'],['luggage','luggage']];
   const data=await client.query<Record<string,unknown>>(`SELECT ${fields.map(([field,alias])=>select(mapping,field,alias)).join(',')} FROM ${table} ${locationsJoin} ${where} ORDER BY ${orderInfo?`booking.${ident(orderInfo.name)}`:`booking.${ident(mapping.fields.id!.name)}`} DESC NULLS LAST LIMIT $${rowValues.length-1} OFFSET $${rowValues.length}`,rowValues);

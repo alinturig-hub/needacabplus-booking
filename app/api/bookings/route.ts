@@ -13,7 +13,7 @@ import {validateSchedule} from '@/lib/quote-policy';
 import {getCustomer} from '@/lib/customer-auth';
 import {getGuestSession} from '@/lib/customer-guest';
 import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfigurationError} from '@/lib/taxicrm-database';
-import {readTaxiCrmBookings,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
+import {readTaxiCrmBookings,TaxiCrmBookingExportLimitError,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 
 export const dynamic='force-dynamic';
 const payload=z.object({id:z.string().uuid(),quoteToken:z.string().max(64000),name:z.string().trim().min(2).max(100),phone:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),pickup:z.string().trim().min(5).max(250),destination:z.string().trim().min(5).max(250),viaPoints:z.array(z.string().trim().min(5).max(250)).max(3),pickupNote:z.string().trim().max(300),vehicle:z.enum(['saloon','estate','xl']),passengers:z.number().int().min(1).max(6).default(1),luggage:z.number().int().min(0).max(20).default(0),acknowledged:z.literal(true)}).strict();
@@ -48,6 +48,7 @@ export async function GET(request:Request){
    if(params.get('export')==='csv')return new Response(bookingCsv(data.bookings),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="taxicrm-bookings.csv"','Cache-Control':'no-store','X-Data-Source':'TaxiCRM'}});
    return Response.json(data,{headers:{'Cache-Control':'no-store','X-Data-Source':'TaxiCRM'}});
   }catch(error){
+   if(error instanceof TaxiCrmBookingExportLimitError)return Response.json({error:error.message,dataSource:'taxicrm'},{status:422,headers:{'Cache-Control':'no-store'}});
    if(error instanceof TaxiCrmDatabaseConfigurationError||error instanceof TaxiCrmBookingSchemaError)return Response.json({error:error.message,dataSource:'taxicrm'},{status:502,headers:{'Cache-Control':'no-store'}});
    console.error('TaxiCRM booking read failed',error instanceof Error?error.name:'Unknown failure');
    return Response.json({error:'TaxiCRM booking data is temporarily unavailable.',dataSource:'taxicrm'},{status:502,headers:{'Cache-Control':'no-store'}});
