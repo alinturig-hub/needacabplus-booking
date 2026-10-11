@@ -1,5 +1,5 @@
 import {isAdmin,sameOrigin} from '@/lib/security';
-import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfigurationError,verifyTaxiCrmDatabase} from '@/lib/taxicrm-database';
+import {taxiCrmBookingReadEnabled,taxiCrmCustomerReadEnabled,taxiCrmDatabaseConfigured,taxiCrmDispatchReadEnabled,taxiCrmLiveReadEnabled,taxiCrmNoBookingCopyEnabled,taxiCrmWebhookIngestDisabled,TaxiCrmDatabaseConfigurationError,verifyTaxiCrmDatabase} from '@/lib/taxicrm-database';
 import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,readTaxiCrmBookings,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 import {taxiCrmClearDrivers,taxiCrmFleetFreshness} from '@/lib/taxicrm-live';
 import {taxiCrmBookingStory,taxiCrmDispatchLive} from '@/lib/taxicrm-dispatch';
@@ -35,7 +35,7 @@ export async function GET(request:Request){
   try{return Response.json(await inspectTaxiCrmBookingSchema(),{headers:{'Cache-Control':'no-store'}})}
   catch(error){return Response.json({error:'TaxiCRM schema could not be inspected.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
  }
- return Response.json({configured:taxiCrmDatabaseConfigured(),bookingReadEnabled:taxiCrmBookingReadEnabled()},{headers:{'Cache-Control':'no-store'}});
+ return Response.json({configured:taxiCrmDatabaseConfigured(),bookingReadEnabled:taxiCrmBookingReadEnabled(),liveReadEnabled:taxiCrmLiveReadEnabled(),dispatchReadEnabled:taxiCrmDispatchReadEnabled(),customerReadEnabled:taxiCrmCustomerReadEnabled(),noBookingCopyEnabled:taxiCrmNoBookingCopyEnabled(),webhookIngestDisabled:taxiCrmWebhookIngestDisabled()},{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(request:Request){

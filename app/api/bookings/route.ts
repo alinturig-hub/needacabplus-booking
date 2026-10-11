@@ -110,6 +110,7 @@ export async function GET(request:Request){
 const allowedStatuses=['Booked','Modified','Dispatched','Driver Accepted','Arrived','Passenger On Board','Running Late','Completed','Cancelled','Rejected','No Fare'] as const;
 export async function PATCH(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(taxiCrmNoBookingCopyEnabled())return Response.json({error:'Booking status is managed in TaxiCRM.'},{status:409});
  let body;try{body=z.object({id:z.string().uuid(),status:z.enum(allowedStatuses)}).strict().parse(await request.json())}catch{return Response.json({error:'Invalid booking update.'},{status:400})}
  try{const result=await database().query('UPDATE bookings SET status=$1,updated_at=now() WHERE id=$2',[body.status,body.id]);if(!result.rowCount)return Response.json({error:'Booking not found.'},{status:404});return Response.json({ok:true})}catch(error){return unavailable(error)}
 }
