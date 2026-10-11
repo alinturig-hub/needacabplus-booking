@@ -80,7 +80,9 @@ export async function inspectTaxiCrmBookingSchema(){
    JOIN pg_attribute target_column ON target_column.attrelid=target.oid AND target_column.attnum=target_key.number
    WHERE con.contype='f' AND source.relnamespace=(SELECT oid FROM pg_namespace WHERE nspname='public')
    ORDER BY source.relname LIMIT 250`)).rows;
-  return {columns,foreignKeys};
+  const enumValues=(await client.query<{type:string;value:string}>(`SELECT type.typname "type",entry.enumlabel value FROM pg_type type JOIN pg_enum entry ON entry.enumtypid=type.oid
+   JOIN pg_namespace namespace ON namespace.oid=type.typnamespace WHERE namespace.nspname='public' ORDER BY type.typname,entry.enumsortorder`)).rows;
+  return {columns,foreignKeys,enumValues};
  });
 }
 
