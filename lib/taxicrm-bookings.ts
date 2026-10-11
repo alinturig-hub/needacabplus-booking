@@ -1,0 +1,115 @@
+import type {PoolClient} from 'pg';
+import {bookingPeriod} from '@/lib/booking-period';
+import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
+
+type Field='id'|'reference'|'status'|'customerName'|'phone'|'pickup'|'destination'|'source'|'payment'|'fare'|'createdAt'|'updatedAt'|'pickupAt'|'bookingType'|'driver'|'vehicle'|'passengers'|'luggage';
+type Column={schema:string;table:string;name:string;dataType:string;udtName:string;ordinal:number};
+export type TaxiCrmBookingMapping={schema:string;table:string;estimatedRows:number;score:number;fields:Partial<Record<Field,Column>>};
+
+const aliases:Record<Field,string[]>={
+ id:['id','bookingid','jobid','reservationid'],reference:['bookingreference','bookingref','reference','externalbookingid','jobreference','jobnumber','bookingnumber','id'],
+ status:['status','bookingstatus','jobstatus','state'],customerName:['customername','passengername','passenger','customer','name'],phone:['phone','telephone','telephonenumber','phonenumber','mobile','mobilenumber','customerphone'],
+ pickup:['pickup','pickupaddress','pickupaddressformatted','origin','originaddress','fromaddress','addressfrom'],destination:['destination','destinationaddress','dropoff','dropoffaddress','toaddress','addressto'],
+ source:['source','bookingsource','sourcechannel','channel','sourcesystem'],payment:['paymenttype','paymentmethod','payment','paymentprofile'],fare:['farepence','pricepence','totalpence','fare','price','totalprice','quotedfare','passengerprice'],
+ createdAt:['createdat','createddate','bookedat','bookingdate','datecreated'],updatedAt:['updatedat','modifiedat','modifieddate','lastupdated','dateupdated'],pickupAt:['pickuptime','pickupdate','pickupdateandtime','dueat','duetime','scheduledat','bookingtime'],
+ bookingType:['bookingtype','typeofbooking','servicetype','service','jobtype'],driver:['drivername','driver','drivercallsign'],vehicle:['vehiclecallsign','vehicle','registration','vehicleregistration','callsign'],passengers:['passengers','passengercount','numberofpassengers'],luggage:['luggage','bags','luggagecount'],
+};
+const required:Field[]=['id','status','pickup','destination'];
+const normalized=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,'');
+const ident=(value:string)=>`"${value.replaceAll('"','""')}"`;
+const tableName=(mapping:TaxiCrmBookingMapping)=>`${ident(mapping.schema)}.${ident(mapping.table)}`;
+const globalCache=globalThis as unknown as {taxiCrmBookingMapping?:{expires:number;value:TaxiCrmBookingMapping}};
+
+export class TaxiCrmBookingSchemaError extends Error{}
+
+function mappedFields(columns:Column[]){
+ const byName=new Map(columns.map(column=>[normalized(column.name),column]));
+ const fields:Partial<Record<Field,Column>>={};
+ for(const [field,names] of Object.entries(aliases) as [Field,string[]][])for(const name of names){const column=byName.get(name);if(column){fields[field]=column;break}}
+ return fields;
+}
+
+export function chooseTaxiCrmBookingMapping(columns:Column[],estimates:Record<string,number>={},override=process.env.TAXICRM_BOOKINGS_TABLE?.trim()):TaxiCrmBookingMapping{
+ const grouped=new Map<string,Column[]>();
+ for(const column of columns){const key=`${column.schema}.${column.table}`;grouped.set(key,[...(grouped.get(key)||[]),column])}
+ const requested=override?.split('.');
+ const candidates=[...grouped.entries()].map(([key,tableColumns])=>{
+  const [schema,table]=key.split('.',2),fields=mappedFields(tableColumns),name=normalized(table);
+  let score=Object.keys(fields).length*5+required.filter(field=>fields[field]).length*25;
+  if(name==='bookings')score+=100;else if(name.includes('booking'))score+=70;else if(name==='jobs'||name.includes('job'))score+=45;else if(name.includes('journey')||name.includes('reservation'))score+=25;
+  if(name.includes('event')||name.includes('audit')||name.includes('history')||name.includes('archive'))score-=35;
+  score+=Math.min(20,Math.log10(Math.max(1,estimates[key]||0))*3);
+  return {schema,table,estimatedRows:estimates[key]||0,score,fields};
+ });
+ const selected=requested?.length===2?candidates.find(item=>item.schema===requested[0]&&item.table===requested[1]):candidates.sort((a,b)=>b.score-a.score)[0];
+ if(!selected)throw new TaxiCrmBookingSchemaError(override?`TaxiCRM booking table ${override} was not found.`:'No TaxiCRM tables are visible to the read-only account.');
+ const missing=required.filter(field=>!selected.fields[field]);
+ if(missing.length)throw new TaxiCrmBookingSchemaError(`TaxiCRM table ${selected.schema}.${selected.table} is missing mapped fields: ${missing.join(', ')}.`);
+ return selected;
+}
+
+async function discover(client:PoolClient,refresh=false){
+ if(!refresh&&globalCache.taxiCrmBookingMapping&&globalCache.taxiCrmBookingMapping.expires>Date.now())return globalCache.taxiCrmBookingMapping.value;
+ const columns=(await client.query<Column>(`SELECT columns.table_schema schema,columns.table_name "table",columns.column_name name,columns.data_type "dataType",columns.udt_name "udtName",columns.ordinal_position ordinal
+  FROM information_schema.columns columns JOIN information_schema.tables tables ON tables.table_schema=columns.table_schema AND tables.table_name=columns.table_name
+  WHERE tables.table_type='BASE TABLE' AND columns.table_schema<>'information_schema' AND columns.table_schema NOT LIKE 'pg_%'
+  ORDER BY columns.table_schema,columns.table_name,columns.ordinal_position`)).rows;
+ const rows=(await client.query<{schema:string;table:string;estimated_rows:string|number}>(`SELECT namespace.nspname schema,class.relname "table",GREATEST(class.reltuples,0)::bigint estimated_rows FROM pg_class class JOIN pg_namespace namespace ON namespace.oid=class.relnamespace WHERE class.relkind IN ('r','p') AND namespace.nspname<>'information_schema' AND namespace.nspname NOT LIKE 'pg_%'`)).rows;
+ const estimates=Object.fromEntries(rows.map(row=>[`${row.schema}.${row.table}`,Number(row.estimated_rows||0)]));
+ const value=chooseTaxiCrmBookingMapping(columns,estimates);
+ globalCache.taxiCrmBookingMapping={expires:Date.now()+300_000,value};return value;
+}
+
+export async function inspectTaxiCrmBookingMapping(refresh=true){
+ return withTaxiCrmReadOnly(async client=>{
+  const mapping=await discover(client,refresh);
+  return {schema:mapping.schema,table:mapping.table,estimatedRows:mapping.estimatedRows,score:mapping.score,fields:Object.fromEntries(Object.entries(mapping.fields).map(([field,info])=>[field,info!.name]))};
+ });
+}
+
+const select=(mapping:TaxiCrmBookingMapping,field:Field,alias:string)=>mapping.fields[field]?`${ident(mapping.fields[field]!.name)} AS ${ident(alias)}`:`NULL AS ${ident(alias)}`;
+const column=(mapping:TaxiCrmBookingMapping,field:Field)=>mapping.fields[field]?ident(mapping.fields[field]!.name):null;
+function localTime(columnInfo:Column){const name=ident(columnInfo.name);if(columnInfo.dataType==='timestamp with time zone')return `(${name} AT TIME ZONE 'Europe/London')`;if(columnInfo.dataType==='date'||columnInfo.dataType==='timestamp without time zone')return name;return `(NULLIF(${name}::text,'')::timestamptz AT TIME ZONE 'Europe/London')`}
+const valuesOf=(row:Record<string,unknown>,name:string)=>row[name]===null||row[name]===undefined?'':String(row[name]);
+const farePence=(value:unknown,columnInfo?:Column)=>{const amount=Number(value);if(!Number.isFinite(amount))return 0;return Math.round(amount*(columnInfo&&/(pence|penny|cents?)/i.test(columnInfo.name)?1:100))};
+
+export type TaxiCrmBookingPage={pastPeriod:boolean;bookings:Record<string,unknown>[];total:number;page:number;pageSize:number;summary:Record<string,number>;originSummary:{autocab:number;needACabPlus:number};nacServiceSummary:{priority:number;prebook:number;guarantee:number;unclassified:number};timingSummary:{asap:number;prebook:number};livePassengerOnBoard:number;period:ReturnType<typeof bookingPeriod>;statuses:string[];sources:string[];payments:string[];mapping:{schema:string;table:string;estimatedRows:number;fields:Record<string,string>};dataSource:'taxicrm'};
+
+export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCrmBookingPage>{
+ const period=bookingPeriod(params),exporting=params.get('export')==='csv',page=Math.max(1,Number.parseInt(params.get('page')||'1',10)||1),requestedSize=Number.parseInt(params.get('pageSize')||'20',10),pageSize=exporting?50_000:([10,20,50,100].includes(requestedSize)?requestedSize:20);
+ const search=(params.get('search')||'').trim().slice(0,120),selectedStatuses=[...new Set(params.getAll('status').map(value=>value.trim().slice(0,60)).filter(Boolean))].slice(0,50),source=(params.get('source')||'').trim().slice(0,100),payment=(params.get('payment')||'').trim().slice(0,100);
+ return withTaxiCrmReadOnly(async client=>{
+  const mapping=await discover(client),values:unknown[]=[],conditions:string[]=[];
+  const add=(value:unknown)=>{values.push(value);return `$${values.length}`};
+  const textFields=(['id','reference','customerName','phone','pickup','destination','driver','vehicle'] as Field[]).map(field=>column(mapping,field)).filter(Boolean) as string[];
+  if(search){const placeholder=add(`%${search}%`);conditions.push(`(${textFields.map(name=>`COALESCE(${name}::text,'') ILIKE ${placeholder}`).join(' OR ')})`)}
+  const statusColumn=column(mapping,'status')!;
+  if(selectedStatuses.length)conditions.push(`${statusColumn}::text=ANY(${add(selectedStatuses)}::text[])`);
+  const sourceColumn=column(mapping,'source');if(source&&sourceColumn)conditions.push(`${sourceColumn}::text=${add(source)}`);
+  const paymentColumn=column(mapping,'payment');if(payment&&paymentColumn)conditions.push(`${paymentColumn}::text=${add(payment)}`);
+  const timeInfo=mapping.fields.pickupAt||mapping.fields.createdAt||mapping.fields.updatedAt;
+  if(period.start&&period.end&&timeInfo){const time=localTime(timeInfo);conditions.push(`${time}::date BETWEEN ${add(period.start)}::date AND ${add(period.end)}::date`);if(period.period==='custom'){conditions.push(`${time}::time BETWEEN ${add(period.fromTime)}::time AND ${add(period.toTime)}::time`)}}
+  const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'',table=tableName(mapping);
+  const typeColumn=column(mapping,'bookingType'),referenceColumn=column(mapping,'reference')||column(mapping,'id')!;
+  const directExpression=sourceColumn?`(lower(COALESCE(${sourceColumn}::text,'')) LIKE '%need a cab%' OR lower(COALESCE(${sourceColumn}::text,'')) LIKE '%webapp%' OR COALESCE(${referenceColumn}::text,'') ~* '^NAC-')`:`COALESCE(${referenceColumn}::text,'') ~* '^NAC-'`;
+  const [countRows,summaryRows,statusRows,sourceRows,paymentRows,typeRows,originRows]=await Promise.all([
+   client.query<{total:string}>(`SELECT COUNT(*)::text total FROM ${table} ${where}`,values),
+   client.query<{status:string;total:string}>(`SELECT COALESCE(${statusColumn}::text,'Unknown') status,COUNT(*)::text total FROM ${table} ${where} GROUP BY 1`,values),
+   client.query<{value:string}>(`SELECT DISTINCT ${statusColumn}::text value FROM ${table} WHERE ${statusColumn} IS NOT NULL ORDER BY 1 LIMIT 100`),
+   sourceColumn?client.query<{value:string}>(`SELECT DISTINCT ${sourceColumn}::text value FROM ${table} WHERE ${sourceColumn} IS NOT NULL ORDER BY 1 LIMIT 100`):Promise.resolve({rows:[]}),
+   paymentColumn?client.query<{value:string}>(`SELECT DISTINCT ${paymentColumn}::text value FROM ${table} WHERE ${paymentColumn} IS NOT NULL ORDER BY 1 LIMIT 100`):Promise.resolve({rows:[]}),
+   typeColumn?client.query<{value:string;total:string}>(`SELECT lower(COALESCE(${typeColumn}::text,'')) value,COUNT(*)::text total FROM ${table} ${where} GROUP BY 1`,values):Promise.resolve({rows:[]}),
+   client.query<{direct:string}>(`SELECT COUNT(*) FILTER(WHERE ${directExpression})::text direct FROM ${table} ${where}`,values),
+  ]);
+  const total=Number(countRows.rows[0]?.total||0),totalPages=Math.max(1,Math.ceil(total/pageSize)),safePage=exporting?1:Math.min(page,totalPages),orderInfo=mapping.fields.updatedAt||mapping.fields.createdAt||mapping.fields.pickupAt;
+  const rowValues=[...values,pageSize,(safePage-1)*pageSize];
+  const fields:[Field,string][]=[['id','id'],['reference','reference'],['status','status'],['customerName','customer_name'],['phone','phone'],['pickup','pickup'],['destination','destination'],['source','source'],['payment','payment'],['fare','fare'],['createdAt','created_at'],['updatedAt','updated_at'],['pickupAt','pickup_at'],['bookingType','booking_type'],['driver','driver'],['vehicle','vehicle'],['passengers','passengers'],['luggage','luggage']];
+  const data=await client.query<Record<string,unknown>>(`SELECT ${fields.map(([field,alias])=>select(mapping,field,alias)).join(',')} FROM ${table} ${where} ORDER BY ${orderInfo?ident(orderInfo.name):ident(mapping.fields.id!.name)} DESC NULLS LAST LIMIT $${rowValues.length-1} OFFSET $${rowValues.length}`,rowValues);
+  const bookings=data.rows.map(row=>{const id=valuesOf(row,'id'),reference=valuesOf(row,'reference')||id,status=valuesOf(row,'status')||'Unknown',pickupAt=valuesOf(row,'pickup_at'),createdAt=valuesOf(row,'created_at')||pickupAt||new Date(0).toISOString(),updatedAt=valuesOf(row,'updated_at')||createdAt,fare=farePence(row.fare,mapping.fields.fare);return {id,external_booking_id:reference,original_booking_id:null,name:valuesOf(row,'customer_name')||'Unknown passenger',phone:valuesOf(row,'phone')||'Not supplied',customer_email:null,passengers:Number(row.passengers)||null,luggage:Number(row.luggage)||null,pickup:valuesOf(row,'pickup')||'—',destination:valuesOf(row,'destination')||'—',via_points:[],pickup_note:'',pickup_data:null,destination_data:null,vias_data:null,driver_data:row.driver?{name:String(row.driver)}:null,vehicle_data:row.vehicle?{registration:String(row.vehicle),vehicleCallsign:String(row.vehicle)}:null,pricing_data:{price:fare/100},timeline_data:{bookedAt:createdAt,scheduledAt:pickupAt||null},notes_data:null,booking_type:valuesOf(row,'booking_type')||null,source:valuesOf(row,'source')||'TaxiCRM',payment_type:valuesOf(row,'payment')||null,priority:null,street_pickup:null,vehicle:valuesOf(row,'vehicle')||'',fare_pence:fare,status,last_event_type:null,raw_payload:null,created_at:createdAt,updated_at:updatedAt,pickup_day:pickupAt?pickupAt.slice(0,10):null}});
+  const summary=Object.fromEntries(summaryRows.rows.map(row=>[row.status,Number(row.total)])),lower=(value:string)=>value.toLowerCase(),countMatching=(test:(value:string)=>boolean)=>Object.entries(summary).reduce((sum,[name,count])=>sum+(test(lower(name))?count:0),0),typeCount=(test:(value:string)=>boolean)=>typeRows.rows.reduce((sum,row)=>sum+(test(row.value)?Number(row.total):0),0);
+  const needACabPlus=Number(originRows.rows[0]?.direct||0),priority=typeCount(value=>value.includes('priority')),guarantee=typeCount(value=>value.includes('guarantee')),prebookOnly=typeCount(value=>value.includes('prebook')&&!value.includes('guarantee'));
+  const asap=typeCount(value=>value.includes('asap')||value.includes('priority')),prebook=typeCount(value=>value.includes('prebook')||value.includes('scheduled')||value.includes('guarantee'));
+  const pastPeriod=Boolean(period.end&&period.end<bookingPeriod(new URLSearchParams()).start!);
+  return {pastPeriod,bookings,total,page:safePage,pageSize,summary,originSummary:{autocab:Math.max(0,total-needACabPlus),needACabPlus},nacServiceSummary:{priority,prebook:prebookOnly,guarantee,unclassified:Math.max(0,needACabPlus-priority-prebookOnly-guarantee)},timingSummary:{asap,prebook},livePassengerOnBoard:countMatching(value=>value.replace(/\s/g,'').includes('passengeronboard')),period,statuses:statusRows.rows.map(row=>row.value),sources:sourceRows.rows.map(row=>row.value),payments:paymentRows.rows.map(row=>row.value),mapping:{schema:mapping.schema,table:mapping.table,estimatedRows:mapping.estimatedRows,fields:Object.fromEntries(Object.entries(mapping.fields).map(([field,info])=>[field,info!.name]))},dataSource:'taxicrm'};
+ });
+}

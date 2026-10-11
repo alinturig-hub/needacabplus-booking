@@ -24,7 +24,7 @@ function pool(){
  return globalTaxiCrm.taxiCrmPool;
 }
 
-async function readOnly<T>(work:(client:PoolClient)=>Promise<T>){
+export async function withTaxiCrmReadOnly<T>(work:(client:PoolClient)=>Promise<T>){
  const client=await pool().connect();
  try{
   await client.query('BEGIN READ ONLY');
@@ -57,9 +57,10 @@ export type TaxiCrmDatabaseSnapshot={
 };
 
 export function taxiCrmDatabaseConfigured(){return Boolean(process.env.TAXICRM_DATABASE_URL?.trim())}
+export function taxiCrmBookingReadEnabled(){return process.env.TAXICRM_BOOKINGS_READ_ENABLED?.trim().toLowerCase()==='true'}
 
 export async function verifyTaxiCrmDatabase():Promise<TaxiCrmDatabaseSnapshot>{
- return readOnly(async client=>{
+ return withTaxiCrmReadOnly(async client=>{
   const meta=(await client.query<MetaRow>(`SELECT current_database() database_name,current_user database_user,current_setting('server_version') server_version,current_setting('transaction_read_only') transaction_read_only,
    role.rolsuper,role.rolcreatedb,role.rolcreaterole,role.rolreplication,role.rolbypassrls,
    has_database_privilege(current_user,current_database(),'CREATE') can_create_database,
