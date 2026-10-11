@@ -1,11 +1,17 @@
 import {isAdmin} from '@/lib/security';
 import {bookingEvents} from '@/lib/booking-events';
+import {taxiCrmBookingReadEnabled} from '@/lib/taxicrm-database';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(taxiCrmBookingReadEnabled()){
+  const encoder=new TextEncoder();let timer:ReturnType<typeof setInterval>;
+  const stream=new ReadableStream({start(controller){const close=()=>{clearInterval(timer);try{controller.close()}catch{}};controller.enqueue(encoder.encode('retry: 1500\nevent: connected\ndata: {}\n\n'));timer=setInterval(()=>controller.enqueue(encoder.encode('event: booking\ndata: {}\n\n')),30000);request.signal.addEventListener('abort',close,{once:true})},cancel(){clearInterval(timer)}});
+  return new Response(stream,{headers:{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'}});
+ }
  const encoder=new TextEncoder();let heartbeat:ReturnType<typeof setInterval>;let sendBooking:((data:unknown)=>void)|undefined;
  const stream=new ReadableStream({
   start(controller){

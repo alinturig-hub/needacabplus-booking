@@ -7,6 +7,7 @@ import {saveAutocabBooking} from '@/lib/autocab-bookings';
 import {handlesDriverEvent,saveDriverEvent} from '@/lib/driver-events';
 import {bookingEvents} from '@/lib/booking-events';
 import {driverPositionEvents} from '@/lib/driver-position-events';
+import {taxiCrmWebhookIngestDisabled} from '@/lib/taxicrm-database';
 
 export const dynamic='force-dynamic';
 const MAX_BODY_BYTES=2_000_000;
@@ -33,6 +34,7 @@ export async function POST(request:Request,{params}:{params:Promise<{webhookPath
   let credentials:Record<string,string>;try{credentials=decryptCredentials(item.api_key_encrypted)}catch{return json(401,{error:'Webhook API key is not configured.'})}const expected=credentials.token||'';
   const received=request.headers.get(item.api_key_header)||'';
   if(!expected||!received||!equal(received,expected))return json(401,{error:'Invalid webhook API key.'});
+  if(taxiCrmWebhookIngestDisabled())return json(202,{accepted:true,stored:false,source:'TaxiCRM'});
   const raw=await request.text();if(Buffer.byteLength(raw,'utf8')>MAX_BODY_BYTES)return json(413,{error:'Webhook payload is too large.'});
   let payload:unknown;try{payload=raw?JSON.parse(raw):{}}catch{return json(400,{error:'Webhook body must contain valid JSON.'})}
   const eventId=randomUUID();const sourceIp=(request.headers.get('x-forwarded-for')||'').split(',')[0].trim();

@@ -12,7 +12,7 @@ import {verifyQuote,loadQuotePolicy} from '@/lib/quotes';
 import {validateSchedule} from '@/lib/quote-policy';
 import {getCustomer} from '@/lib/customer-auth';
 import {getGuestSession} from '@/lib/customer-guest';
-import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfigurationError} from '@/lib/taxicrm-database';
+import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,taxiCrmNoBookingCopyEnabled,TaxiCrmDatabaseConfigurationError} from '@/lib/taxicrm-database';
 import {readTaxiCrmBookings,TaxiCrmBookingExportLimitError,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 
 export const dynamic='force-dynamic';
@@ -34,6 +34,7 @@ export async function POST(request:Request){
  let requestBody;try{requestBody=buildLiveCashBookingRequest(quote,{name:body.name,telephoneNumber:body.phone,customerEmail:customer?.email||'',passengers:body.passengers,luggage:body.luggage,driverNote:body.pickupNote})}catch(e){return Response.json({error:e instanceof Error?e.message:'Request a new quote.'},{status:409})}
  const result=await submitLiveCashBooking(db,quote,userId,requestBody,createCashBooking);return Response.json(result,{status:result.rejected?422:result.pending?202:201});
  }
+ if(taxiCrmNoBookingCopyEnabled())return Response.json({error:'Bookings are unavailable while the operator connection is in test mode.'},{status:409});
  const inserted=await db.query(`INSERT INTO bookings (id,user_id,name,phone,pickup,destination,via_points,pickup_note,vehicle,fare_pence,status,created_at,source,payment_type,passengers,updated_at,pricing_data,timeline_data,booking_type,pickup_data,destination_data,vias_data)
  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Booked',now(),'WebApp',$18,$17,now(),$11::jsonb,$12::jsonb,$13,$14::jsonb,$15::jsonb,$16::jsonb) ON CONFLICT(id) DO NOTHING RETURNING id`,[body.id,userId,body.name,body.phone,quote.pickup,quote.destination,JSON.stringify(quote.vias),body.pickupNote,quote.vehicle,quote.totalPence,JSON.stringify({...quote,price:quote.totalPence/100,pricingSource:quote.service==='asap'?'Autocab NOW':quote.service==='priority'?'Autocab + Priority':quote.service==='prebook'?'Autocab + Pre-book':'Autocab + Guarantee',testBooking:true}),JSON.stringify({bookedAt:new Date().toISOString(),scheduledAt:quote.scheduledAt||new Date(Date.now()+(quote.bookingRules?.priorityDelayMinutes||0)*60000).toISOString()}),quote.service==='asap'?'ASAP':quote.service==='priority'?'ASAP Priority':quote.service==='prebook'?'Prebook':'Guarantee Prebook',JSON.stringify(quote.autocabRequest?.pickup.address||{}),JSON.stringify(quote.autocabRequest?.destination.address||{}),JSON.stringify(quote.autocabRequest?.vias||[]),Number(quote.autocabRequest?.passengers||1),quote.paymentMethod==='cash'?'Cash':'Card']);
  if(!inserted.rowCount){const same=await db.query('SELECT id,status FROM bookings WHERE id=$1 AND user_id=$2',[body.id,userId]);if(same.rows[0])return Response.json(same.rows[0]);return Response.json({error:'This quote has already been used. Request another quote.'},{status:409})}

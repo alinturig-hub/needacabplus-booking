@@ -4,6 +4,8 @@ import {aggregateDispatch,bookingMetrics,receiptText,type Receipt} from '@/lib/d
 import {operationKind,receiptCallsigns} from '@/lib/dispatch-history';
 import {dispatchObservation} from '@/lib/dispatch-observation';
 import {readBookingDetails} from '@/lib/autocab-api';
+import {taxiCrmDispatchReadEnabled} from '@/lib/taxicrm-database';
+import {taxiCrmBookingStory} from '@/lib/taxicrm-dispatch';
 type Assignment={driverId:string|null;vehicleId:string|null;driver:string|null;vehicle:string|null;checkedAt:string;source:string};
 const assignments=new Map<string,{until:number;value:Assignment|null}>();
 async function currentAssignment(bookingId:string){
@@ -21,6 +23,7 @@ export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  const bookingId=new URL(request.url).searchParams.get('bookingId');
  if(bookingId&&bookingId.length>100)return Response.json({error:'Invalid booking reference.'},{status:400});
+ if(taxiCrmDispatchReadEnabled()&&bookingId){try{const story=await taxiCrmBookingStory(bookingId);return story?Response.json(story,{headers:{'Cache-Control':'no-store','X-Data-Source':'TaxiCRM'}}):Response.json({error:'Booking not found in TaxiCRM.'},{status:404})}catch(error){return unavailable(error)}}
  try{
   const db=database();
   const result=await db.query<Receipt>(`SELECT o.*,COALESCE(o.driver_callsign,d.callsign) AS driver_callsign,COALESCE(o.vehicle_callsign,v.callsign) AS vehicle_callsign FROM dispatch_observations o LEFT JOIN autocab_drivers d ON d.external_id=o.driver_id LEFT JOIN autocab_vehicles v ON v.external_id=o.vehicle_id WHERE ${bookingId?'o.booking_id=$1':"o.received_at>=now()-interval '30 days'"} ORDER BY o.received_at DESC,o.id DESC LIMIT ${bookingId?1001:20001}`,bookingId?[bookingId]:[]);

@@ -62,6 +62,7 @@ export function taxiCrmLiveReadEnabled(){return process.env.TAXICRM_LIVE_READ_EN
 export function taxiCrmDispatchReadEnabled(){return process.env.TAXICRM_DISPATCH_READ_ENABLED?.trim().toLowerCase()==='true'}
 export function taxiCrmCustomerReadEnabled(){return process.env.TAXICRM_CUSTOMER_READ_ENABLED?.trim().toLowerCase()==='true'}
 export function taxiCrmNoBookingCopyEnabled(){return process.env.TAXICRM_NO_BOOKING_COPY_ENABLED?.trim().toLowerCase()==='true'}
+export function taxiCrmWebhookIngestDisabled(){return process.env.TAXICRM_WEBHOOK_INGEST_DISABLED?.trim().toLowerCase()==='true'}
 
 export async function verifyTaxiCrmDatabase():Promise<TaxiCrmDatabaseSnapshot>{
  return withTaxiCrmReadOnly(async client=>{
