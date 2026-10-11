@@ -3,11 +3,16 @@ import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfi
 import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,readTaxiCrmBookings,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 import {taxiCrmClearDrivers,taxiCrmFleetFreshness} from '@/lib/taxicrm-live';
 import {taxiCrmDispatchLive} from '@/lib/taxicrm-dispatch';
+import {taxiCrmBookingLinkHealth} from '@/lib/taxicrm-customer-trips';
 
 export const dynamic='force-dynamic';
 
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(new URL(request.url).searchParams.get('links')==='1'){
+  try{return Response.json(await taxiCrmBookingLinkHealth(),{headers:{'Cache-Control':'no-store'}})}
+  catch(error){return Response.json({error:'TaxiCRM booking link check failed.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
+ }
  if(new URL(request.url).searchParams.get('dispatch')==='1'){
   try{return Response.json(await taxiCrmDispatchLive(),{headers:{'Cache-Control':'no-store'}})}
   catch(error){return Response.json({error:'TaxiCRM dispatch preview failed.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}

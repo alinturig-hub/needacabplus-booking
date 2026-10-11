@@ -28,6 +28,8 @@ function harness({policy={},waiting=0,cars=8,staleBookings=false,staleCars=false
   './quote-presentation':load('lib/quote-presentation.ts'),'./autocab-booking-request':bookingModule,
   './quote-token':{signQuote:q=>{signed=q;return 'test-token'}},'./smart-fare':smart,
   './database':{database:()=>db},'./quote-policy':policyModule,
+  './taxicrm-database':{taxiCrmLiveReadEnabled:()=>false},
+  './taxicrm-live':{taxiCrmFleetFreshness:async()=>({last_track:null}),taxiCrmWaitingBookings:async()=>0},
   './live-drivers':{publicClearVehicles:async()=>Array.from({length:cars},()=>({recordedAt:new Date(Date.now()-(staleCars?600000:0)).toISOString()}))},
   './autocab-api':{bookingQuote:async request=>{calls.push(request);const lower=request.capabilities.includes(42);if(lower&&discountFails)throw new Error('Autocab unavailable');return {outward:{price:lower?discount:10,cost:lower?5:7,bookingCost:lower?4:6}}}},
  });

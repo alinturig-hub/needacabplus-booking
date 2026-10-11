@@ -13,6 +13,8 @@ import {z} from 'zod';
 import {database} from './database';
 import {bookingQuote} from './autocab-api';
 import {publicClearVehicles} from './live-drivers';
+import {taxiCrmLiveReadEnabled} from './taxicrm-database';
+import {taxiCrmFleetFreshness,taxiCrmWaitingBookings} from './taxicrm-live';
 import {QuoteError,quotePolicySchema,dynamicScheduleActive,fareAdjustment,membershipAddonPercent,readFare,fareBreakdown,validateSchedule,type MembershipTierId,type QuotePolicy,type Service} from './quote-policy';
 
 const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
@@ -32,6 +34,12 @@ export async function loadQuotePolicy(){const result=await database().query("SEL
 export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuotePolicy>>){
  if(!policy.dynamicPricingEnabled)return {waiting:null,clear:null,mode:'disabled'};
  if(!dynamicScheduleActive(policy))return {waiting:null,clear:null,mode:'scheduled-off'};
+ if(taxiCrmLiveReadEnabled()){
+  try{const [cars,fleet,waiting]=await Promise.all([publicClearVehicles(),taxiCrmFleetFreshness(),taxiCrmWaitingBookings(policy.demandWindowMinutes)]);
+   if(!fleet.last_track||Date.now()-Date.parse(fleet.last_track)>120000)return {waiting:null,clear:null,mode:'manual-fallback'};
+   return {waiting,clear:cars.length,mode:'automatic'};
+  }catch{return {waiting:null,clear:null,mode:'manual-fallback'}}
+ }
  const [cars,result,fresh]=await Promise.all([publicClearVehicles(),database().query("SELECT pickup_data,timeline_data FROM bookings WHERE status IN ('Booked','Created','Modified','Running Late') AND COALESCE(driver_data->>'id',driver_data->>'driverId','')=''"),database().query('SELECT max(recorded_at) AS latest FROM driver_positions')]);
  if(!fresh.rows[0]?.latest||Date.now()-new Date(fresh.rows[0].latest).getTime()>120000)return {waiting:null,clear:null,mode:'manual-fallback'};
  const now=Date.now(),window=policy.demandWindowMinutes*60000;
@@ -40,6 +48,11 @@ export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuoteP
 }
 export async function smartFareSnapshot(policy:Awaited<ReturnType<typeof loadQuotePolicy>>):Promise<SmartSignal>{
  if(policy.smartFareMode==='off')return {waiting:null,clear:null,fresh:false};
+ if(taxiCrmLiveReadEnabled()){
+  try{const [cars,fleet,waiting]=await Promise.all([publicClearVehicles(),taxiCrmFleetFreshness(),taxiCrmWaitingBookings(policy.demandWindowMinutes)]);
+   const age=Date.now()-Date.parse(fleet.last_track||'');return {waiting,clear:cars.length,fresh:Number.isFinite(age)&&age>=0&&age<=policy.smartFareFreshnessSeconds*1000};
+  }catch{return {waiting:null,clear:null,fresh:false}}
+ }
  try{
   const [cars,bookings,feed]=await Promise.all([
    publicClearVehicles(),

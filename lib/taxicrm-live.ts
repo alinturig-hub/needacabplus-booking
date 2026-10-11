@@ -25,3 +25,13 @@ export async function taxiCrmFleetFreshness(){
   return {clear:Number(result.rows[0]?.clear||0),last_track:result.rows[0]?.last_track?new Date(result.rows[0].last_track).toISOString():null};
  });
 }
+
+export async function taxiCrmWaitingBookings(windowMinutes:number){
+ const minutes=Math.max(1,Math.min(180,Math.floor(windowMinutes)));
+ return withTaxiCrmReadOnly(async client=>{
+  const result=await client.query<{waiting:string}>(`SELECT count(*)::text waiting FROM public."Booking"
+   WHERE status IN ('BOOKED','CREATED','MODIFIED','RUNNING_LATE','RUNNINGLATE') AND "driverId" IS NULL
+    AND "pickupDueTime" BETWEEN now()-interval '6 hours' AND now()+make_interval(mins=>$1)`,[minutes]);
+  return Number(result.rows[0]?.waiting||0);
+ });
+}

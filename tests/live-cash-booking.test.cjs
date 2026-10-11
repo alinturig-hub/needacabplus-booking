@@ -1,6 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');const {PGlite}=require('@electric-sql/pglite');
 function load(path,deps={}){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>deps[id]||require(id),mod,mod.exports);return mod.exports;}
-const {submitLiveCashBooking,readLiveAttempt}=load('lib/live-cash-booking.ts');
+let taxiCrmOnly=false,linkedBookingId=null;
+const {submitLiveCashBooking,readLiveAttempt}=load('lib/live-cash-booking.ts',{'./taxicrm-database':{taxiCrmNoBookingCopyEnabled:()=>taxiCrmOnly},'./taxicrm-customer-trips':{taxiCrmBookingIdForQuote:async()=>linkedBookingId}});
 const {saveAutocabBooking}=load('lib/autocab-bookings.ts',{'./dispatch-queue':load('lib/dispatch-queue.ts'),'./booking-requirements':load('lib/booking-requirements.ts'),'./booking-reference':load('lib/booking-reference.ts')});
 const id='00000000-0000-4000-8000-000000000001';
 const quote={id,pickup:'Station',destination:'Home',vias:[],vehicle:'saloon',totalPence:1200,service:'priority'};
@@ -30,3 +31,20 @@ test('invalid successful API response is never called confirmed',()=>withDb(asyn
 }));
 
 test('documented rejection is shown as not created and never replayed',()=>withDb(async db=>{let sent=0;const send=async()=>{sent++;throw Object.assign(new Error('invalid request'),{status:400})};const result=await submitLiveCashBooking(db,quote,'customer',body,send);assert.equal(result.rejected,true);assert.equal(result.pending,false);assert.equal(result.externalBookingId,null);await submitLiveCashBooking(db,quote,'customer',body,send);assert.equal(sent,1);}));
+
+test('TaxiCRM mode stores only the idempotent attempt and reconciles an uncertain response',()=>withDb(async db=>{
+ taxiCrmOnly=true;
+ try{
+  const confirmed=await submitLiveCashBooking(db,quote,'customer',body,async()=>({bookingId:123}));
+  assert.equal(confirmed.externalBookingId,'123');
+  assert.equal((await db.query('SELECT count(*)::int n FROM bookings')).rows[0].n,0);
+  const second={...quote,id:'00000000-0000-4000-8000-000000000002'};
+  const uncertain=await submitLiveCashBooking(db,second,'customer',{...body,ourReference:'NAC-'+second.id},async()=>{throw Error('timeout')});
+  assert.equal(uncertain.pending,true);
+  linkedBookingId='456';
+  const recovered=await readLiveAttempt(db,second.id,'customer');
+  assert.equal(recovered.pending,false);
+  assert.equal(recovered.externalBookingId,'456');
+  assert.equal((await db.query('SELECT count(*)::int n FROM bookings')).rows[0].n,0);
+ }finally{taxiCrmOnly=false;linkedBookingId=null}
+}));
