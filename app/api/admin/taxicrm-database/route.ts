@@ -1,11 +1,16 @@
 import {isAdmin,sameOrigin} from '@/lib/security';
 import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfigurationError,verifyTaxiCrmDatabase} from '@/lib/taxicrm-database';
 import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,readTaxiCrmBookings,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
+import {taxiCrmClearDrivers,taxiCrmFleetFreshness} from '@/lib/taxicrm-live';
 
 export const dynamic='force-dynamic';
 
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(new URL(request.url).searchParams.get('live')==='1'){
+  try{const [drivers,fleet]=await Promise.all([taxiCrmClearDrivers(),taxiCrmFleetFreshness()]);return Response.json({drivers,fleet},{headers:{'Cache-Control':'no-store'}})}
+  catch(error){return Response.json({error:'TaxiCRM live vehicle preview failed.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
+ }
  if(new URL(request.url).searchParams.get('preview')==='1'){
   const period=new URL(request.url).searchParams.get('period');
   try{return Response.json(await readTaxiCrmBookings(new URLSearchParams(`period=${period==='all'||period==='7days'?period:'today'}&pageSize=10`)),{headers:{'Cache-Control':'no-store'}})}

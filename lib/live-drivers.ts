@@ -1,8 +1,11 @@
 import {database} from '@/lib/database';
+import {taxiCrmLiveReadEnabled} from '@/lib/taxicrm-database';
+import {taxiCrmClearDrivers} from '@/lib/taxicrm-live';
 
 const freshnessMinutes=()=>{const value=Number(process.env.DRIVER_LIVE_FRESHNESS_MINUTES||10);return Number.isFinite(value)&&value>0?Math.floor(value):10};
 
 export async function clearDrivers(){
+ if(taxiCrmLiveReadEnabled())return taxiCrmClearDrivers();
  const result=await database().query(`WITH latest AS (
   SELECT DISTINCT ON (position.driver_id) position.driver_id,position.vehicle_id,position.vehicle_callsign,position.registration,position.plate_number,position.latitude,position.longitude,position.vehicle_status,position.recorded_at,driver.callsign,driver.forename,driver.surname
   FROM driver_positions position JOIN drivers driver ON driver.id=position.driver_id
