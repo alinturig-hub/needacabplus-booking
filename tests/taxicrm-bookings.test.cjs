@@ -39,3 +39,16 @@ test('TaxiCRM schema mapper honours an explicit schema-qualified override',()=>{
 test('TaxiCRM schema mapper refuses an incomplete table',()=>{
  assert.throws(()=>chooseTaxiCrmBookingMapping([column('bookings','id'),column('bookings','status')]),TaxiCrmBookingSchemaError);
 });
+
+test('TaxiCRM schema mapper links canonical bookings to their locations',()=>{
+ const columns=[
+  ...['id','status','pickupDueTime','externalId'].map(name=>column('Booking',name)),
+  ...['bookingId','type','address'].map(name=>column('BookingLocation',name)),
+  ...['id','status','pickup_address','destination_address'].map(name=>column('needacab_bookings',name)),
+ ];
+ const mapping=chooseTaxiCrmBookingMapping(columns,{'public.Booking':650000,'public.needacab_bookings':12000},undefined);
+ assert.equal(mapping.table,'Booking');
+ assert.deepEqual(mapping.locationTable,{schema:'public',table:'BookingLocation'});
+ assert.equal(mapping.fields.pickupAt.name,'pickupDueTime');
+ assert.equal(mapping.fields.reference.name,'externalId');
+});

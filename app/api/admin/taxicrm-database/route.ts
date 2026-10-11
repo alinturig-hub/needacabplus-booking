@@ -1,11 +1,15 @@
 import {isAdmin,sameOrigin} from '@/lib/security';
 import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,TaxiCrmDatabaseConfigurationError,verifyTaxiCrmDatabase} from '@/lib/taxicrm-database';
-import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
+import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,readTaxiCrmBookings,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 
 export const dynamic='force-dynamic';
 
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(new URL(request.url).searchParams.get('preview')==='1'){
+  try{return Response.json(await readTaxiCrmBookings(new URLSearchParams('period=today&pageSize=10')),{headers:{'Cache-Control':'no-store'}})}
+  catch(error){return Response.json({error:'TaxiCRM booking preview failed.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
+ }
  if(new URL(request.url).searchParams.get('schema')==='1'){
   try{return Response.json(await inspectTaxiCrmBookingSchema(),{headers:{'Cache-Control':'no-store'}})}
   catch(error){return Response.json({error:'TaxiCRM schema could not be inspected.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
