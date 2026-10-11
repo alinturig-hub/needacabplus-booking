@@ -73,12 +73,12 @@ export async function inspectTaxiCrmBookingSchema(){
    FROM information_schema.columns WHERE table_schema<>'information_schema' AND table_schema NOT LIKE 'pg_%'
    ORDER BY table_schema,table_name,ordinal_position LIMIT 1500`)).rows;
   const foreignKeys=(await client.query<{table:string;column:string;referencedTable:string;referencedColumn:string}>(`SELECT source.relname "table",source_column.attname "column",target.relname "referencedTable",target_column.attname "referencedColumn"
-   FROM pg_constraint constraint JOIN pg_class source ON source.oid=constraint.conrelid JOIN pg_class target ON target.oid=constraint.confrelid
-   JOIN LATERAL unnest(constraint.conkey) WITH ORDINALITY source_key(number,position) ON true
-   JOIN LATERAL unnest(constraint.confkey) WITH ORDINALITY target_key(number,position) ON target_key.position=source_key.position
+   FROM pg_constraint con JOIN pg_class source ON source.oid=con.conrelid JOIN pg_class target ON target.oid=con.confrelid
+   JOIN LATERAL unnest(con.conkey) WITH ORDINALITY source_key(number,position) ON true
+   JOIN LATERAL unnest(con.confkey) WITH ORDINALITY target_key(number,position) ON target_key.position=source_key.position
    JOIN pg_attribute source_column ON source_column.attrelid=source.oid AND source_column.attnum=source_key.number
    JOIN pg_attribute target_column ON target_column.attrelid=target.oid AND target_column.attnum=target_key.number
-   WHERE constraint.contype='f' AND source.relnamespace=(SELECT oid FROM pg_namespace WHERE nspname='public')
+   WHERE con.contype='f' AND source.relnamespace=(SELECT oid FROM pg_namespace WHERE nspname='public')
    ORDER BY source.relname LIMIT 250`)).rows;
   return {columns,foreignKeys};
  });

@@ -8,7 +8,7 @@ export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  if(new URL(request.url).searchParams.get('schema')==='1'){
   try{return Response.json(await inspectTaxiCrmBookingSchema(),{headers:{'Cache-Control':'no-store'}})}
-  catch{return Response.json({error:'TaxiCRM schema could not be inspected.'},{status:502})}
+  catch(error){return Response.json({error:'TaxiCRM schema could not be inspected.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
  }
  return Response.json({configured:taxiCrmDatabaseConfigured(),bookingReadEnabled:taxiCrmBookingReadEnabled()},{headers:{'Cache-Control':'no-store'}});
 }
