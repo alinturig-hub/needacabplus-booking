@@ -7,7 +7,8 @@ export const dynamic='force-dynamic';
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  if(new URL(request.url).searchParams.get('preview')==='1'){
-  try{return Response.json(await readTaxiCrmBookings(new URLSearchParams('period=today&pageSize=10')),{headers:{'Cache-Control':'no-store'}})}
+  const period=new URL(request.url).searchParams.get('period');
+  try{return Response.json(await readTaxiCrmBookings(new URLSearchParams(`period=${period==='all'||period==='7days'?period:'today'}&pageSize=10`)),{headers:{'Cache-Control':'no-store'}})}
   catch(error){return Response.json({error:'TaxiCRM booking preview failed.',code:error&&typeof error==='object'&&'code' in error?String(error.code):undefined},{status:502})}
  }
  if(new URL(request.url).searchParams.get('schema')==='1'){
