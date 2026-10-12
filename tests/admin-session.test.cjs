@@ -3,10 +3,10 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const ts=require('typescript');
 
-function loadSecurity(store){
+function loadSecurity(store,session){
  const output=ts.transpileModule(fs.readFileSync('lib/security.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const loaded={exports:{}};
- new Function('require','module','exports',output)(id=>id==='next/headers'?{cookies:async()=>store}:require(id),loaded,loaded.exports);
+ new Function('require','module','exports',output)(id=>id==='next/headers'?{cookies:async()=>store}:id==='./admin-mfa'?{adminSecurity:async()=>({session_version:session.version})}:require(id),loaded,loaded.exports);
  return loaded.exports;
 }
 
@@ -25,11 +25,14 @@ test('admin login writes one host-only cookie that remains valid across requests
  process.env.ADMIN_EMAIL='admin@needacabplus.app';process.env.ADMIN_SESSION_SECRET='test-admin-session-secret-with-32-characters';process.env.APP_ORIGIN='https://webapp.needacabplus.app';
  const store=cookieStore();
  try{
-  const security=loadSecurity(store);
+  const session={version:1},security=loadSecurity(store,session);
   await security.setAdminSession();
   assert.deepEqual(store.writes.map(write=>write.name),['nac_admin_session_v3']);
   assert.equal(store.writes[0].options.domain,undefined);
   assert.equal(await security.isAdmin(),true);
+  session.version=2;
+  assert.equal(await security.isAdmin(),false);
+  session.version=1;
   await security.clearAdminSession();
   assert.equal(await security.isAdmin(),false);
  }finally{

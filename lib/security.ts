@@ -1,17 +1,18 @@
 import {createHmac,timingSafeEqual} from 'node:crypto';
 import {cookies} from 'next/headers';
+import {adminSecurity} from './admin-mfa';
 
 export const ADMIN_EMAIL=process.env.ADMIN_EMAIL||'admin@needacabplus.app';
 const COOKIE='nac_admin_session_v3';
 const SESSION_SECONDS=60*60*24*30;
 
 function secret(){const value=process.env.ADMIN_SESSION_SECRET;if(!value||value.length<32)throw new Error('ADMIN_SESSION_SECRET must contain at least 32 characters');return value}
-function signature(email:string){return createHmac('sha256',secret()).update(email.toLowerCase()).digest('hex')}
+function signature(email:string,version:number,expires:number){return createHmac('sha256',secret()).update(`${email.toLowerCase()}:${version}:${expires}`).digest('hex')}
 function cookieOptions(maxAge:number){return {httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax' as const,path:'/',maxAge,expires:new Date(Date.now()+maxAge*1000)}}
-function validSession(value:string|undefined){if(!value)return false;const expected=signature(ADMIN_EMAIL);const actual=Buffer.from(value,'hex');const target=Buffer.from(expected,'hex');return actual.length===target.length&&timingSafeEqual(actual,target)}
-export async function isAdmin(){return (await cookies()).getAll(COOKIE).some(cookie=>validSession(cookie.value))}
+function validSession(value:string|undefined,version:number){if(!value)return false;const [savedVersion,savedExpiry,savedSignature]=value.split('.');const expiry=Number(savedExpiry);if(Number(savedVersion)!==version||!Number.isSafeInteger(expiry)||expiry<=Date.now()||!savedSignature||!/^([a-f0-9]{64})$/.test(savedSignature))return false;const expected=signature(ADMIN_EMAIL,version,expiry);const actual=Buffer.from(savedSignature,'hex');const target=Buffer.from(expected,'hex');return timingSafeEqual(actual,target)}
+export async function isAdmin(){const values=(await cookies()).getAll(COOKIE);if(!values.length)return false;const state=await adminSecurity();return values.some(cookie=>validSession(cookie.value,state.session_version))}
 export function validCredentials(email:string,password:string){const configured=process.env.ADMIN_PASSWORD;if(!configured)return false;const emailOk=email.trim().toLowerCase()===ADMIN_EMAIL.toLowerCase();const actual=Buffer.from(password);const target=Buffer.from(configured);return emailOk&&actual.length===target.length&&timingSafeEqual(actual,target)}
-export async function setAdminSession(){(await cookies()).set(COOKIE,signature(ADMIN_EMAIL),cookieOptions(SESSION_SECONDS))}
+export async function setAdminSession(){const state=await adminSecurity(),expiry=Date.now()+SESSION_SECONDS*1000;(await cookies()).set(COOKIE,`${state.session_version}.${expiry}.${signature(ADMIN_EMAIL,state.session_version,expiry)}`,cookieOptions(SESSION_SECONDS))}
 export async function clearAdminSession(){(await cookies()).set(COOKIE,'',cookieOptions(0))}
 export function sameOrigin(request:Request){
  const origin=request.headers.get('origin');if(!origin)return false;

@@ -477,6 +477,29 @@ ALTER TABLE customer_accounts ADD COLUMN IF NOT EXISTS phone_verified_at timesta
 CREATE TABLE IF NOT EXISTS customer_auth_challenges(id text PRIMARY KEY,purpose text NOT NULL,customer_id uuid REFERENCES customer_accounts(id),phone text NOT NULL DEFAULT '',payload_encrypted text NOT NULL DEFAULT '',code_hash text,attempts int NOT NULL DEFAULT 0,expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),consumed_at timestamptz);
 CREATE TABLE IF NOT EXISTS customer_trusted_devices(token_hash text PRIMARY KEY,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_auth_limits(key text PRIMARY KEY,hits int NOT NULL DEFAULT 1,until_at timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS admin_security (
+ id boolean PRIMARY KEY DEFAULT true CHECK(id),
+ totp_secret_encrypted text NOT NULL DEFAULT '',
+ sms_phone text NOT NULL DEFAULT '',
+ pending_totp_encrypted text NOT NULL DEFAULT '',
+ pending_sms_phone text NOT NULL DEFAULT '',
+ pending_code_hash text NOT NULL DEFAULT '',
+ pending_expires_at timestamptz,
+ pending_attempts int NOT NULL DEFAULT 0,
+ session_version int NOT NULL DEFAULT 1,
+ last_totp_step bigint NOT NULL DEFAULT -1,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO admin_security(id) VALUES(true) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS admin_login_challenges (
+ token_hash text PRIMARY KEY,
+ code_hash text NOT NULL DEFAULT '',
+ code_expires_at timestamptz,
+ attempts int NOT NULL DEFAULT 0,
+ expires_at timestamptz NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_login_challenges_expiry ON admin_login_challenges(expires_at);
 CREATE TABLE IF NOT EXISTS customer_oauth_states(state_hash text PRIMARY KEY,provider text NOT NULL,browser_hash text NOT NULL,nonce text NOT NULL,verifier text NOT NULL,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_identities(provider text NOT NULL,subject text NOT NULL,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,PRIMARY KEY(provider,subject));
 

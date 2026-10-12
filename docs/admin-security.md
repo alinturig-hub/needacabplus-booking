@@ -1,0 +1,10 @@
+# Admin security
+
+Open **Admin → Settings → General & security** to enable two-factor sign-in for the shared administrator account. This currently also protects Dispatch, because Dispatch uses the same administrator credentials.
+
+- **Authenticator app:** enter the displayed base32 secret into a TOTP app, then confirm a six-digit code. Codes use 30-second SHA-1 TOTP windows.
+- **SMS:** configure and enable **Settings → SMS gateway** first. Send a setup code to the administrator mobile number and confirm it before SMS becomes a sign-in method. SMS sign-in codes expire after five minutes.
+- Enabling or disabling a method requires the current administrator password. Disabling a method also requires a code from that method or, for SMS, an active authenticator.
+- A password-only login cannot create an admin session once either method is enabled. Existing sessions are invalidated when a method changes. Sessions are host-only and expire after 30 days.
+
+The TOTP secret is encrypted in PostgreSQL using `CREDENTIALS_ENCRYPTION_KEY` (falling back to `ADMIN_SESSION_SECRET`). Keep these keys stable across deployments. The database tables are installed by `db/init.sql` at application startup.
