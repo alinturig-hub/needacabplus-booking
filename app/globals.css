@@ -559,7 +559,12 @@ html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;bor
 }
 
 /* TaxiCRM webhook activity on the management overview. */
-.webhook-activity{margin:16px 0;padding:18px 20px;border:1px solid var(--admin-line,#293039);border-radius:16px;background:#151a20;color:#e9edf0}
+.webhook-activity-toggle{position:relative;flex:none}
+.webhook-activity-toggle>summary{display:flex;align-items:center;gap:7px;cursor:pointer;list-style:none;padding:8px 10px;border:1px solid #353c46;border-radius:10px;background:#151a20;color:#d9dfe3;font-size:12px;font-weight:700;white-space:nowrap}
+.webhook-activity-toggle>summary::-webkit-details-marker{display:none}
+.webhook-activity-toggle[open]>summary{border-color:#b89a53;color:#e7ca85}
+.webhook-activity-toggle[open]>summary svg:last-child{transform:rotate(180deg)}
+.webhook-activity{position:absolute;right:0;top:calc(100% + 9px);z-index:50;width:min(760px,calc(100vw - 32px));max-height:min(520px,70vh);overflow:auto;padding:18px 20px;border:1px solid var(--admin-line,#293039);border-radius:16px;background:#151a20;color:#e9edf0;box-shadow:0 20px 44px #0009}
 .webhook-activity-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
 .webhook-activity-heading h2{font-size:16px;font-weight:700;margin:3px 0 0}
 .webhook-activity-heading>small{color:#9ca6ad;font-size:12px}
