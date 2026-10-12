@@ -2,16 +2,16 @@
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowLeft,LogOut,MapPin,RefreshCw} from 'lucide-react';
+import {ArrowLeft,LogOut,MapPin,Maximize,RefreshCw} from 'lucide-react';
 import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
 import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
 
-type Driver={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
+type Driver={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB'|'OFFLINE'|'UNKNOWN';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
 type LiveMarker={marker:Marker;coordinate:[number,number];recordedAt:number;heading:number;animationFrame:number|null};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
 function timeAgo(iso:string){const s=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));if(s<60)return `${s}s ago`;if(s<3600)return `${Math.floor(s/60)}m ago`;return `${Math.floor(s/3600)}h ago`;}
 function markerLabel(driver:Driver){return(driver.callsign||driver.name||driver.id).trim().slice(0,4).toUpperCase();}
-const statusLabel:Record<Driver['operationalStatus'],string>={CLEAR:'CLEAR - Available',DOW:'DOW - Driver On The Way',DAP:'DAP - Driver At Pickup',POB:'POB - Passenger On Board'};
+const statusLabel:Record<Driver['operationalStatus'],string>={CLEAR:'CLEAR - Available',DOW:'DOW - Driver On The Way',DAP:'DAP - Driver At Pickup',POB:'POB - Passenger On Board',OFFLINE:'OFFLINE - Not working',UNKNOWN:'Status unknown'};
 function bearing(from:[number,number],to:[number,number]){
  const lon1=from[0]*Math.PI/180,lat1=from[1]*Math.PI/180,lon2=to[0]*Math.PI/180,lat2=to[1]*Math.PI/180;
  const y=Math.sin(lon2-lon1)*Math.cos(lat2);
@@ -40,6 +40,8 @@ export default function DriverLiveMap(){
  const mapRef=useRef<MapLibreMap|null>(null);
  const markersRef=useRef<Map<string,LiveMarker>>(new Map());
  const fittedRef=useRef(false);
+ const selectionRef=useRef('all:');
+ const [mapReady,setMapReady]=useState(false);
  const [drivers,setDrivers]=useState<Driver[]>([]);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
@@ -49,10 +51,17 @@ export default function DriverLiveMap(){
  const [filter,setFilter]=useState('all');
  const visibleDrivers=useMemo(()=>drivers.filter(driver=>{
   if(filter==='live'&&!driver.isLive||filter==='stale'&&driver.isLive)return false;
-  if(['CLEAR','DOW','DAP','POB'].includes(filter)&&driver.operationalStatus!==filter)return false;
+  if(['CLEAR','DOW','DAP','POB','OFFLINE','UNKNOWN'].includes(filter)&&driver.operationalStatus!==filter)return false;
   const term=query.trim().toLowerCase();
   return !term||[driver.callsign,driver.name,driver.registration,driver.bookingId?.toString()].some(value=>value?.toLowerCase().includes(term));
  }),[drivers,query,filter]);
+ const showAll=useCallback(()=>{
+  const map=mapRef.current;if(!map||!visibleDrivers.length)return;
+  if(visibleDrivers.length===1){map.flyTo({center:[visibleDrivers[0].longitude,visibleDrivers[0].latitude],zoom:14,duration:800});return;}
+  const bounds=new maplibregl.LngLatBounds();
+  for(const driver of visibleDrivers)bounds.extend([driver.longitude,driver.latitude]);
+  map.fitBounds(bounds,{padding:80,maxZoom:14,duration:800});
+ },[visibleDrivers]);
  const fetchDrivers=useCallback(async()=>{
   try{
    const res=await fetch('/api/drivers/live',{credentials:'same-origin',cache:'no-store'});
@@ -79,20 +88,19 @@ export default function DriverLiveMap(){
  useEffect(()=>{
   if(!mapContainer.current||mapRef.current)return;
   const markers=markersRef.current,controller=new AbortController();let map:MapLibreMap|null=null,disposed=false;
-  void configuredMapStyle('dark',controller.signal).then(style=>{if(disposed||!mapContainer.current)return;map=new MapLibreMap({container:mapContainer.current,style:style||openStreetMapStyle,center:DEFAULT_CENTER,zoom:11,attributionControl:{compact:true}});map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');mapRef.current=map});
+  void configuredMapStyle('dark',controller.signal).then(style=>{if(disposed||!mapContainer.current)return;map=new MapLibreMap({container:mapContainer.current,style:style||openStreetMapStyle,center:DEFAULT_CENTER,zoom:11,attributionControl:{compact:true}});map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');mapRef.current=map;setMapReady(true)});
   return()=>{disposed=true;controller.abort();markers.forEach(({marker,animationFrame})=>{if(animationFrame!==null)cancelAnimationFrame(animationFrame);marker.remove()});markers.clear();map?.remove();mapRef.current=null;};
  },[]);
  useEffect(()=>{
-  const map=mapRef.current;if(!map)return;
+  const map=mapRef.current;if(!map||!mapReady)return;
   const existing=markersRef.current;
   const newIds=new Set(visibleDrivers.map(d=>d.id));
   for(const [id,state] of existing){if(!newIds.has(id)){if(state.animationFrame!==null)cancelAnimationFrame(state.animationFrame);state.marker.remove();existing.delete(id);}}
-  const bounds=new maplibregl.LngLatBounds();let hasBounds=false;
   for(const driver of visibleDrivers){
-   bounds.extend([driver.longitude,driver.latitude]);hasBounds=true;
    if(existing.has(driver.id)){
     const state=existing.get(driver.id)!;
     state.marker.getPopup()?.setDOMContent(makePopup(driver));
+    state.marker.getElement().className=`driver-map-marker driver-map-marker-${driver.operationalStatus.toLowerCase()}`;
     const label=state.marker.getElement().querySelector('span');if(label)label.textContent=markerLabel(driver);
     const target:[number,number]=[driver.longitude,driver.latitude];
     const from:[number,number]=[state.coordinate[0],state.coordinate[1]];
@@ -129,8 +137,11 @@ export default function DriverLiveMap(){
     existing.set(driver.id,{marker,coordinate:[driver.longitude,driver.latitude],recordedAt:Number.isFinite(recordedAt)?recordedAt:Date.now(),heading:0,animationFrame:null});
    }
   }
-  if(!fittedRef.current&&hasBounds){fittedRef.current=true;if(visibleDrivers.length===1)map.flyTo({center:[visibleDrivers[0].longitude,visibleDrivers[0].latitude],zoom:13,duration:800});else map.fitBounds(bounds,{padding:60,maxZoom:14,duration:800})}
- },[visibleDrivers]);
+  const selection=`${filter}:${query.trim().toLowerCase()}`;
+  if(visibleDrivers.length&&(!fittedRef.current||selectionRef.current!==selection)){
+   fittedRef.current=true;selectionRef.current=selection;showAll();
+  }
+ },[visibleDrivers,mapReady,filter,query,showAll]);
  return(
   <main className="admin-shell driver-live-shell premium-admin">
    <header className="brandbar"><Link className="brand" href="/dispatch"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatch</small></span></Link>
@@ -142,10 +153,11 @@ export default function DriverLiveMap(){
      <MapPin size={17} className="driver-live-icon"/>
      <span className="driver-live-count"><strong>{visibleDrivers.length}</strong> of {drivers.length} vehicles</span><span className={`live-chip map-live-chip ${isLive?'':'connecting'}`}><span/>{isLive?'Live':'Connecting…'}</span>
      {updatedAt&&<span className="driver-live-time">Updated {updatedAt.toLocaleTimeString('en-GB')}</span>}
+     <button className="driver-live-refresh" onClick={showAll} disabled={!mapReady||!visibleDrivers.length} aria-label="Show all vehicles on map"><Maximize size={14}/><span>Show all</span></button>
      <button className="driver-live-refresh" onClick={()=>void fetchDrivers()} disabled={loading} aria-label="Refresh driver positions"><RefreshCw size={14} className={loading?'spin':''}/><span>Refresh</span></button>
      <Link className="driver-live-fleet" href="/dispatch"><ArrowLeft size={14}/>Dispatcher</Link>
     </div>
-    <div className="driver-live-filters"><input aria-label="Search driver, callsign, vehicle or booking" placeholder="Search driver, callsign, vehicle or booking…" value={query} onChange={event=>setQuery(event.target.value)}/><select aria-label="Filter vehicles" value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">All vehicles</option><option value="CLEAR">Available</option><option value="DOW">On the way</option><option value="DAP">At pickup</option><option value="POB">Passenger on board</option><option value="live">Live connection</option><option value="stale">Stale connection</option></select></div>
+    <div className="driver-live-filters"><input aria-label="Search driver, callsign, vehicle or booking" placeholder="Search driver, callsign, vehicle or booking…" value={query} onChange={event=>setQuery(event.target.value)}/><select aria-label="Filter vehicles" value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">All vehicles</option><option value="CLEAR">Available</option><option value="DOW">On the way</option><option value="DAP">At pickup</option><option value="POB">Passenger on board</option><option value="OFFLINE">Not working</option><option value="UNKNOWN">Unknown status</option><option value="live">Live connection</option><option value="stale">Stale connection</option></select></div>
     {error&&<p className="error-message" style={{margin:'0 42px'}}>{error}</p>}
     <div ref={mapContainer} className="driver-live-canvas"/>
    </div>

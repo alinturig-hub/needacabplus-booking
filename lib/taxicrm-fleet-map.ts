@@ -4,7 +4,7 @@ type VehicleRow={id:string;external_id:string;callsign:string|null;registration:
 type BookingRow={external_id:string;status:string;pickup:string|null;destination:string|null};
 type RevenueRow={driver_id:string;status:string;completed_at:Date|string|null;no_fare_at:Date|string|null;arrived_at:Date|string|null;price:string|number|null;cost:string|number|null;account_id:string|null;waiting_chargeable:boolean|null;waiting_rate:string|number|null};
 
-export type FleetMapVehicle={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
+export type FleetMapVehicle={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB'|'OFFLINE'|'UNKNOWN';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
 
 const cache=globalThis as typeof globalThis&{taxiCrmFleetRevenueCache?:{expires:number;day:string;byDriver:Map<string,number>;available:boolean}};
 const money=(value:unknown)=>{const number=Number(value);return value===null||value===undefined||!Number.isFinite(number)?0:number};
@@ -12,11 +12,13 @@ const round=(value:number)=>Number(value.toFixed(2));
 const londonDay=()=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
 function operationalStatus(vehicleStatus:string|null,bookingStatus:string|undefined):FleetMapVehicle['operationalStatus']{
+ if(vehicleStatus==='NotWorking')return 'OFFLINE';
  if(bookingStatus==='POB')return 'POB';
  if(bookingStatus==='ARRIVED')return 'DAP';
  if(['BusyMeterOnFromClear','BusyMeterOnFromMeterOffCash','BusyMeterOnFromMeterOffAccount'].includes(vehicleStatus||''))return 'POB';
  if(['BusyMeterOff','BusyMeterOffAccount'].includes(vehicleStatus||''))return 'DOW';
- return 'CLEAR';
+ if(vehicleStatus==='Clear')return 'CLEAR';
+ return 'UNKNOWN';
 }
 
 function bookingRevenue(row:RevenueRow){
@@ -38,8 +40,7 @@ export async function taxiCrmFleetMapVehicles():Promise<FleetMapVehicle[]>{
     driver."externalId" driver_external_id,driver.callsign driver_callsign,driver.forename,driver.surname
     FROM public."Vehicle" vehicle LEFT JOIN public."Driver" driver ON driver.id=vehicle."currentDriverId"
     WHERE vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL AND vehicle."lastSeenAt" IS NOT NULL
-      AND vehicle."currentStatus" IS DISTINCT FROM 'NotWorking'
-    ORDER BY vehicle."lastSeenAt" DESC,vehicle.callsign ASC LIMIT 1000`)).rows;
+    ORDER BY vehicle."lastSeenAt" DESC,vehicle.callsign ASC`)).rows;
   const bookingIds=[...new Set(vehicles.map(vehicle=>vehicle.booking_id).filter((id):id is number=>id!==null&&id>0).map(String))];
   const currentBookings=bookingIds.length?(await client.query<BookingRow>(`SELECT booking."externalId" external_id,booking.status,
     max(location.address) FILTER(WHERE location.type='PICKUP') pickup,
