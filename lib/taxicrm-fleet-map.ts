@@ -6,7 +6,7 @@ type RevenueRow={driver_id:string;status:string;completed_at:Date|string|null;no
 
 export type FleetMapVehicle={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
 
-const cache=globalThis as typeof globalThis&{taxiCrmFleetRevenueCache?:{expires:number;day:string;byDriver:Map<string,number>}};
+const cache=globalThis as typeof globalThis&{taxiCrmFleetRevenueCache?:{expires:number;day:string;byDriver:Map<string,number>;available:boolean}};
 const money=(value:unknown)=>{const number=Number(value);return value===null||value===undefined||!Number.isFinite(number)?0:number};
 const round=(value:number)=>Number(value.toFixed(2));
 const londonDay=()=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -54,7 +54,8 @@ export async function taxiCrmFleetMapVehicles():Promise<FleetMapVehicle[]>{
   if(!revenue||revenue.expires<Date.now()||revenue.day!==today){
    const driverIds=[...new Set(vehicles.map(vehicle=>vehicle.driver_external_id).filter((id):id is string=>Boolean(id)))];
    const byDriver=new Map<string,number>();
-   if(driverIds.length){
+   let available=true;
+   try{if(driverIds.length){
     const rows=(await client.query<RevenueRow>(`WITH bounds AS (
       SELECT ((now() AT TIME ZONE 'Europe/London')::date AT TIME ZONE 'Europe/London') day_start,
              (((now() AT TIME ZONE 'Europe/London')::date+1) AT TIME ZONE 'Europe/London') day_end
@@ -68,8 +69,11 @@ export async function taxiCrmFleetMapVehicles():Promise<FleetMapVehicle[]>{
        (booking."noFareAt">=bounds.day_start AND booking."noFareAt"<bounds.day_end AND booking."accountId" IS NOT NULL AND booking."accountCode" IS NOT NULL)
      )`,[driverIds])).rows;
     for(const row of rows)byDriver.set(row.driver_id,round((byDriver.get(row.driver_id)||0)+bookingRevenue(row)));
+   }}catch(error){
+    available=false;
+    console.error('TaxiCRM fleet revenue unavailable',error instanceof Error?error.name:'Unknown error');
    }
-   revenue={day:today,expires:Date.now()+60_000,byDriver};
+   revenue={day:today,expires:Date.now()+60_000,byDriver,available};
    cache.taxiCrmFleetRevenueCache=revenue;
   }
 
@@ -85,7 +89,7 @@ export async function taxiCrmFleetMapVehicles():Promise<FleetMapVehicle[]>{
     vehicleStatus:vehicle.status||'Unknown',operationalStatus:operationalStatus(vehicle.status,booking?.status),recordedAt,isLive:ageSeconds<=120,
     registration:vehicle.registration||vehicle.plate_number||vehicle.callsign||vehicle.external_id,
     bookingId:vehicle.booking_id&&vehicle.booking_id>0?vehicle.booking_id:null,pickupAddress:booking?.pickup||null,destinationAddress:booking?.destination||null,
-    todayRevenue:vehicle.driver_external_id?(revenue.byDriver.get(vehicle.driver_external_id)||0):null}];
+    todayRevenue:vehicle.driver_external_id&&revenue.available?(revenue.byDriver.get(vehicle.driver_external_id)||0):null}];
   });
  });
 }
