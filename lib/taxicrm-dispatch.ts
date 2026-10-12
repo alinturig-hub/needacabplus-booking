@@ -2,12 +2,13 @@ import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
 import {normalizedStatus} from '@/lib/taxicrm-bookings';
 import {taxiCrmFleetFreshness} from '@/lib/taxicrm-live';
 
-type JobRow={id:string;reference:string|null;pickup:string|null;destination:string|null;status:string;due_at:Date|string|null;vehicle:string|null;updated_at:Date|string;driver_id:string|null;vehicle_id:string|null};
+type JobRow={id:string;reference:string|null;pickup:string|null;destination:string|null;pickup_zone:string|null;status:string;due_at:Date|string|null;vehicle:string|null;updated_at:Date|string;driver_id:string|null;vehicle_id:string|null};
 type EventRow={id:string;event_type:string;booking_id:string|null;vehicle_id:string|null;driver_id:string|null;driver_callsign:string|null;vehicle_callsign:string|null;received_at:Date|string};
 
 export async function taxiCrmDispatchLive(){
  const [bookingData,fleet]=await Promise.all([withTaxiCrmReadOnly(async client=>{
-  const jobs=await client.query<JobRow>(`SELECT booking.id,booking."externalId" reference,pickup.address pickup,destination.address destination,booking.status,
+  const jobs=await client.query<JobRow>(`SELECT booking.id,booking."externalId" reference,pickup.address pickup,destination.address destination,
+   COALESCE(NULLIF(to_jsonb(pickup)->>'zoneName',''),NULLIF(to_jsonb(pickup)->>'plotZoneName',''),NULLIF(to_jsonb(pickup)->>'zone',''),NULLIF(to_jsonb(pickup)->>'zoneId','')) pickup_zone,booking.status,
    booking."pickupDueTime" due_at,booking."vehicleCallSign" vehicle,booking."updatedAt" updated_at,booking."driverId" driver_id,booking."vehicleId" vehicle_id
    FROM public."Booking" booking
    LEFT JOIN public."BookingLocation" pickup ON pickup."bookingId"=booking.id AND pickup.type::text='PICKUP'
@@ -25,7 +26,7 @@ export async function taxiCrmDispatchLive(){
     AND "pickupDueTime" BETWEEN now()-interval '6 hours' AND now()+interval '48 hours'`);
   return {jobs:jobs.rows,events:events.rows,activeTotal:Number(count.rows[0]?.total||0)};
  }),taxiCrmFleetFreshness()]);
- return {jobs:bookingData.jobs.map(row=>({id:row.id,reference:row.reference||row.id,pickup:row.pickup||'—',destination:row.destination||'—',status:normalizedStatus(row.status),due_at:row.due_at?new Date(row.due_at).toISOString():null,vehicle:row.vehicle,updated_at:new Date(row.updated_at).toISOString(),last_event_type:null,assigned:Boolean(row.driver_id||row.vehicle_id)})),
+ return {jobs:bookingData.jobs.map(row=>({id:row.id,reference:row.reference||row.id,pickup:row.pickup||'—',destination:row.destination||'—',pickup_zone:row.pickup_zone||null,status:normalizedStatus(row.status),due_at:row.due_at?new Date(row.due_at).toISOString():null,vehicle:row.vehicle,updated_at:new Date(row.updated_at).toISOString(),last_event_type:null,assigned:Boolean(row.driver_id||row.vehicle_id)})),
   events:bookingData.events.map(row=>({...row,received_at:new Date(row.received_at).toISOString()})),fleet,activeTotal:bookingData.activeTotal,serverTime:new Date().toISOString(),simulationOnly:true,dataSource:'taxicrm' as const};
 }
 

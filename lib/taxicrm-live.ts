@@ -6,15 +6,16 @@ export async function taxiCrmClearDrivers(){
  const minutes=freshnessMinutes();
  return withTaxiCrmReadOnly(async client=>{
   const result=await client.query<{
-   driver_id:string|null;vehicle_id:string;vehicle_callsign:string|null;registration:string|null;plate_number:string|null;callsign:string|null;forename:string|null;surname:string|null;latitude:string|number;longitude:string|number;vehicle_status:string;recorded_at:Date|string;phone:string|null
+   driver_id:string|null;vehicle_id:string;vehicle_callsign:string|null;registration:string|null;plate_number:string|null;callsign:string|null;forename:string|null;surname:string|null;latitude:string|number;longitude:string|number;vehicle_status:string;recorded_at:Date|string;phone:string|null;zone:string|null
   }>(`SELECT driver."externalId" driver_id,vehicle."externalId" vehicle_id,vehicle.callsign vehicle_callsign,vehicle.registration,vehicle."plateNumber" plate_number,
    driver.callsign,driver.forename,driver.surname,vehicle."currentLatitude" latitude,vehicle."currentLongitude" longitude,
+   COALESCE(NULLIF(to_jsonb(vehicle)->>'currentZoneName',''),NULLIF(to_jsonb(vehicle)->>'plotZoneName',''),NULLIF(to_jsonb(vehicle)->>'zoneName',''),NULLIF(to_jsonb(vehicle)->>'currentZone',''),NULLIF(to_jsonb(vehicle)->>'zone',''),NULLIF(to_jsonb(vehicle)->>'currentZoneId','')) zone,
    vehicle."currentStatus" vehicle_status,vehicle."lastSeenAt" recorded_at,driver.mobile phone
    FROM public."Vehicle" vehicle LEFT JOIN public."Driver" driver ON driver.id=vehicle."currentDriverId"
    WHERE vehicle."lastSeenAt">=now()-make_interval(mins=>$1) AND vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL
     AND lower(trim(vehicle."currentStatus"))='clear' AND vehicle."isActive" IS DISTINCT FROM false AND vehicle."isSuspended" IS DISTINCT FROM true
    ORDER BY vehicle."lastSeenAt" DESC LIMIT 1000`,[minutes]);
-  return result.rows.map(row=>({driverId:row.driver_id||row.vehicle_id,vehicleId:row.vehicle_id,vehicleCallsign:row.vehicle_callsign,registration:row.registration,plateNumber:row.plate_number,callsign:row.callsign,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,phone:row.phone,latitude:Number(row.latitude),longitude:Number(row.longitude),vehicleStatus:row.vehicle_status,recordedAt:new Date(row.recorded_at).toISOString()}));
+  return result.rows.map(row=>({driverId:row.driver_id||row.vehicle_id,vehicleId:row.vehicle_id,vehicleCallsign:row.vehicle_callsign,registration:row.registration,plateNumber:row.plate_number,callsign:row.callsign,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,phone:row.phone,latitude:Number(row.latitude),longitude:Number(row.longitude),vehicleStatus:row.vehicle_status,recordedAt:new Date(row.recorded_at).toISOString(),zone:row.zone||null}));
  });
 }
 
