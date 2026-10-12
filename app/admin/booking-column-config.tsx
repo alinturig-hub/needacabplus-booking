@@ -8,7 +8,7 @@ export const bookingColumns=[
  {id:'phone',label:'Phone',group:'Operations'},
  {id:'status',label:'Status',group:'Operations'},
  {id:'journey',label:'Journey',group:'Operations'},
- {id:'pickupDue',label:'Pickup due',group:'Operations'},
+ {id:'pickupDue',label:'Pickup time',group:'Operations'},
  {id:'bookingType',label:'Booking type',group:'Operations'},
  {id:'driver',label:'Driver',group:'Operations'},
  {id:'vehicle',label:'Vehicle',group:'Operations'},
