@@ -55,7 +55,7 @@ export async function GET(request:Request){
  if(params.get('export')==='1'){
   const page=Number(params.get('page'));
   if(!Number.isInteger(page)||page<0)return Response.json({error:'Invalid export page.'},{status:400});
-  const rows=await database().query('SELECT row_to_json(bookings) AS booking FROM bookings ORDER BY id LIMIT 100 OFFSET $1',[page*100]);
+  const rows=await database().query('SELECT row_to_json(bookings) AS booking FROM bookings ORDER BY id LIMIT 1000 OFFSET $1',[page*1000]);
   return Response.json({page,bookings:rows.rows.map(row=>row.booking)},{headers:{'Cache-Control':'no-store'}});
  }
  try{return Response.json(await snapshot(),{headers:{'Cache-Control':'no-store'}})}
