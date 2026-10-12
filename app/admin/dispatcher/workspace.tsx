@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {Activity,CarFront,Clock3,LogOut,MapPin,Plus,RefreshCw,Search,Settings2,X} from 'lucide-react';
 import styles from './workspace.module.css';
 import DispatcherDriverMap,{type MapDriver} from './driver-map';
+import DispatcherAddressInput,{type AddressChoice} from './address-input';
 
 type Job={id:string;reference:string;pickup:string;destination:string;pickup_zone?:string|null;status:string;due_at:string|null;vehicle:string|null;assigned:boolean};
 type Driver=MapDriver;
@@ -35,7 +36,11 @@ export default function DispatcherWorkspace(){
  const [pickupTime,setPickupTime]=useState('');
  const [asap,setAsap]=useState(true);
  const [pickup,setPickup]=useState('');
+ const [pickupAddress,setPickupAddress]=useState<AddressChoice|null>(null);
  const [destination,setDestination]=useState('');
+ const [destinationAddress,setDestinationAddress]=useState<AddressChoice|null>(null);
+ const [via,setVia]=useState('');
+ const [viaAddress,setViaAddress]=useState<AddressChoice|null>(null);
  const [name,setName]=useState('');
  const [phone,setPhone]=useState('');
  const [passengers,setPassengers]=useState('1');
@@ -111,9 +116,9 @@ export default function DispatcherWorkspace(){
     {bookingOpen&&<div className={styles.formBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)setBookingOpen(false)}}><section ref={bookingDialog} className={styles.bookingForm} role="dialog" aria-modal="true" aria-labelledby="new-booking-title"><div className={styles.panelHeading}><div><small>OPERATOR</small><h2 id="new-booking-title">New booking</h2></div><button type="button" className={styles.closeForm} aria-label="Close new booking" onClick={()=>setBookingOpen(false)}><X size={20}/></button></div><p className={styles.help}>Prepare a manual booking. TaxiCRM creation will be enabled when its operator API is connected.</p>
      <div className={styles.formScroll}>
       <div className={styles.timeRow}><button type="button" className={asap?styles.selectedButton:''} onClick={()=>setAsap(true)}>ASAP</button><button type="button" className={!asap?styles.selectedButton:''} onClick={()=>setAsap(false)}>Schedule</button>{!asap&&<input aria-label="Pickup time" type="datetime-local" value={pickupTime} onChange={event=>setPickupTime(event.target.value)}/>}</div>
-      <label>Pickup address<input value={pickup} onChange={event=>setPickup(event.target.value)} placeholder="Where is the passenger?" autoComplete="off"/></label>
-      <label>Destination<input value={destination} onChange={event=>setDestination(event.target.value)} placeholder="Where are they going?" autoComplete="off"/></label>
-      <details><summary>Add via point</summary><label>Via address<input placeholder="Intermediate stop" autoComplete="off"/></label></details>
+      <DispatcherAddressInput label="Pickup address" value={pickup} selected={pickupAddress} onChange={value=>{setPickup(value);setPickupAddress(null)}} onSelect={choice=>{setPickup(choice.address);setPickupAddress(choice)}} placeholder="Search pickup address"/>
+      <DispatcherAddressInput label="Destination" value={destination} selected={destinationAddress} onChange={value=>{setDestination(value);setDestinationAddress(null)}} onSelect={choice=>{setDestination(choice.address);setDestinationAddress(choice)}} placeholder="Search destination"/>
+      <details><summary>Add via point</summary><DispatcherAddressInput label="Via address" value={via} selected={viaAddress} onChange={value=>{setVia(value);setViaAddress(null)}} onSelect={choice=>{setVia(choice.address);setViaAddress(choice)}} placeholder="Search intermediate stop"/></details>
       <div className={styles.twoFields}><label>Passenger name<input value={name} onChange={event=>setName(event.target.value)} placeholder="Name" autoComplete="name"/></label><label>Telephone<input value={phone} onChange={event=>setPhone(event.target.value)} placeholder="Phone" autoComplete="tel"/></label></div>
       <div className={styles.twoFields}><label>Passengers<input type="number" min="1" max="20" value={passengers} onChange={event=>setPassengers(event.target.value)}/></label><label>Payment<select value={payment} onChange={event=>setPayment(event.target.value)}><option>Cash</option><option>Card</option><option>Account</option></select></label></div>
       <details><summary>More booking details</summary><div className={styles.twoFields}><label>Booking source<input placeholder="OperatorWeb"/></label><label>Our reference<input placeholder="Optional"/></label></div><div className={styles.twoFields}><label>Requested driver<input placeholder="Callsign"/></label><label>Requested vehicle<input placeholder="Callsign"/></label></div><div className={styles.twoFields}><label>Driver fare · cost<input type="number" min="0" step="0.01" placeholder="£"/></label><label>Office fare · price<input type="number" min="0" step="0.01" placeholder="£"/></label></div></details>
