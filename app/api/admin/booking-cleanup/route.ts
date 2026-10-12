@@ -35,9 +35,17 @@ async function snapshot(){
    result.rows.forEach(row=>alternateFound.add(row.external_id));
   }
  });
- const unmatched=missingRows.filter(row=>!row.original_booking_id||!alternateFound.has(row.original_booking_id));
+ const stillMissing=missingRows.filter(row=>!row.original_booking_id||!alternateFound.has(row.original_booking_id));
+ const originalReferences=[...new Set(stillMissing.flatMap(row=>[row.external_booking_id,row.original_booking_id].filter((id):id is string=>Boolean(id))))];
+ const crmOriginalFound=new Set<string>();
+ if(originalReferences.length)await withTaxiCrmReadOnly(async client=>{
+  const result=await client.query<{original_booking_id:string}>(`SELECT DISTINCT "originalBookingId" original_booking_id FROM public."Booking"
+   WHERE provider='AUTOCAB' AND "originalBookingId"=ANY($1::text[])`,[originalReferences]);
+  result.rows.forEach(row=>crmOriginalFound.add(row.original_booking_id));
+ });
+ const unmatched=stillMissing.filter(row=>!crmOriginalFound.has(row.external_booking_id)&&(!row.original_booking_id||!crmOriginalFound.has(row.original_booking_id)));
  const unmatchedByStatus:Record<string,number>={};for(const row of unmatched)unmatchedByStatus[row.status]=(unmatchedByStatus[row.status]||0)+1;
- return {total:Number(summary.rows[0].total),external:Number(summary.rows[0].external),withoutExternal:Number(summary.rows[0].without_external),test:Number(summary.rows[0].test),checkedExternal:ids.length,matchedInTaxiCrm:found.size,missingInTaxiCrm:missing.length,missingReferences:missing.slice(0,20),missingByStatus,missingByYear,missingRecent7Days,matchedByOriginalId:missingRows.length-unmatched.length,unmatchedAfterOriginalId:unmatched.length,unmatchedByStatus,unmatchedReferences:unmatched.slice(0,20).map(row=>row.external_booking_id)};
+ return {total:Number(summary.rows[0].total),external:Number(summary.rows[0].external),withoutExternal:Number(summary.rows[0].without_external),test:Number(summary.rows[0].test),checkedExternal:ids.length,matchedInTaxiCrm:found.size,missingInTaxiCrm:missing.length,missingReferences:missing.slice(0,20),missingByStatus,missingByYear,missingRecent7Days,matchedByOriginalId:missingRows.length-stillMissing.length,matchedByTaxiCrmOriginalId:stillMissing.length-unmatched.length,unmatchedAfterOriginalId:unmatched.length,unmatchedByStatus,unmatchedReferences:unmatched.slice(0,20).map(row=>row.external_booking_id)};
 }
 
 export async function GET(request:Request){
