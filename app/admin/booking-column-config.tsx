@@ -25,9 +25,6 @@ export const bookingColumns=[
  {id:'cost',label:'Cost',group:'Finance'},
  {id:'price',label:'Price',group:'Finance'},
  {id:'fare',label:'Fare',group:'Finance'},
- {id:'accountAmount',label:'Account amount',group:'Finance'},
- {id:'cashAmount',label:'Cash amount',group:'Finance'},
- {id:'cardAmount',label:'Card amount',group:'Finance'},
  {id:'extraCost',label:'Extra cost',group:'Finance'},
  {id:'gratuity',label:'Gratuity',group:'Finance'},
  {id:'pricingTariff',label:'Pricing tariff',group:'Finance'},
@@ -44,7 +41,7 @@ export type BookingColumnId=(typeof bookingColumns)[number]['id'];
 export const defaultBookingColumns:BookingColumnId[]=['customer','phone','status','journey','pickupDue','driver','vehicle','source','payment','cost','price','bookedAt'];
 const presets:{name:string;columns:BookingColumnId[]}[]=[
  {name:'Operations',columns:defaultBookingColumns},
- {name:'Finance',columns:['customer','status','journey','payment','accountName','accountCode','cost','price','fare','accountAmount','cashAmount','cardAmount','extraCost','bookedAt']},
+ {name:'Finance',columns:['customer','status','journey','payment','accountName','accountCode','cost','price','fare','extraCost','gratuity','pricingTariff','bookedAt']},
  {name:'Customer care',columns:['customer','phone','customerEmail','status','journey','pickupDue','driver','vehicle','passengers','luggage','driverNote','officeNote','flightDetails','bookedAt']},
 ];
 

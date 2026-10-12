@@ -40,7 +40,7 @@ function bookingCell(item:Booking,id:BookingColumnId):ReactNode{
   case 'cost':return money(item,'cost');
   case 'price':return money(item);
   case 'fare':return moneyValue(item.pricing_data?.fare);
-  case 'accountAmount':case 'cashAmount':case 'cardAmount':case 'extraCost':return moneyValue(extra(item,id));
+  case 'extraCost':return moneyValue(extra(item,id));
   case 'gratuity':return moneyValue(extra(item,'gratuityAmount'));
   case 'dispatchedAt':case 'arrivedAt':case 'completedAt':return dateValue(extra(item,id));
   case 'originalBookingId':return item.original_booking_id||'—';
