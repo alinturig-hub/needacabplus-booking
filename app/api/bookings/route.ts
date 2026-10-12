@@ -43,6 +43,7 @@ export async function POST(request:Request){
 
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(new URL(request.url).searchParams.get('requireTaxiCrm')==='1'&&(!taxiCrmDatabaseConfigured()||!taxiCrmBookingReadEnabled()))return Response.json({error:'TaxiCRM booking search is not connected. Configure the read-only TaxiCRM database connection and enable booking reads.'},{status:503,headers:{'Cache-Control':'no-store'}});
  if(taxiCrmDatabaseConfigured()&&taxiCrmBookingReadEnabled()){
   try{
    const params=new URL(request.url).searchParams,data=await readTaxiCrmBookings(params);

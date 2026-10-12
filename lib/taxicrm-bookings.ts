@@ -125,7 +125,9 @@ export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCr
   const paymentColumn=column(mapping,'payment');if(payment&&paymentColumn)conditions.push(`${paymentColumn}::text=${add(payment)}`);
   const timeInfo=dateField==='booked'?mapping.fields.createdAt:(mapping.fields.pickupAt||mapping.fields.createdAt||mapping.fields.updatedAt);
   if(period.start&&period.end&&!timeInfo)throw new TaxiCrmBookingSchemaError(`TaxiCRM cannot filter by ${dateField==='booked'?'booking creation':'pickup'} time because the source field is unavailable.`);
-  if(period.start&&period.end&&timeInfo){const time=localTime(timeInfo);conditions.push(`${time}::date BETWEEN ${add(period.start)}::date AND ${add(period.end)}::date`);if(period.period==='custom'){conditions.push(`${time}::time BETWEEN ${add(period.fromTime)}::time AND ${add(period.toTime)}::time`)}}
+  if(period.start&&period.end&&timeInfo){const time=localTime(timeInfo);if(period.period==='custom'){
+   conditions.push(`${time} >= ${add(`${period.start}T${period.fromTime}`)}::timestamp AND ${time} < (${add(`${period.end}T${period.toTime}`)}::timestamp + interval '1 minute')`);
+  }else conditions.push(`${time}::date BETWEEN ${add(period.start)}::date AND ${add(period.end)}::date`)}
   const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'',table=`${tableName(mapping)} booking`;
   const locationsJoin=mapping.locationTable?`LEFT JOIN LATERAL (SELECT max(address) FILTER (WHERE type::text='PICKUP') pickup,max(address) FILTER (WHERE type::text='DESTINATION') destination FROM ${ident(mapping.locationTable.schema)}.${ident(mapping.locationTable.table)} WHERE "bookingId"=booking.${ident(mapping.fields.id!.name)}) locations ON true`:'';
   const typeColumn=column(mapping,'bookingType'),referenceColumn=column(mapping,'reference')||column(mapping,'id')!;
