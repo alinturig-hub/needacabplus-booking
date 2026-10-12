@@ -10,7 +10,7 @@ async function snapshot(){
   count(*) FILTER(WHERE external_booking_id IS NOT NULL)::text external,
   count(*) FILTER(WHERE external_booking_id IS NULL)::text without_external,
   count(*) FILTER(WHERE pricing_data->>'testBooking'='true')::text test FROM bookings`);
- const external=await db.query<{external_booking_id:string}>(`SELECT external_booking_id FROM bookings
+ const external=await db.query<{external_booking_id:string;original_booking_id:string|null;status:string;updated_at:Date|string}>(`SELECT external_booking_id,original_booking_id,status,updated_at FROM bookings
   WHERE external_booking_id IS NOT NULL AND COALESCE(pricing_data->>'testBooking','false')<>'true' ORDER BY external_booking_id`);
  const ids=external.rows.map(row=>row.external_booking_id);
  const found=new Set<string>();
@@ -22,7 +22,20 @@ async function snapshot(){
   }
  });
  const missing=ids.filter(id=>!found.has(id));
- return {total:Number(summary.rows[0].total),external:Number(summary.rows[0].external),withoutExternal:Number(summary.rows[0].without_external),test:Number(summary.rows[0].test),checkedExternal:ids.length,matchedInTaxiCrm:found.size,missingInTaxiCrm:missing.length,missingReferences:missing.slice(0,20)};
+ const missingSet=new Set(missing),missingRows=external.rows.filter(row=>missingSet.has(row.external_booking_id));
+ const missingByStatus:Record<string,number>={},missingByYear:Record<string,number>={};
+ for(const row of missingRows){missingByStatus[row.status]=(missingByStatus[row.status]||0)+1;const year=String(new Date(row.updated_at).getUTCFullYear());missingByYear[year]=(missingByYear[year]||0)+1}
+ const missingRecent7Days=missingRows.filter(row=>new Date(row.updated_at).getTime()>Date.now()-7*86400000).length;
+ const alternateIds=[...new Set(missingRows.map(row=>row.original_booking_id).filter((id):id is string=>Boolean(id)))];
+ let matchedByOriginalId=0;
+ await withTaxiCrmReadOnly(async client=>{
+  for(let offset=0;offset<alternateIds.length;offset+=500){
+   const result=await client.query<{external_id:string}>(`SELECT "externalId" external_id FROM public."Booking"
+    WHERE provider='AUTOCAB' AND "externalId"=ANY($1::text[])`,[alternateIds.slice(offset,offset+500)]);
+   matchedByOriginalId+=result.rows.length;
+  }
+ });
+ return {total:Number(summary.rows[0].total),external:Number(summary.rows[0].external),withoutExternal:Number(summary.rows[0].without_external),test:Number(summary.rows[0].test),checkedExternal:ids.length,matchedInTaxiCrm:found.size,missingInTaxiCrm:missing.length,missingReferences:missing.slice(0,20),missingByStatus,missingByYear,missingRecent7Days,matchedByOriginalId};
 }
 
 export async function GET(request:Request){
