@@ -1,6 +1,7 @@
 import {database} from '@/lib/database';
 import {isAdmin,sameOrigin} from '@/lib/security';
 import {taxiCrmBookingReadEnabled,taxiCrmNoBookingCopyEnabled,taxiCrmWebhookIngestDisabled,withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
+import {readBookingDetails} from '@/lib/autocab-api';
 
 export const dynamic='force-dynamic';
 
@@ -53,6 +54,22 @@ export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  if(!taxiCrmBookingReadEnabled()||!taxiCrmNoBookingCopyEnabled()||!taxiCrmWebhookIngestDisabled())return Response.json({error:'TaxiCRM-only booking mode is not active.'},{status:409});
  const params=new URL(request.url).searchParams;
+ if(params.get('verifyOpen')==='1'){
+  const rows=await database().query<{external_booking_id:string;original_booking_id:string|null}>("SELECT external_booking_id,original_booking_id FROM bookings WHERE status='Booked' ORDER BY external_booking_id LIMIT 20");
+  const checks=[];
+  for(const row of rows.rows){
+   let result:{reference:string;lookup:string;status:string|null;error?:string}|null=null;
+   for(const [lookup,id] of [['external',row.external_booking_id],['original',row.original_booking_id]] as const){
+    if(!id)continue;
+    try{const payload=await readBookingDetails(id) as Record<string,unknown>;
+     const booking=(payload.booking&&typeof payload.booking==='object'?payload.booking:payload) as Record<string,unknown>;
+     result={reference:row.external_booking_id,lookup,status:typeof booking.status==='string'?booking.status:null};break;
+    }catch(error){result={reference:row.external_booking_id,lookup,status:null,error:error&&typeof error==='object'&&'status' in error?`HTTP_${String(error.status)}`:error instanceof Error?error.name:'Unknown'}}
+   }
+   checks.push(result);
+  }
+  return Response.json({checks},{headers:{'Cache-Control':'no-store'}});
+ }
  if(params.get('export')==='1'){
   const page=Number(params.get('page'));
   if(!Number.isInteger(page)||page<0)return Response.json({error:'Invalid export page.'},{status:400});
