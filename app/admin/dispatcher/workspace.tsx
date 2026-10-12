@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Activity,CarFront,Clock3,LogOut,MapPin,Plus,RefreshCw,Search,Settings2,X} from 'lucide-react';
 import styles from './workspace.module.css';
@@ -30,6 +30,8 @@ export default function DispatcherWorkspace(){
  const [selectedBooking,setSelectedBooking]=useState('');
  const [selectedDriver,setSelectedDriver]=useState('');
  const [bookingOpen,setBookingOpen]=useState(false);
+ const bookingDialog=useRef<HTMLElement>(null);
+ const bookingTrigger=useRef<HTMLButtonElement>(null);
  const [pickupTime,setPickupTime]=useState('');
  const [asap,setAsap]=useState(true);
  const [pickup,setPickup]=useState('');
@@ -39,6 +41,25 @@ export default function DispatcherWorkspace(){
  const [passengers,setPassengers]=useState('1');
  const [payment,setPayment]=useState('Cash');
  const [note,setNote]=useState('');
+
+ useEffect(()=>{
+  if(!bookingOpen)return;
+  const previousOverflow=document.body.style.overflow;
+  const trigger=bookingTrigger.current;
+  document.body.style.overflow='hidden';
+  const focusable=()=>Array.from(bookingDialog.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary')||[]).filter(element=>element.getClientRects().length>0);
+  focusable()[0]?.focus();
+  const onKeyDown=(event:KeyboardEvent)=>{
+   if(event.key==='Escape'){event.preventDefault();setBookingOpen(false);return}
+   if(event.key!=='Tab')return;
+   const items=focusable(),first=items[0],last=items.at(-1);
+   if(!first||!last)return;
+   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+  };
+  document.addEventListener('keydown',onKeyDown);
+  return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener('keydown',onKeyDown);trigger?.focus()};
+ },[bookingOpen]);
 
  useEffect(()=>{
   let active=true;
@@ -83,11 +104,11 @@ export default function DispatcherWorkspace(){
  return <div className={`${styles.page} premium-admin`}>
   <header className="brandbar"><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatcher</small></span></Link><nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Overview</Link><Link href="/admin/bookings">Search bookings</Link><Link className="active" href="/admin/dispatcher" aria-current="page">Dispatcher</Link><Link href="/admin/dispatch">Dispatch analysis</Link><Link href="/admin/live-map">Live map</Link><Link href="/admin/configuration"><Settings2 size={15}/>Settings</Link></nav><Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link></header>
   <main className={styles.main}>
-   <div className={styles.heading}><div><small>OPERATIONS · TAXICRM</small><h1>Dispatcher workspace</h1><p>Tracked drivers, zones and bookings update every five seconds.</p></div><div className={styles.headingActions}><span className={stale?styles.delayed:styles.live}>{stale?'Updates delayed':'Live from TaxiCRM'}</span><button type="button" className={styles.newBookingButton} onClick={()=>setBookingOpen(true)}><Plus size={17}/>New booking</button><button type="button" aria-label="Refresh dispatcher" onClick={()=>setRefreshKey(value=>value+1)}><RefreshCw size={17}/></button></div></div>
+   <div className={styles.heading}><div><small>OPERATIONS · TAXICRM</small><h1>Dispatcher workspace</h1><p>Tracked drivers, zones and bookings update every five seconds.</p></div><div className={styles.headingActions}><span className={stale?styles.delayed:styles.live}>{stale?'Updates delayed':'Live from TaxiCRM'}</span><button ref={bookingTrigger} type="button" className={styles.newBookingButton} onClick={()=>setBookingOpen(true)}><Plus size={17}/>New booking</button><button type="button" aria-label="Refresh dispatcher" onClick={()=>setRefreshKey(value=>value+1)}><RefreshCw size={17}/></button></div></div>
    {(error||fleetError||zoneError)&&<p className={styles.alert} role="alert">{error||fleetError||(zoneError?'TaxiCRM zones are temporarily unavailable':'')}. {error||fleetError?'Last loaded data may be out of date.':'Driver positions remain visible.'}</p>}
    <div className={styles.summary}><span><Clock3 size={17}/>To dispatch <strong>{waitingJobs.length}</strong></span><span><Activity size={17}/>Active <strong>{activeJobs.length}</strong></span><span><CarFront size={17}/>Available cars <strong>{availableCount}</strong></span><span><MapPin size={17}/>Tracked vehicles <strong>{drivers.length}</strong></span><span>Last update <strong>{ukTime(updatedAt||null)}</strong></span></div>
    <div className={styles.upper}>
-    {bookingOpen&&<div className={styles.formBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)setBookingOpen(false)}}><section className={styles.bookingForm} role="dialog" aria-modal="true" aria-labelledby="new-booking-title"><div className={styles.panelHeading}><div><small>OPERATOR</small><h2 id="new-booking-title">New booking</h2></div><button type="button" className={styles.closeForm} aria-label="Close new booking" onClick={()=>setBookingOpen(false)}><X size={20}/></button></div><p className={styles.help}>Prepare a manual booking. TaxiCRM creation will be enabled when its operator API is connected.</p>
+    {bookingOpen&&<div className={styles.formBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)setBookingOpen(false)}}><section ref={bookingDialog} className={styles.bookingForm} role="dialog" aria-modal="true" aria-labelledby="new-booking-title"><div className={styles.panelHeading}><div><small>OPERATOR</small><h2 id="new-booking-title">New booking</h2></div><button type="button" className={styles.closeForm} aria-label="Close new booking" onClick={()=>setBookingOpen(false)}><X size={20}/></button></div><p className={styles.help}>Prepare a manual booking. TaxiCRM creation will be enabled when its operator API is connected.</p>
      <div className={styles.formScroll}>
       <div className={styles.timeRow}><button type="button" className={asap?styles.selectedButton:''} onClick={()=>setAsap(true)}>ASAP</button><button type="button" className={!asap?styles.selectedButton:''} onClick={()=>setAsap(false)}>Schedule</button>{!asap&&<input aria-label="Pickup time" type="datetime-local" value={pickupTime} onChange={event=>setPickupTime(event.target.value)}/>}</div>
       <label>Pickup address<input value={pickup} onChange={event=>setPickup(event.target.value)} placeholder="Where is the passenger?" autoComplete="off"/></label>
