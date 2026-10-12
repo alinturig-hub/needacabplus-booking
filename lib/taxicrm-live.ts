@@ -2,7 +2,7 @@ import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
 
 const freshnessMinutes=()=>{const value=Number(process.env.DRIVER_LIVE_FRESHNESS_MINUTES||10);return Number.isFinite(value)&&value>0?Math.floor(value):10};
 
-export async function taxiCrmClearDrivers(){
+async function taxiCrmDrivers(clearOnly:boolean){
  const minutes=freshnessMinutes();
  return withTaxiCrmReadOnly(async client=>{
   const result=await client.query<{
@@ -13,9 +13,19 @@ export async function taxiCrmClearDrivers(){
    vehicle."currentStatus" vehicle_status,vehicle."lastSeenAt" recorded_at,driver.mobile phone
    FROM public."Vehicle" vehicle LEFT JOIN public."Driver" driver ON driver.id=vehicle."currentDriverId"
    WHERE vehicle."lastSeenAt">=now()-make_interval(mins=>$1) AND vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL
-    AND lower(trim(vehicle."currentStatus"))='clear' AND vehicle."isActive" IS DISTINCT FROM false AND vehicle."isSuspended" IS DISTINCT FROM true
-   ORDER BY vehicle."lastSeenAt" DESC LIMIT 1000`,[minutes]);
+    AND ($2::boolean IS FALSE OR lower(trim(vehicle."currentStatus"))='clear') AND lower(trim(COALESCE(vehicle."currentStatus",'')))<>'notworking' AND vehicle."isActive" IS DISTINCT FROM false AND vehicle."isSuspended" IS DISTINCT FROM true
+   ORDER BY vehicle."lastSeenAt" DESC LIMIT 1000`,[minutes,clearOnly]);
   return result.rows.map(row=>({driverId:row.driver_id||row.vehicle_id,vehicleId:row.vehicle_id,vehicleCallsign:row.vehicle_callsign,registration:row.registration,plateNumber:row.plate_number,callsign:row.callsign,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,phone:row.phone,latitude:Number(row.latitude),longitude:Number(row.longitude),vehicleStatus:row.vehicle_status,recordedAt:new Date(row.recorded_at).toISOString(),zone:row.zone||null}));
+ });
+}
+
+export async function taxiCrmClearDrivers(){return taxiCrmDrivers(true)}
+export async function taxiCrmTrackedDrivers(){return taxiCrmDrivers(false)}
+
+export async function taxiCrmZones(){
+ return withTaxiCrmReadOnly(async client=>{
+  const result=await client.query<{external_id:string;name:string;descriptor:string|null;latitude:string|number|null;longitude:string|number|null}>(`SELECT "externalId" external_id,name,descriptor,latitude,longitude FROM public."Zone" WHERE provider='AUTOCAB' AND active=true AND "companyId"=1 ORDER BY name LIMIT 2000`);
+  return result.rows.map(row=>({externalId:row.external_id,name:row.name,descriptor:row.descriptor,latitude:row.latitude===null?null:Number(row.latitude),longitude:row.longitude===null?null:Number(row.longitude)}));
  });
 }
 
