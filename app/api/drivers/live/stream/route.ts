@@ -1,5 +1,5 @@
 import {isAdmin} from '@/lib/security';
-import {clearDrivers} from '@/lib/live-drivers';
+import {fleetMapVehicles} from '@/lib/live-drivers';
 import {driverPositionEvents} from '@/lib/driver-position-events';
 
 export const dynamic='force-dynamic';
@@ -11,7 +11,7 @@ export async function GET(request:Request){
  let update:(()=>void)|undefined;
  const stream=new ReadableStream({
   start(controller){
-   const send=async()=>{if(closed||running)return;running=true;try{const drivers=await clearDrivers();if(!closed)controller.enqueue(encoder.encode(`event: drivers\ndata: ${JSON.stringify(drivers)}\n\n`))}catch{if(!closed)controller.enqueue(encoder.encode('event: stream-error\ndata: {}\n\n'))}finally{running=false}};
+   const send=async()=>{if(closed||running)return;running=true;try{const drivers=await fleetMapVehicles();if(!closed)controller.enqueue(encoder.encode(`event: drivers\ndata: ${JSON.stringify(drivers)}\n\n`))}catch{if(!closed)controller.enqueue(encoder.encode('event: stream-error\ndata: {}\n\n'))}finally{running=false}};
    update=()=>void send();
    const close=()=>{if(closed)return;closed=true;clearInterval(heartbeat);clearInterval(fallback);if(update)driverPositionEvents.off('position',update);try{controller.close()}catch{}};
    driverPositionEvents.on('position',update);

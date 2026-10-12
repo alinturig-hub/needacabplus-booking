@@ -1,6 +1,7 @@
 import {database} from '@/lib/database';
 import {taxiCrmLiveReadEnabled} from '@/lib/taxicrm-database';
 import {taxiCrmClearDrivers} from '@/lib/taxicrm-live';
+import {taxiCrmFleetMapVehicles,type FleetMapVehicle} from '@/lib/taxicrm-fleet-map';
 
 const freshnessMinutes=()=>{const value=Number(process.env.DRIVER_LIVE_FRESHNESS_MINUTES||10);return Number.isFinite(value)&&value>0?Math.floor(value):10};
 
@@ -15,6 +16,15 @@ export async function clearDrivers(){
  FROM latest LEFT JOIN autocab_drivers ad ON ad.external_id=latest.driver_id
  WHERE lower(trim(latest.vehicle_status))='clear' ORDER BY latest.recorded_at DESC`,[freshnessMinutes()]);
  return result.rows.map(row=>({driverId:row.driver_id,vehicleId:(row.vehicle_id as string|null)||null,vehicleCallsign:(row.vehicle_callsign as string|null)||null,registration:(row.registration as string|null)||null,plateNumber:(row.plate_number as string|null)||null,callsign:row.callsign as string|null,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,phone:(row.phone as string|null)||null,latitude:row.latitude as number,longitude:row.longitude as number,vehicleStatus:row.vehicle_status as string,recordedAt:(row.recorded_at?.toISOString?.()??row.recorded_at) as string}));
+}
+
+export async function fleetMapVehicles():Promise<FleetMapVehicle[]>{
+ if(taxiCrmLiveReadEnabled())return taxiCrmFleetMapVehicles();
+ const drivers=await clearDrivers();
+ return drivers.map(driver=>({id:driver.vehicleId||driver.driverId,driverId:driver.driverId,callsign:driver.callsign,name:driver.name,
+  latitude:driver.latitude,longitude:driver.longitude,vehicleStatus:driver.vehicleStatus,operationalStatus:'CLEAR' as const,
+  recordedAt:driver.recordedAt,isLive:Date.now()-new Date(driver.recordedAt).getTime()<=120_000,
+  registration:driver.registration||driver.plateNumber||driver.vehicleCallsign||null,bookingId:null,pickupAddress:null,destinationAddress:null,todayRevenue:null}));
 }
 
 export async function publicClearVehicles(){

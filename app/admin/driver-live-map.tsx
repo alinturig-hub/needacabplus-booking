@@ -1,16 +1,17 @@
 'use client';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,LogOut,MapPin,RefreshCw} from 'lucide-react';
 import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
 import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
 
-type Driver={driverId:string;callsign:string|null;name:string|null;phone:string|null;latitude:number;longitude:number;vehicleStatus:string;recordedAt:string};
+type Driver={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
 type LiveMarker={marker:Marker;coordinate:[number,number];recordedAt:number;heading:number;animationFrame:number|null};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
-function timeAgo(iso:string){const s=Math.floor((Date.now()-new Date(iso).getTime())/1000);if(s<60)return `${s}s ago`;if(s<3600)return `${Math.floor(s/60)}m ago`;return `${Math.floor(s/3600)}h ago`;}
-function markerLabel(driver:Driver){return(driver.callsign||driver.name||driver.driverId).trim().slice(0,4).toUpperCase();}
+function timeAgo(iso:string){const s=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));if(s<60)return `${s}s ago`;if(s<3600)return `${Math.floor(s/60)}m ago`;return `${Math.floor(s/3600)}h ago`;}
+function markerLabel(driver:Driver){return(driver.callsign||driver.name||driver.id).trim().slice(0,4).toUpperCase();}
+const statusLabel:Record<Driver['operationalStatus'],string>={CLEAR:'CLEAR - Available',DOW:'DOW - Driver On The Way',DAP:'DAP - Driver At Pickup',POB:'POB - Passenger On Board'};
 function bearing(from:[number,number],to:[number,number]){
  const lon1=from[0]*Math.PI/180,lat1=from[1]*Math.PI/180,lon2=to[0]*Math.PI/180,lat2=to[1]*Math.PI/180;
  const y=Math.sin(lon2-lon1)*Math.cos(lat2);
@@ -20,11 +21,17 @@ function bearing(from:[number,number],to:[number,number]){
 function nearestHeading(current:number,next:number){return current+((next-current+540)%360-180);}
 function makePopup(driver:Driver):HTMLElement{
  const wrap=document.createElement('div');wrap.className='driver-popup';
- const name=document.createElement('strong');name.textContent=driver.name||driver.callsign||driver.driverId;wrap.appendChild(name);
- if(driver.callsign){const cs=document.createElement('span');cs.textContent=`Callsign: ${driver.callsign}`;wrap.appendChild(cs);}
- if(driver.phone){const ph=document.createElement('span');ph.textContent=`📞 ${driver.phone}`;wrap.appendChild(ph);}
- const st=document.createElement('span');st.className='driver-popup-status';st.textContent=driver.vehicleStatus;wrap.appendChild(st);
- const tm=document.createElement('span');tm.className='driver-popup-time';tm.textContent=timeAgo(driver.recordedAt);wrap.appendChild(tm);
+ const name=document.createElement('strong');name.textContent=`Driver ${driver.callsign||'—'}`;wrap.appendChild(name);
+ const field=(label:string,detail:string)=>{const row=document.createElement('span');const title=document.createElement('b');title.textContent=`${label}: `;row.appendChild(title);row.appendChild(document.createTextNode(detail));wrap.appendChild(row)};
+ field('Name',driver.name||'Not available');
+ field('Today Revenue',driver.todayRevenue===null?'Not available':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(driver.todayRevenue));
+ field('Vehicle',driver.registration||'Not available');
+ field('Status',statusLabel[driver.operationalStatus]);
+ if(driver.operationalStatus==='DOW'||driver.operationalStatus==='DAP')field('Pickup',driver.pickupAddress||'Not available');
+ if(driver.operationalStatus==='POB')field('Destination',driver.destinationAddress||'Not available');
+ field('Booking',driver.bookingId===null?'None':String(driver.bookingId));
+ field('Last update',timeAgo(driver.recordedAt));
+ field('Connection',driver.isLive?'Live':'Stale');
  return wrap;
 }
 export default function DriverLiveMap(){
@@ -38,11 +45,20 @@ export default function DriverLiveMap(){
  const [error,setError]=useState('');
  const [updatedAt,setUpdatedAt]=useState<Date|null>(null);
  const [isLive,setIsLive]=useState(false);
+ const [query,setQuery]=useState('');
+ const [filter,setFilter]=useState('all');
+ const visibleDrivers=useMemo(()=>drivers.filter(driver=>{
+  if(filter==='live'&&!driver.isLive||filter==='stale'&&driver.isLive)return false;
+  if(['CLEAR','DOW','DAP','POB'].includes(filter)&&driver.operationalStatus!==filter)return false;
+  const term=query.trim().toLowerCase();
+  return !term||[driver.callsign,driver.name,driver.registration,driver.bookingId?.toString()].some(value=>value?.toLowerCase().includes(term));
+ }),[drivers,query,filter]);
  const fetchDrivers=useCallback(async()=>{
   try{
    const res=await fetch('/api/drivers/live',{credentials:'same-origin',cache:'no-store'});
    if(res.status===401||res.status===403){router.push('/dispatch/login');return;}
    const data=await res.json() as Driver[];
+   if(!res.ok||!Array.isArray(data))throw new Error('Driver feed unavailable');
    setDrivers(data);setUpdatedAt(new Date());setError('');
   }catch{setError('Unable to load driver positions.');}
   finally{setLoading(false);}
@@ -69,13 +85,13 @@ export default function DriverLiveMap(){
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;
   const existing=markersRef.current;
-  const newIds=new Set(drivers.map(d=>d.driverId));
+  const newIds=new Set(visibleDrivers.map(d=>d.id));
   for(const [id,state] of existing){if(!newIds.has(id)){if(state.animationFrame!==null)cancelAnimationFrame(state.animationFrame);state.marker.remove();existing.delete(id);}}
   const bounds=new maplibregl.LngLatBounds();let hasBounds=false;
-  for(const driver of drivers){
+  for(const driver of visibleDrivers){
    bounds.extend([driver.longitude,driver.latitude]);hasBounds=true;
-   if(existing.has(driver.driverId)){
-    const state=existing.get(driver.driverId)!;
+   if(existing.has(driver.id)){
+    const state=existing.get(driver.id)!;
     state.marker.getPopup()?.setDOMContent(makePopup(driver));
     const label=state.marker.getElement().querySelector('span');if(label)label.textContent=markerLabel(driver);
     const target:[number,number]=[driver.longitude,driver.latitude];
@@ -103,18 +119,18 @@ export default function DriverLiveMap(){
      state.recordedAt=Number.isFinite(nextRecordedAt)?nextRecordedAt:Date.now();
     }
    }else{
-    const el=document.createElement('div');el.className='driver-map-marker';
+    const el=document.createElement('div');el.className=`driver-map-marker driver-map-marker-${driver.operationalStatus.toLowerCase()}`;
     const car=document.createElement('img');car.src='/car-marker-live.png';car.alt='';car.draggable=false;el.appendChild(car);
     const label=document.createElement('span');label.textContent=markerLabel(driver);el.appendChild(label);
-    el.setAttribute('aria-label',driver.name||driver.callsign||driver.driverId);
+    el.setAttribute('aria-label',driver.name||driver.callsign||driver.id);
     const popup=new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap'}).setDOMContent(makePopup(driver));
     const marker=new Marker({element:el}).setLngLat([driver.longitude,driver.latitude]).setPopup(popup).addTo(map);
     const recordedAt=new Date(driver.recordedAt).getTime();
-    existing.set(driver.driverId,{marker,coordinate:[driver.longitude,driver.latitude],recordedAt:Number.isFinite(recordedAt)?recordedAt:Date.now(),heading:0,animationFrame:null});
+    existing.set(driver.id,{marker,coordinate:[driver.longitude,driver.latitude],recordedAt:Number.isFinite(recordedAt)?recordedAt:Date.now(),heading:0,animationFrame:null});
    }
   }
-  if(!fittedRef.current&&hasBounds){fittedRef.current=true;if(drivers.length===1)map.flyTo({center:[drivers[0].longitude,drivers[0].latitude],zoom:13,duration:800});else map.fitBounds(bounds,{padding:60,maxZoom:14,duration:800})}
- },[drivers]);
+  if(!fittedRef.current&&hasBounds){fittedRef.current=true;if(visibleDrivers.length===1)map.flyTo({center:[visibleDrivers[0].longitude,visibleDrivers[0].latitude],zoom:13,duration:800});else map.fitBounds(bounds,{padding:60,maxZoom:14,duration:800})}
+ },[visibleDrivers]);
  return(
   <main className="admin-shell driver-live-shell premium-admin">
    <header className="brandbar"><Link className="brand" href="/dispatch"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatch</small></span></Link>
@@ -124,11 +140,12 @@ export default function DriverLiveMap(){
    <div className="driver-live-body">
     <div className="driver-live-bar">
      <MapPin size={17} className="driver-live-icon"/>
-     <span className="driver-live-count"><strong>{drivers.length}</strong> CLEAR driver{drivers.length!==1?'s':''}</span><span className={`live-chip map-live-chip ${isLive?'':'connecting'}`}><span/>{isLive?'Live':'Connecting…'}</span>
+     <span className="driver-live-count"><strong>{visibleDrivers.length}</strong> of {drivers.length} vehicles</span><span className={`live-chip map-live-chip ${isLive?'':'connecting'}`}><span/>{isLive?'Live':'Connecting…'}</span>
      {updatedAt&&<span className="driver-live-time">Updated {updatedAt.toLocaleTimeString('en-GB')}</span>}
      <button className="driver-live-refresh" onClick={()=>void fetchDrivers()} disabled={loading} aria-label="Refresh driver positions"><RefreshCw size={14} className={loading?'spin':''}/><span>Refresh</span></button>
      <Link className="driver-live-fleet" href="/dispatch"><ArrowLeft size={14}/>Dispatcher</Link>
     </div>
+    <div className="driver-live-filters"><input aria-label="Search driver, callsign, vehicle or booking" placeholder="Search driver, callsign, vehicle or booking…" value={query} onChange={event=>setQuery(event.target.value)}/><select aria-label="Filter vehicles" value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">All vehicles</option><option value="CLEAR">Available</option><option value="DOW">On the way</option><option value="DAP">At pickup</option><option value="POB">Passenger on board</option><option value="live">Live connection</option><option value="stale">Stale connection</option></select></div>
     {error&&<p className="error-message" style={{margin:'0 42px'}}>{error}</p>}
     <div ref={mapContainer} className="driver-live-canvas"/>
    </div>
