@@ -557,3 +557,14 @@ html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;bor
  .booking-shell.stage-0.stop-editor .customer-map-live{top:16px;right:14px}
  .booking-shell.stage-0.stop-editor .stop-editor-done{position:sticky;z-index:4;bottom:0;display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin:18px 0 0;border:1px solid color-mix(in srgb,var(--primary) 65%,var(--border));border-radius:14px;background:var(--foreground);color:var(--background);font:760 15px/1 inherit;box-shadow:0 -10px 24px var(--booking-surface),0 8px 24px #0003}
 }
+
+/* TaxiCRM webhook activity on the management overview. */
+.webhook-activity{margin:16px 0;padding:18px 20px;border:1px solid var(--admin-line,#293039);border-radius:16px;background:#151a20;color:#e9edf0}
+.webhook-activity-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.webhook-activity-heading h2{font-size:16px;font-weight:700;margin:3px 0 0}
+.webhook-activity-heading>small{color:#9ca6ad;font-size:12px}
+.webhook-event-list{display:grid;gap:6px}
+.webhook-event{display:grid;grid-template-columns:minmax(145px,1fr) minmax(120px,1.2fr) minmax(130px,1fr) minmax(140px,1fr);align-items:center;gap:10px;padding:9px 12px;border:1px solid #293039;border-radius:9px;font-size:12px}
+.webhook-event strong,.webhook-event span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.webhook-event-time,.webhook-event small{color:#a9b2b9}
+@media(max-width:760px){.webhook-activity{padding:14px}.webhook-activity-heading{align-items:flex-start;flex-direction:column}.webhook-event{grid-template-columns:1fr 1fr}.webhook-event small{text-align:right}}
