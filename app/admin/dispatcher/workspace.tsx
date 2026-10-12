@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
-import {Activity,CarFront,Clock3,LogOut,MapPin,Plus,RefreshCw,Search,Settings2,X} from 'lucide-react';
+import {Activity,CarFront,Clock3,LogOut,MapPin,Plus,RefreshCw,Search,X} from 'lucide-react';
 import styles from './workspace.module.css';
 import DispatcherDriverMap,{type MapDriver} from './driver-map';
 import DispatcherAddressInput,{type AddressChoice} from './address-input';
@@ -107,7 +107,7 @@ export default function DispatcherWorkspace(){
  const stale=!updatedAt||Boolean(error)||Boolean(fleetError);
 
  return <div className={`${styles.page} premium-admin`}>
-  <header className="brandbar"><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatcher</small></span></Link><nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Overview</Link><Link href="/admin/bookings">Search bookings</Link><Link className="active" href="/admin/dispatcher" aria-current="page">Dispatcher</Link><Link href="/admin/dispatch">Dispatch analysis</Link><Link href="/admin/live-map">Live map</Link><Link href="/admin/configuration"><Settings2 size={15}/>Settings</Link></nav><Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link></header>
+  <header className="brandbar"><Link className="brand" href="/dispatch"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatch</small></span></Link><nav className="admin-nav" aria-label="Dispatch navigation"><Link className="active" href="/dispatch" aria-current="page">Dispatcher</Link><Link href="/dispatch/bookings">Search bookings</Link><Link href="/dispatch/analysis">Dispatch analysis</Link><Link href="/dispatch/map">Live map</Link></nav><Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link></header>
   <main className={styles.main}>
    <div className={styles.heading}><div><small>OPERATIONS · TAXICRM</small><h1>Dispatcher workspace</h1><p>Tracked drivers, zones and bookings update every five seconds.</p></div><div className={styles.headingActions}><span className={stale?styles.delayed:styles.live}>{stale?'Updates delayed':'Live from TaxiCRM'}</span><button ref={bookingTrigger} type="button" className={styles.newBookingButton} onClick={()=>setBookingOpen(true)}><Plus size={17}/>New booking</button><button type="button" aria-label="Refresh dispatcher" onClick={()=>setRefreshKey(value=>value+1)}><RefreshCw size={17}/></button></div></div>
    {(error||fleetError||zoneError)&&<p className={styles.alert} role="alert">{error||fleetError||(zoneError?'TaxiCRM zones are temporarily unavailable':'')}. {error||fleetError?'Last loaded data may be out of date.':'Driver positions remain visible.'}</p>}

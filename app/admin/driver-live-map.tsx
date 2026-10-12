@@ -41,7 +41,7 @@ export default function DriverLiveMap(){
  const fetchDrivers=useCallback(async()=>{
   try{
    const res=await fetch('/api/drivers/live',{credentials:'same-origin',cache:'no-store'});
-   if(res.status===401||res.status===403){router.push('/admin-login');return;}
+   if(res.status===401||res.status===403){router.push('/dispatch/login');return;}
    const data=await res.json() as Driver[];
    setDrivers(data);setUpdatedAt(new Date());setError('');
   }catch{setError('Unable to load driver positions.');}
@@ -117,8 +117,8 @@ export default function DriverLiveMap(){
  },[drivers]);
  return(
   <main className="admin-shell driver-live-shell premium-admin">
-   <header className="brandbar"><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Operations control</small></span></Link>
-    <nav className="admin-nav"><Link href="/admin">Overview</Link><Link href="/admin/dispatch">Live dispatch</Link><Link className="active" href="/admin/live-map">Live map</Link><Link href="/admin/configuration">Settings</Link></nav>
+   <header className="brandbar"><Link className="brand" href="/dispatch"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatch</small></span></Link>
+    <nav className="admin-nav"><Link href="/dispatch">Dispatcher</Link><Link href="/dispatch/bookings">Search bookings</Link><Link href="/dispatch/analysis">Dispatch analysis</Link><Link className="active" href="/dispatch/map">Live map</Link></nav>
     <Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link>
    </header>
    <div className="driver-live-body">
@@ -127,7 +127,7 @@ export default function DriverLiveMap(){
      <span className="driver-live-count"><strong>{drivers.length}</strong> CLEAR driver{drivers.length!==1?'s':''}</span><span className={`live-chip map-live-chip ${isLive?'':'connecting'}`}><span/>{isLive?'Live':'Connecting…'}</span>
      {updatedAt&&<span className="driver-live-time">Updated {updatedAt.toLocaleTimeString('en-GB')}</span>}
      <button className="driver-live-refresh" onClick={()=>void fetchDrivers()} disabled={loading} aria-label="Refresh driver positions"><RefreshCw size={14} className={loading?'spin':''}/><span>Refresh</span></button>
-     <Link className="driver-live-fleet" href="/admin/drivers"><ArrowLeft size={14}/>Fleet</Link>
+     <Link className="driver-live-fleet" href="/dispatch"><ArrowLeft size={14}/>Dispatcher</Link>
     </div>
     {error&&<p className="error-message" style={{margin:'0 42px'}}>{error}</p>}
     <div ref={mapContainer} className="driver-live-canvas"/>
