@@ -27,15 +27,17 @@ async function snapshot(){
  for(const row of missingRows){missingByStatus[row.status]=(missingByStatus[row.status]||0)+1;const year=String(new Date(row.updated_at).getUTCFullYear());missingByYear[year]=(missingByYear[year]||0)+1}
  const missingRecent7Days=missingRows.filter(row=>new Date(row.updated_at).getTime()>Date.now()-7*86400000).length;
  const alternateIds=[...new Set(missingRows.map(row=>row.original_booking_id).filter((id):id is string=>Boolean(id)))];
- let matchedByOriginalId=0;
+ const alternateFound=new Set<string>();
  await withTaxiCrmReadOnly(async client=>{
   for(let offset=0;offset<alternateIds.length;offset+=500){
    const result=await client.query<{external_id:string}>(`SELECT "externalId" external_id FROM public."Booking"
     WHERE provider='AUTOCAB' AND "externalId"=ANY($1::text[])`,[alternateIds.slice(offset,offset+500)]);
-   matchedByOriginalId+=result.rows.length;
+   result.rows.forEach(row=>alternateFound.add(row.external_id));
   }
  });
- return {total:Number(summary.rows[0].total),external:Number(summary.rows[0].external),withoutExternal:Number(summary.rows[0].without_external),test:Number(summary.rows[0].test),checkedExternal:ids.length,matchedInTaxiCrm:found.size,missingInTaxiCrm:missing.length,missingReferences:missing.slice(0,20),missingByStatus,missingByYear,missingRecent7Days,matchedByOriginalId};
+ const unmatched=missingRows.filter(row=>!row.original_booking_id||!alternateFound.has(row.original_booking_id));
+ const unmatchedByStatus:Record<string,number>={};for(const row of unmatched)unmatchedByStatus[row.status]=(unmatchedByStatus[row.status]||0)+1;
+ return {total:Number(summary.rows[0].total),external:Number(summary.rows[0].external),withoutExternal:Number(summary.rows[0].without_external),test:Number(summary.rows[0].test),checkedExternal:ids.length,matchedInTaxiCrm:found.size,missingInTaxiCrm:missing.length,missingReferences:missing.slice(0,20),missingByStatus,missingByYear,missingRecent7Days,matchedByOriginalId:missingRows.length-unmatched.length,unmatchedAfterOriginalId:unmatched.length,unmatchedByStatus,unmatchedReferences:unmatched.slice(0,20).map(row=>row.external_booking_id)};
 }
 
 export async function GET(request:Request){
@@ -59,7 +61,7 @@ export async function POST(request:Request){
  if(!body||!Number.isSafeInteger(body.expectedCount)||typeof body.backupSha256!=='string'||!/^[a-f0-9]{64}$/.test(body.backupSha256))return Response.json({error:'A verified count and backup checksum are required.'},{status:400});
  try{
   const before=await snapshot();
-  if(before.total!==body.expectedCount||before.missingInTaxiCrm)return Response.json({error:'Booking count changed or some bookings are missing from TaxiCRM.',before},{status:409});
+  if(before.total!==body.expectedCount||before.unmatchedAfterOriginalId)return Response.json({error:'Booking count changed or some bookings are missing from TaxiCRM.',before},{status:409});
   const client=await database().connect();
   try{
    await client.query('BEGIN');
