@@ -85,22 +85,31 @@ export async function GET(request:Request){
 export async function POST(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  if(!taxiCrmBookingReadEnabled()||!taxiCrmNoBookingCopyEnabled()||!taxiCrmWebhookIngestDisabled())return Response.json({error:'TaxiCRM-only booking mode is not active.'},{status:409});
- const body=await request.json().catch(()=>null) as {expectedCount?:unknown;backupSha256?:unknown}|null;
+ const body=await request.json().catch(()=>null) as {expectedCount?:unknown;backupSha256?:unknown;deleteVerifiedFinalised?:unknown}|null;
  if(!body||!Number.isSafeInteger(body.expectedCount)||typeof body.backupSha256!=='string'||!/^[a-f0-9]{64}$/.test(body.backupSha256))return Response.json({error:'A verified count and backup checksum are required.'},{status:400});
  try{
   const before=await snapshot();
   if(before.total!==body.expectedCount)return Response.json({error:'Booking count changed since the backup.',before},{status:409});
+  let retainedReferences=before.retainedReferences;
+  if(body.deleteVerifiedFinalised===true&&retainedReferences.length){
+   for(const reference of retainedReferences){
+    const payload=await readBookingDetails(reference) as Record<string,unknown>;
+    const archived=(payload.archivedBooking&&typeof payload.archivedBooking==='object'?payload.archivedBooking:{}) as Record<string,unknown>;
+    if(!['Completed','Cancelled','Rejected','No Fare'].includes(String(archived.reason||'')))return Response.json({error:'An unmatched booking has no confirmed final outcome.'},{status:409});
+   }
+   retainedReferences=[];
+  }
   const client=await database().connect();
   try{
    await client.query('BEGIN');
    await client.query("SELECT pg_advisory_xact_lock(hashtext('nac_local_booking_cleanup'))");
    const count=await client.query<{total:string}>('SELECT count(*)::text total FROM bookings');
    if(Number(count.rows[0].total)!==before.total){await client.query('ROLLBACK');return Response.json({error:'Booking count changed during cleanup.'},{status:409})}
-   const removed=await client.query('DELETE FROM bookings WHERE external_booking_id IS NULL OR NOT (external_booking_id=ANY($1::text[]))',[before.retainedReferences]);
+   const removed=await client.query('DELETE FROM bookings WHERE external_booking_id IS NULL OR NOT (external_booking_id=ANY($1::text[]))',[retainedReferences]);
    const remaining=await client.query<{total:string}>('SELECT count(*)::text total FROM bookings');
-   if(Number(remaining.rows[0].total)!==before.retainedReferences.length||removed.rowCount!==before.total-before.retainedReferences.length)throw new Error('Cleanup verification failed');
+   if(Number(remaining.rows[0].total)!==retainedReferences.length||removed.rowCount!==before.total-retainedReferences.length)throw new Error('Cleanup verification failed');
    await client.query('COMMIT');
-   return Response.json({deleted:removed.rowCount,remaining:before.retainedReferences.length,retainedReferences:before.retainedReferences,backupSha256:body.backupSha256},{headers:{'Cache-Control':'no-store'}});
+   return Response.json({deleted:removed.rowCount,remaining:retainedReferences.length,retainedReferences,backupSha256:body.backupSha256},{headers:{'Cache-Control':'no-store'}});
   }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
  }catch(error){console.error('Booking cleanup failed',error instanceof Error?error.name:'Unknown');return Response.json({error:'Booking cleanup failed; no committed deletion was confirmed.'},{status:500})}
 }
