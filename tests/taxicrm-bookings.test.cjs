@@ -28,7 +28,7 @@ test('TaxiCRM schema mapper prefers the complete bookings table',()=>{
  assert.equal(mapping.fields.reference.name,'booking_reference');
  assert.equal(mapping.fields.customerName.name,'passenger_name');
  assert.equal(mapping.fields.pickupAt.name,'pickup_time');
- assert.equal(mapping.fields.fare.name,'passenger_price');
+ assert.equal(mapping.fields.price.name,'passenger_price');
 });
 
 test('TaxiCRM schema mapper honours an explicit schema-qualified override',()=>{

@@ -66,13 +66,14 @@ export async function GET(request:Request){
   const selectedStatuses=[...new Set(searchParams.getAll('status').map(value=>value.trim().slice(0,60)).filter(Boolean))].slice(0,50);
   const source=(searchParams.get('source')||'').trim().slice(0,100);
   const payment=(searchParams.get('payment')||'').trim().slice(0,100);
+  const dateField=searchParams.get('dateField')==='booked'?'booked':'pickup';
   const values:string[]=[];const conditions:string[]=[];
   if(search){values.push(`%${search}%`);const index=values.length;conditions.push(`(COALESCE(external_booking_id,'') ILIKE $${index} OR COALESCE(original_booking_id,'') ILIKE $${index} OR name ILIKE $${index} OR phone ILIKE $${index} OR pickup ILIKE $${index} OR destination ILIKE $${index} OR COALESCE(driver_data::text,'') ILIKE $${index} OR COALESCE(vehicle_data::text,'') ILIKE $${index})`)}
   if(selectedStatuses.length){const placeholders=selectedStatuses.map(status=>{values.push(status);return '$'+values.length});conditions.push(`status IN (${placeholders.join(',')})`)}
   if(source){values.push(source);conditions.push(`source=$${values.length}`)}
   if(payment){values.push(payment);conditions.push(`payment_type=$${values.length}`)}
-  if(period.start&&period.end){values.push(period.start,period.end);conditions.push(`booking_pickup_day(timeline_data,pickup_data) BETWEEN $${values.length-1}::date AND $${values.length}::date`)}
-  if(period.period==='custom'){values.push(period.start+'T'+period.fromTime,period.end+'T'+period.toTime);conditions.push(`booking_pickup_local_time(timeline_data,pickup_data)>=$${values.length-1}::timestamp AND booking_pickup_local_time(timeline_data,pickup_data)<$${values.length}::timestamp+interval '1 minute'`)}
+  if(period.start&&period.end){values.push(period.start,period.end);conditions.push(dateField==='booked'?`(created_at AT TIME ZONE 'Europe/London')::date BETWEEN $${values.length-1}::date AND $${values.length}::date`:`booking_pickup_day(timeline_data,pickup_data) BETWEEN $${values.length-1}::date AND $${values.length}::date`)}
+  if(period.period==='custom'){values.push(period.start+'T'+period.fromTime,period.end+'T'+period.toTime);conditions.push(dateField==='booked'?`(created_at AT TIME ZONE 'Europe/London')>=$${values.length-1}::timestamp AND (created_at AT TIME ZONE 'Europe/London')<$${values.length}::timestamp+interval '1 minute'`:`booking_pickup_local_time(timeline_data,pickup_data)>=$${values.length-1}::timestamp AND booking_pickup_local_time(timeline_data,pickup_data)<$${values.length}::timestamp+interval '1 minute'`)}
   const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';
   const db=database();
   if(exporting){const rows=await db.query(`SELECT external_booking_id,name,phone,status,pickup,destination,source,payment_type,booking_pickup_day(timeline_data,pickup_data)::text AS pickup_day FROM bookings ${where} ORDER BY updated_at DESC,id`,values);return new Response(bookingCsv(rows.rows),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="need-a-cab-bookings.csv"','Cache-Control':'no-store'}})}

@@ -113,7 +113,7 @@ export type TaxiCrmBookingPage={pastPeriod:boolean;bookings:Record<string,unknow
 
 export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCrmBookingPage>{
  const period=bookingPeriod(params),exporting=params.get('export')==='csv',page=Math.max(1,Number.parseInt(params.get('page')||'1',10)||1),requestedSize=Number.parseInt(params.get('pageSize')||'20',10),pageSize=exporting?50_000:([10,20,50,100].includes(requestedSize)?requestedSize:20);
- const search=(params.get('search')||'').trim().slice(0,120),selectedStatuses=[...new Set(params.getAll('status').map(value=>value.trim().slice(0,60)).filter(Boolean))].slice(0,50),source=(params.get('source')||'').trim().slice(0,100),payment=(params.get('payment')||'').trim().slice(0,100);
+ const search=(params.get('search')||'').trim().slice(0,120),selectedStatuses=[...new Set(params.getAll('status').map(value=>value.trim().slice(0,60)).filter(Boolean))].slice(0,50),source=(params.get('source')||'').trim().slice(0,100),payment=(params.get('payment')||'').trim().slice(0,100),dateField=params.get('dateField')==='booked'?'booked':'pickup';
  return withTaxiCrmReadOnly(async client=>{
   const mapping=await discover(client),values:unknown[]=[],conditions:string[]=[];
   const add=(value:unknown)=>{values.push(value);return `$${values.length}`};
@@ -123,7 +123,8 @@ export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCr
   if(selectedStatuses.length){const allowed=selectedStatuses.flatMap(item=>item==='Booked'?['BOOKED','CREATED']:item==='Driver Accepted'?['ACCEPTED']:item==='Passenger On Board'?['POB','PASSENGER-ON-BOARD','PASSENGER_ON_BOARD']:item==='No Fare'?['NOFARE','NO_FARE']:[item.toUpperCase().replaceAll(' ','_')]);conditions.push(`${statusColumn}::text=ANY(${add(allowed)}::text[])`)}
   const sourceColumn=column(mapping,'source');if(source&&sourceColumn)conditions.push(`${sourceColumn}::text=${add(source)}`);
   const paymentColumn=column(mapping,'payment');if(payment&&paymentColumn)conditions.push(`${paymentColumn}::text=${add(payment)}`);
-  const timeInfo=mapping.fields.pickupAt||mapping.fields.createdAt||mapping.fields.updatedAt;
+  const timeInfo=dateField==='booked'?mapping.fields.createdAt:(mapping.fields.pickupAt||mapping.fields.createdAt||mapping.fields.updatedAt);
+  if(period.start&&period.end&&!timeInfo)throw new TaxiCrmBookingSchemaError(`TaxiCRM cannot filter by ${dateField==='booked'?'booking creation':'pickup'} time because the source field is unavailable.`);
   if(period.start&&period.end&&timeInfo){const time=localTime(timeInfo);conditions.push(`${time}::date BETWEEN ${add(period.start)}::date AND ${add(period.end)}::date`);if(period.period==='custom'){conditions.push(`${time}::time BETWEEN ${add(period.fromTime)}::time AND ${add(period.toTime)}::time`)}}
   const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'',table=`${tableName(mapping)} booking`;
   const locationsJoin=mapping.locationTable?`LEFT JOIN LATERAL (SELECT max(address) FILTER (WHERE type::text='PICKUP') pickup,max(address) FILTER (WHERE type::text='DESTINATION') destination FROM ${ident(mapping.locationTable.schema)}.${ident(mapping.locationTable.table)} WHERE "bookingId"=booking.${ident(mapping.fields.id!.name)}) locations ON true`:'';
