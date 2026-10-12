@@ -63,7 +63,9 @@ export async function GET(request:Request){
     if(!id)continue;
     try{const payload=await readBookingDetails(id) as Record<string,unknown>;
      const booking=(payload.booking&&typeof payload.booking==='object'?payload.booking:payload) as Record<string,unknown>;
-     result={reference:row.external_booking_id,lookup,status:typeof booking.status==='string'?booking.status:null};break;
+     const archived=(payload.archivedBooking&&typeof payload.archivedBooking==='object'?payload.archivedBooking:{}) as Record<string,unknown>;
+     const remoteStatus=typeof booking.status==='string'?booking.status:typeof archived.reason==='string'?archived.reason:null;
+     result={reference:row.external_booking_id,lookup,status:remoteStatus};break;
     }catch(error){result={reference:row.external_booking_id,lookup,status:null,error:error&&typeof error==='object'&&'status' in error?`HTTP_${String(error.status)}`:error instanceof Error?error.name:'Unknown'}}
    }
    checks.push(result);
