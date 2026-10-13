@@ -92,12 +92,10 @@ export default function DispatcherWorkspace(){
       return {...detail,driverId:detail.driverId||detail.id,vehicleId:detail.id,vehicleCallsign:match?.vehicleCallsign||detail.callsign,zone:match?.zone||null};
      }));
      setFleetError('');
-    }else if(driversResult.status==='fulfilled'&&driversResult.value.drivers.length){
-     // Keep the last complete snapshot when the detailed feed briefly fails.
-     setDrivers(previous=>previous.length?previous:driversResult.value.drivers);
-     setFleetError(detailsResult.status==='rejected'?'Driver details are temporarily unavailable.':'');
     }else if(detailsResult.status==='rejected'){
-     setFleetError(detailsResult.reason instanceof Error?detailsResult.reason.message:'Fleet feed unavailable');
+     setFleetError(detailsResult.reason instanceof Error?detailsResult.reason.message:'Webhook fleet feed unavailable');
+    }else if(detailsResult.status==='fulfilled'){
+     setFleetError('No recent webhook positions are available.');
     }
    }
    if(active)timer=setTimeout(load,5000);
@@ -144,7 +142,7 @@ export default function DispatcherWorkspace(){
       <label>Office note<textarea value={note} onChange={event=>setNote(event.target.value)} rows={2} placeholder="Information for the operator"/></label>
      </div><div className={styles.formActions}><span>Booking creation is awaiting the TaxiCRM operator API.</span><button type="button" disabled title="TaxiCRM operator booking API is not connected">Create booking</button></div>
     </section></div>}
-    <section className={styles.fleet} aria-labelledby="fleet-title"><div className={styles.panelHeading}><div><small>FLEET · TAXICRM</small><h2 id="fleet-title">Tracked drivers</h2></div><span>{visibleDrivers.length}</span></div><div className={styles.driverList}>{visibleDrivers.map(driver=><button type="button" key={driver.vehicleId} className={selectedDriver===driver.vehicleId?styles.activeDriver:''} onClick={()=>setSelectedDriver(driver.vehicleId)}><strong>{driver.vehicleCallsign||driver.callsign||driver.vehicleId}</strong><span>{driver.name||'Driver name unavailable'}</span><small>{zoneName(driver.zone)}</small><em className={isClear(driver)?styles.clearStatus:styles.busyStatus}>{driver.vehicleStatus}</em></button>)}{drivers.length===0&&<p className={styles.empty}>No recent vehicle positions received.</p>}</div></section>
+    <section className={styles.fleet} aria-labelledby="fleet-title"><div className={styles.panelHeading}><div><small>FLEET · LIVE WEBHOOK</small><h2 id="fleet-title">Tracked drivers</h2></div><span>{visibleDrivers.length}</span></div><div className={styles.driverList}>{visibleDrivers.map(driver=><button type="button" key={driver.vehicleId} className={selectedDriver===driver.vehicleId?styles.activeDriver:''} onClick={()=>setSelectedDriver(driver.vehicleId)}><strong>{driver.vehicleCallsign||driver.callsign||driver.vehicleId}</strong><span>{driver.name||'Driver name unavailable'}</span><small>{zoneName(driver.zone)}</small><em className={isClear(driver)?styles.clearStatus:styles.busyStatus}>{driver.vehicleStatus}</em></button>)}{drivers.length===0&&<p className={styles.empty}>No recent vehicle positions received.</p>}</div></section>
     <section className={styles.mapPanel} aria-labelledby="map-title"><div className={styles.panelHeading}><div><small>LIVE POSITIONS</small><h2 id="map-title">Driver map</h2></div><span>{selectedZone||'All zones'}</span></div><DispatcherDriverMap drivers={drivers} zones={knownZones} selectedZone={selectedZone} selectedDriver={selectedDriver} onSelect={setSelectedDriver}/><div className={styles.mapFooter}><span><i className={styles.clearDot}/>Clear {availableCount}</span><span><i className={styles.busyDot}/>Other statuses {drivers.length-availableCount}</span>{focusedDriver&&<strong>{focusedDriver.vehicleCallsign||focusedDriver.callsign||focusedDriver.vehicleId} · {focusedDriver.name||focusedDriver.vehicleStatus}</strong>}</div></section>
     <section className={styles.zones} aria-labelledby="zones-title"><div className={styles.panelHeading}><div><small>TAXICRM ZONES</small><h2 id="zones-title">Pickup zones</h2></div><span>{knownZones.length} zones</span></div><div className={styles.zoneList}><button type="button" className={!selectedZone?styles.activeZone:''} onClick={()=>setSelectedZone('')}><strong>All zones</strong><span>{waitingJobs.length} waiting bookings</span><small>Show all tracked drivers on the map</small></button>{zones.filter(([zone])=>zone!=='Zone unavailable').map(([zone,group])=><button type="button" key={zone} className={selectedZone===zone?styles.activeZone:''} onClick={()=>setSelectedZone(zone)}><strong>{zone}</strong><span>{group.waiting} waiting</span><small>{group.drivers.length?`${group.clear} clear · ${group.busy} other with known zone`:'Driver zone unavailable in live feed'}</small></button>)}{!zones.length&&<p className={styles.empty}>Waiting for TaxiCRM zones.</p>}</div></section>
    </div>
