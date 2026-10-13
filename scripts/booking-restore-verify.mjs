@@ -16,7 +16,9 @@ try{
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relkind IN ('r','p') ORDER BY c.relname`)).rows;
   const counts={};
-  for(const table of ['bookings','customer_accounts','Booking','BookingOrphanBackup_20261006']){
+  for(const table of ['bookings','customer_accounts','Booking','BookingOrphanBackup_20261006',
+   'BookingLocationOrphanBackup_20261006','BookingViaOrphanBackup_20261006',
+   'BookingTimelineEventOrphanBackup_20261006','BookingSnapshotOrphanBackup_20261006']){
    if(tables.some(row=>row.name===table)){
     counts[table]=Number((await client.query(`SELECT count(*)::bigint AS total FROM public."${table}"`)).rows[0].total);
    }

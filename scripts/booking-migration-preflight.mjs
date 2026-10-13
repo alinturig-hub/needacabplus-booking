@@ -41,7 +41,9 @@ async function exactBookingCounts(pool,source){
  try{
   await client.query('BEGIN READ ONLY');
   await client.query("SET LOCAL statement_timeout='120s'");
-  const tables=source?['Booking','BookingOrphanBackup_20261006']:['bookings'];
+  const tables=source?['Booking','BookingOrphanBackup_20261006',
+   'BookingLocationOrphanBackup_20261006','BookingViaOrphanBackup_20261006',
+   'BookingTimelineEventOrphanBackup_20261006','BookingSnapshotOrphanBackup_20261006']:['bookings'];
   const counts={};
   for(const table of tables){
    const exists=(await client.query('SELECT to_regclass($1) IS NOT NULL AS present',[`public."${table}"`])).rows[0]?.present;
@@ -82,7 +84,10 @@ try{
  const sourceTables=new Set(from.tables.map(table=>table.name));
  const targetTables=new Set(to.tables.map(table=>table.name));
  const collisions=[...sourceTables].filter(name=>targetTables.has(name));
- const required=['Booking','BookingLocation','BookingVia','WebhookEvent','BookingTimelineEvent','BookingSnapshot'];
+ const required=['Booking','BookingLocation','BookingVia','WebhookEvent','BookingTimelineEvent','BookingSnapshot',
+  'BookingOrphanBackup_20261006','BookingLocationOrphanBackup_20261006',
+  'BookingViaOrphanBackup_20261006','BookingTimelineEventOrphanBackup_20261006',
+  'BookingSnapshotOrphanBackup_20261006'];
  const missing=required.filter(name=>!sourceTables.has(name));
  const sourceAddress=new URL(sourceUrl),targetAddress=new URL(targetUrl);
  const sameDatabase=sourceAddress.hostname===targetAddress.hostname&&
