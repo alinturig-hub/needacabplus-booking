@@ -1,0 +1,9 @@
+'use client';
+import {LayoutPanelLeft,MoveHorizontal} from 'lucide-react';
+import {saveAdminInterface,useAdminInterface} from '../admin-interface';
+import '../general-settings.css';
+
+export default function InterfaceApp(){
+ const value=useAdminInterface();
+ return <main className="general-settings-page"><header><span className="eyebrow">GENERAL SETTINGS</span><h1>User Interface</h1><p>These preferences are saved in this browser for the Admin workspace.</p></header><div className="general-settings-grid"><section className="general-settings-panel"><h2><LayoutPanelLeft size={20}/>Display density</h2><p>Choose how much information fits in the Admin menu and booking tables.</p><div className="general-settings-choice"><button type="button" aria-pressed={value.density==='comfortable'} onClick={()=>saveAdminInterface({...value,density:'comfortable'})}>Comfortable <small>More space between rows</small></button><button type="button" aria-pressed={value.density==='compact'} onClick={()=>saveAdminInterface({...value,density:'compact'})}>Compact <small>Show more rows at once</small></button></div></section><section className="general-settings-panel"><h2><MoveHorizontal size={20}/>Motion</h2><p>Reduce movement in Admin transitions and animations.</p><label className="general-settings-check"><input type="checkbox" checked={value.reduceMotion} onChange={event=>saveAdminInterface({...value,reduceMotion:event.target.checked})}/>Reduce motion</label></section></div></main>;
+}

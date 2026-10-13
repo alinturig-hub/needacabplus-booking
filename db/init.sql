@@ -518,6 +518,17 @@ CREATE TABLE IF NOT EXISTS staff_sessions (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_staff_sessions_staff ON staff_sessions(staff_id,expires_at DESC);
+CREATE TABLE IF NOT EXISTS operating_companies (
+ id uuid PRIMARY KEY,
+ code text NOT NULL UNIQUE,
+ name text NOT NULL,
+ email text NOT NULL DEFAULT '',
+ phone text NOT NULL DEFAULT '',
+ active boolean NOT NULL DEFAULT true,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_operating_companies_name ON operating_companies(name);
 ALTER TABLE admin_login_challenges ADD COLUMN IF NOT EXISTS staff_id uuid REFERENCES staff_accounts(id) ON DELETE CASCADE;
 CREATE TABLE IF NOT EXISTS customer_oauth_states(state_hash text PRIMARY KEY,provider text NOT NULL,browser_hash text NOT NULL,nonce text NOT NULL,verifier text NOT NULL,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_identities(provider text NOT NULL,subject text NOT NULL,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,PRIMARY KEY(provider,subject));

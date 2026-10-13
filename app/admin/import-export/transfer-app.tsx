@@ -1,0 +1,12 @@
+'use client';
+import {useState} from 'react';
+import Link from 'next/link';
+import {Download,FileJson,Upload} from 'lucide-react';
+import {Button} from '@/components/ui/button';
+import '../general-settings.css';
+
+export default function ImportExportApp(){
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ async function importFile(file:File|null){if(!file)return;setBusy(true);setError('');setMessage('');try{if(file.size>500_000)throw Error('The file must be smaller than 500 KB.');const response=await fetch('/api/admin/companies/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:await file.text()}),data=await response.json() as {added?:number;updated?:number;error?:string};if(!response.ok)throw Error(data.error||'Import failed.');setMessage(`${data.added||0} companies added, ${data.updated||0} updated.`)}catch(reason){setError(reason instanceof Error?reason.message:'Import failed.')}finally{setBusy(false)}}
+ return <main className="general-settings-page"><header><span className="eyebrow">GENERAL SETTINGS</span><h1>Import & Export</h1><p>Transfer the company directory and export booking results.</p></header><div className="general-settings-grid"><section className="general-settings-panel"><h2><FileJson size={20}/>Company directory</h2><p>Export a JSON backup. Importing adds new codes and updates matching codes; it never removes companies.</p><div className="general-settings-actions"><a className="general-settings-action" href="/api/admin/companies/transfer" download><Download size={17}/>Export JSON</a><label className="general-settings-action"><Upload size={17}/>{busy?'Importing…':'Import JSON'}<input className="general-settings-file" type="file" accept=".json,application/json" disabled={busy} onChange={event=>{void importFile(event.target.files?.[0]||null);event.target.value=''}}/></label></div><small>Format: version 1, with a companies list containing code, name, email, phone and active.</small></section><section className="general-settings-panel"><h2><Download size={20}/>Bookings CSV</h2><p>Choose a period and filters in Search bookings, then use Export CSV. The file includes only matching booking results.</p><Button asChild><Link href="/admin/bookings">Open booking search</Link></Button></section></div>{message&&<p role="status" className="general-settings-success">{message}</p>}{error&&<p role="alert" className="error-message">{error}</p>}</main>;
+}
