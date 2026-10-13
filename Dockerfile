@@ -22,6 +22,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.mjs ./sc
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/bootstrap-taxicrm-reader.mjs ./scripts/bootstrap-taxicrm-reader.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-bookings.mjs ./scripts/audit-bookings.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/compare-booking.mjs ./scripts/compare-booking.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/booking-migration-preflight.mjs ./scripts/booking-migration-preflight.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-fetch.mjs ./scripts/audit-fetch.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-reference.mjs ./scripts/audit-reference.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-time-evidence.mjs ./scripts/audit-time-evidence.mjs
