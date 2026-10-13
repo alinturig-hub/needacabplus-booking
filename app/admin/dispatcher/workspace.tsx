@@ -15,6 +15,7 @@ type DispatchData={jobs:Job[];activeTotal:number;serverTime:string;dataSource?:s
 const waiting=(job:Job)=>!job.assigned&&['Booked','Created','Modified','Running Late'].includes(job.status);
 const ukTime=(value:string|null)=>value?new Date(value).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}):'—';
 const zoneName=(value:string|null|undefined)=>value?.trim()||'Zone unavailable';
+const isVisibleOnLiveMap=(driver:FleetMapVehicle)=>driver.isLive&&driver.vehicleStatus.trim().toLowerCase()!=='notworking';
 const isClear=(driver:Driver)=>driver.isLive!==false&&driver.vehicleStatus.trim().toLowerCase()==='clear';
 
 export default function DispatcherWorkspace(){
@@ -83,19 +84,18 @@ export default function DispatcherWorkspace(){
     if(driversResult.status==='fulfilled'){
      setKnownZones(driversResult.value.zones);setZoneError(Boolean(driversResult.value.zoneError));
     }
-    if(detailsResult.status==='fulfilled'&&detailsResult.value.length){
+    if(detailsResult.status==='fulfilled'){
      const tracked=driversResult.status==='fulfilled'?driversResult.value.drivers:[];
      const byDriver=new Map(tracked.filter(item=>item.driverId).map(item=>[item.driverId,item] as const));
      const byRegistration=new Map(tracked.filter(item=>item.registration).map(item=>[item.registration?.toUpperCase(),item] as const));
-     setDrivers(detailsResult.value.map(detail=>{
+     const liveVehicles=detailsResult.value.filter(isVisibleOnLiveMap);
+     setDrivers(liveVehicles.map(detail=>{
       const match=byRegistration.get(detail.registration?.toUpperCase())||(detail.driverId?byDriver.get(detail.driverId):undefined);
       return {...detail,driverId:detail.driverId||detail.id,vehicleId:detail.id,vehicleCallsign:match?.vehicleCallsign||detail.callsign,zone:match?.zone||null};
      }));
-     setFleetError('');
+     setFleetError(liveVehicles.length?'':'No live vehicle positions are available.');
     }else if(detailsResult.status==='rejected'){
      setFleetError(detailsResult.reason instanceof Error?detailsResult.reason.message:'Webhook fleet feed unavailable');
-    }else if(detailsResult.status==='fulfilled'){
-     setFleetError('No recent webhook positions are available.');
     }
    }
    if(active)timer=setTimeout(load,5000);

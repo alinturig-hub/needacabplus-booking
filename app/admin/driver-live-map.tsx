@@ -33,7 +33,9 @@ export default function DriverLiveMap(){
  const [query,setQuery]=useState('');
  const [filter,setFilter]=useState('all');
  const visibleDrivers=useMemo(()=>drivers.filter(driver=>{
-  if(filter==='live'&&!driver.isLive||filter==='stale'&&driver.isLive)return false;
+  const active=driver.isLive&&driver.vehicleStatus.trim().toLowerCase()!=='notworking';
+  if((filter==='all'||filter==='live')&&!active||filter==='stale'&&driver.isLive)return false;
+  if(filter!=='stale'&&filter!=='OFFLINE'&&!driver.isLive)return false;
   if(['CLEAR','DOW','DAP','POB','OFFLINE','UNKNOWN'].includes(filter)&&driver.operationalStatus!==filter)return false;
   const term=query.trim().toLowerCase();
   return !term||[driver.callsign,driver.name,driver.registration,driver.bookingId?.toString()].some(value=>value?.toLowerCase().includes(term));
