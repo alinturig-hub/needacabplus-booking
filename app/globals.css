@@ -71,6 +71,7 @@
 .driver-map-marker img{position:absolute;left:8px;top:12px;width:32px;height:56px;object-fit:contain;transform-origin:50% 50%;filter:invert(1) drop-shadow(0 3px 4px #000b);pointer-events:none;user-select:none;will-change:transform}
 .driver-map-marker span{position:relative;z-index:1;display:block;min-width:25px;max-width:45px;padding:3px 6px;background:#fff;border:2px solid #e0b448;border-radius:9px;box-shadow:0 2px 5px #0008;font-size:10px;font-weight:800;text-align:center;color:#101313;line-height:1;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .driver-map-marker-clear span{border-color:#52b960}.driver-map-marker-dow span{border-color:#e2a438}.driver-map-marker-dap span{border-color:#599bc9}.driver-map-marker-pob span{border-color:#dc6e6e}.driver-map-marker-offline span{border-color:#929da6}.driver-map-marker-unknown span{border-color:#c3ad77}
+.driver-map-marker-stale{opacity:.55}.driver-map-marker-stale span{border-color:#929da6}
 .driver-popup{font-size:15px;line-height:1.4;min-width:min(340px,calc(100vw - 80px));display:flex;flex-direction:column;gap:8px;padding:5px 8px 3px}
 .driver-popup strong{font-size:20px;display:block;margin-bottom:17px;color:#303030}
 .driver-popup span{color:#363636;overflow-wrap:anywhere}

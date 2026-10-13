@@ -15,7 +15,7 @@ type DispatchData={jobs:Job[];activeTotal:number;serverTime:string;dataSource?:s
 const waiting=(job:Job)=>!job.assigned&&['Booked','Created','Modified','Running Late'].includes(job.status);
 const ukTime=(value:string|null)=>value?new Date(value).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}):'—';
 const zoneName=(value:string|null|undefined)=>value?.trim()||'Zone unavailable';
-const isClear=(driver:Driver)=>driver.vehicleStatus.trim().toLowerCase()==='clear';
+const isClear=(driver:Driver)=>driver.isLive!==false&&driver.vehicleStatus.trim().toLowerCase()==='clear';
 
 export default function DispatcherWorkspace(){
  const [data,setData]=useState<DispatchData|null>(null);
@@ -81,15 +81,24 @@ export default function DispatcherWorkspace(){
     if(jobsResult.status==='fulfilled'){setData(jobsResult.value);setError('');setUpdatedAt(new Date().toISOString())}
     else setError(jobsResult.reason instanceof Error?jobsResult.reason.message:'Booking feed unavailable');
     if(driversResult.status==='fulfilled'){
-     const byDriver=new Map(detailsResult.status==='fulfilled'?detailsResult.value.filter(item=>item.driverId).map(item=>[item.driverId,item] as const):[]);
-     const byRegistration=new Map(detailsResult.status==='fulfilled'?detailsResult.value.filter(item=>item.registration).map(item=>[item.registration?.toUpperCase(),item] as const):[]);
-     setDrivers(driversResult.value.drivers.map(driver=>{
-      const detail=byRegistration.get(driver.registration?.toUpperCase())||byDriver.get(driver.driverId);
-      return detail?{...driver,operationalStatus:detail.operationalStatus,isLive:detail.isLive,registration:detail.registration,bookingId:detail.bookingId,pickupAddress:detail.pickupAddress,destinationAddress:detail.destinationAddress,todayRevenue:detail.todayRevenue}:driver;
-     }));
-     setKnownZones(driversResult.value.zones);setZoneError(Boolean(driversResult.value.zoneError));setFleetError('')
+     setKnownZones(driversResult.value.zones);setZoneError(Boolean(driversResult.value.zoneError));
     }
-    else setFleetError(driversResult.reason instanceof Error?driversResult.reason.message:'Fleet feed unavailable');
+    if(detailsResult.status==='fulfilled'&&detailsResult.value.length){
+     const tracked=driversResult.status==='fulfilled'?driversResult.value.drivers:[];
+     const byDriver=new Map(tracked.filter(item=>item.driverId).map(item=>[item.driverId,item] as const));
+     const byRegistration=new Map(tracked.filter(item=>item.registration).map(item=>[item.registration?.toUpperCase(),item] as const));
+     setDrivers(detailsResult.value.map(detail=>{
+      const match=byRegistration.get(detail.registration?.toUpperCase())||(detail.driverId?byDriver.get(detail.driverId):undefined);
+      return {...detail,driverId:detail.driverId||detail.id,vehicleId:detail.id,vehicleCallsign:match?.vehicleCallsign||detail.callsign,zone:match?.zone||null};
+     }));
+     setFleetError('');
+    }else if(driversResult.status==='fulfilled'&&driversResult.value.drivers.length){
+     // Keep the last complete snapshot when the detailed feed briefly fails.
+     setDrivers(previous=>previous.length?previous:driversResult.value.drivers);
+     setFleetError(detailsResult.status==='rejected'?'Driver details are temporarily unavailable.':'');
+    }else if(detailsResult.status==='rejected'){
+     setFleetError(detailsResult.reason instanceof Error?detailsResult.reason.message:'Fleet feed unavailable');
+    }
    }
    if(active)timer=setTimeout(load,5000);
   };
@@ -101,7 +110,7 @@ export default function DispatcherWorkspace(){
  const waitingJobs=jobs.filter(waiting);
  const activeJobs=jobs.filter(job=>!waiting(job));
  const availableCount=drivers.filter(isClear).length;
- const visibleDrivers=[...drivers].sort((a,b)=>Number(isClear(b))-Number(isClear(a))||(a.vehicleCallsign||a.callsign||'').localeCompare(b.vehicleCallsign||b.callsign||''));
+ const visibleDrivers=[...drivers].sort((a,b)=>Number(b.isLive!==false)-Number(a.isLive!==false)||Number(isClear(b))-Number(isClear(a))||(a.vehicleCallsign||a.callsign||'').localeCompare(b.vehicleCallsign||b.callsign||''));
  const focusedDriver=drivers.find(driver=>driver.vehicleId===selectedDriver);
  const zones=useMemo(()=>{
   const groups=new Map<string,{drivers:Driver[];waiting:number;clear:number;busy:number}>();
@@ -121,7 +130,7 @@ export default function DispatcherWorkspace(){
   <main className={styles.main}>
    <div className={styles.heading}><div><small>OPERATIONS · TAXICRM</small><h1>Dispatcher workspace</h1><p>Tracked drivers, zones and bookings update every five seconds.</p></div><div className={styles.headingActions}><span className={stale?styles.delayed:styles.live}>{stale?'Updates delayed':'Live from TaxiCRM'}</span><button ref={bookingTrigger} type="button" className={styles.newBookingButton} onClick={()=>setBookingOpen(true)}><Plus size={17}/>New booking</button><button type="button" aria-label="Refresh dispatcher" onClick={()=>setRefreshKey(value=>value+1)}><RefreshCw size={17}/></button></div></div>
    {(error||fleetError||zoneError)&&<p className={styles.alert} role="alert">{error||fleetError||(zoneError?'TaxiCRM zones are temporarily unavailable':'')}. {error||fleetError?'Last loaded data may be out of date.':'Driver positions remain visible.'}</p>}
-   <div className={styles.summary}><span><Clock3 size={17}/>To dispatch <strong>{waitingJobs.length}</strong></span><span><Activity size={17}/>Active <strong>{activeJobs.length}</strong></span><span><CarFront size={17}/>Available cars <strong>{availableCount}</strong></span><span><MapPin size={17}/>Tracked vehicles <strong>{drivers.length}</strong></span><span>Last update <strong>{ukTime(updatedAt||null)}</strong></span></div>
+   <div className={styles.summary}><span><Clock3 size={17}/>To dispatch <strong>{waitingJobs.length}</strong></span><span><Activity size={17}/>Active <strong>{activeJobs.length}</strong></span><span><CarFront size={17}/>Available cars <strong>{availableCount}</strong></span><span><MapPin size={17}/>Vehicles with positions <strong>{drivers.length}</strong></span><span>Last update <strong>{ukTime(updatedAt||null)}</strong></span></div>
    <div className={styles.upper}>
     {bookingOpen&&<div className={styles.formBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)setBookingOpen(false)}}><section ref={bookingDialog} className={styles.bookingForm} role="dialog" aria-modal="true" aria-labelledby="new-booking-title"><div className={styles.panelHeading}><div><small>OPERATOR</small><h2 id="new-booking-title">New booking</h2></div><button type="button" className={styles.closeForm} aria-label="Close new booking" onClick={()=>setBookingOpen(false)}><X size={20}/></button></div><p className={styles.help}>Prepare a manual booking. TaxiCRM creation will be enabled when its operator API is connected.</p>
      <div className={styles.formScroll}>

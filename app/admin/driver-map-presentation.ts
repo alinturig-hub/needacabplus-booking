@@ -18,7 +18,7 @@ export function driverMarkerLabel(driver:DriverMapDetails,fallback:string){
 
 export function driverMarker(driver:DriverMapDetails,fallback:string){
  const element=document.createElement('div');
- element.className=`driver-map-marker driver-map-marker-${driverOperationalStatus(driver).toLowerCase()}`;
+ element.className=`driver-map-marker driver-map-marker-${driverOperationalStatus(driver).toLowerCase()}${driver.isLive===false?' driver-map-marker-stale':''}`;
  element.setAttribute('role','button');
  element.setAttribute('tabindex','0');
  element.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();element.click()}});
@@ -30,7 +30,7 @@ export function driverMarker(driver:DriverMapDetails,fallback:string){
 
 export function updateDriverMarker(element:HTMLElement,driver:DriverMapDetails,fallback:string){
  const status=driverOperationalStatus(driver);
- element.className=`driver-map-marker driver-map-marker-${status.toLowerCase()}`;
+ element.className=`driver-map-marker driver-map-marker-${status.toLowerCase()}${driver.isLive===false?' driver-map-marker-stale':''}`;
  element.setAttribute('aria-label',`Driver ${driver.callsign||fallback}, ${driver.name||'name unavailable'}, ${statusLabels[status]}`);
  const label=element.querySelector('span');if(label)label.textContent=driverMarkerLabel(driver,fallback);
 }
