@@ -19,6 +19,7 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
  const markers=useRef(new Map<string,Marker>());
  const fitted=useRef(false);
  const centeredZone=useRef('');
+ const centeredDriver=useRef('');
  const [ready,setReady]=useState(false);
 
  useEffect(()=>{
@@ -69,9 +70,12 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
 
  useEffect(()=>{
   const map=mapRef.current;if(!ready||!map||!selectedDriver)return;
+  if(centeredDriver.current===selectedDriver)return;
   const driver=drivers.find(item=>item.vehicleId===selectedDriver&&valid(item));
-  if(driver)map.flyTo({center:coordinate(driver),zoom:Math.max(map.getZoom(),13),duration:650});
+  if(driver){centeredDriver.current=selectedDriver;map.flyTo({center:coordinate(driver),zoom:Math.max(map.getZoom(),13),duration:650})}
  },[drivers,ready,selectedDriver]);
+
+ useEffect(()=>{if(!selectedDriver)centeredDriver.current=''},[selectedDriver]);
 
  useEffect(()=>{
   const map=mapRef.current;if(!ready||!map)return;
