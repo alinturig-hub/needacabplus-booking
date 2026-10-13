@@ -1,4 +1,4 @@
-import {isAdmin} from '@/lib/security';
+import {isDispatchUser} from '@/lib/security';
 import {fleetMapVehicles} from '@/lib/live-drivers';
 import {driverPositionEvents} from '@/lib/driver-position-events';
 
@@ -6,7 +6,7 @@ export const dynamic='force-dynamic';
 export const runtime='nodejs';
 
 export async function GET(request:Request){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!await isDispatchUser())return Response.json({error:'Administrator access required.'},{status:403});
  const encoder=new TextEncoder();let heartbeat:ReturnType<typeof setInterval>,fallback:ReturnType<typeof setInterval>,closed=false,running=false;
  let update:(()=>void)|undefined;
  const stream=new ReadableStream({

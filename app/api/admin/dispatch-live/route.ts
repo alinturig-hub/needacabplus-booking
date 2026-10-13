@@ -1,12 +1,12 @@
 import {autocabIso} from '@/lib/autocab-time.mjs';
 import {database} from '@/lib/database';
-import {isAdmin,unavailable} from '@/lib/security';
+import {isDispatchUser,unavailable} from '@/lib/security';
 import {reconcileOverdueBookings} from '@/lib/dispatch-reconciliation';
 import {taxiCrmDispatchReadEnabled} from '@/lib/taxicrm-database';
 import {taxiCrmDispatchLive} from '@/lib/taxicrm-dispatch';
 export const dynamic='force-dynamic';
 export async function GET(){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403,headers:{'X-Dispatch-Version':'queue-reconcile-v3','Cache-Control':'no-store'}});
+ if(!await isDispatchUser())return Response.json({error:'Administrator access required.'},{status:403,headers:{'X-Dispatch-Version':'queue-reconcile-v3','Cache-Control':'no-store'}});
  if(taxiCrmDispatchReadEnabled())try{return Response.json(await taxiCrmDispatchLive(),{headers:{'Cache-Control':'no-store','X-Data-Source':'TaxiCRM'}})}catch(error){return unavailable(error)}
  try{
   const db=database();

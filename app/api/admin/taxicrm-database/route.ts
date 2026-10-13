@@ -1,4 +1,4 @@
-import {isAdmin,sameOrigin} from '@/lib/security';
+import {isAdmin,isDispatchUser,sameOrigin} from '@/lib/security';
 import {taxiCrmBookingReadEnabled,taxiCrmCustomerReadEnabled,taxiCrmDatabaseConfigured,taxiCrmDispatchReadEnabled,taxiCrmLiveReadEnabled,taxiCrmNoBookingCopyEnabled,taxiCrmWebhookIngestDisabled,TaxiCrmDatabaseConfigurationError,verifyTaxiCrmDatabase} from '@/lib/taxicrm-database';
 import {inspectTaxiCrmBookingMapping,inspectTaxiCrmBookingSchema,readTaxiCrmBookings,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 import {taxiCrmClearDrivers,taxiCrmFleetFreshness,taxiCrmTrackedDrivers,taxiCrmZones} from '@/lib/taxicrm-live';
@@ -8,7 +8,7 @@ import {taxiCrmBookingLinkHealth} from '@/lib/taxicrm-customer-trips';
 export const dynamic='force-dynamic';
 
 export async function GET(request:Request){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!(await isAdmin()||new URL(request.url).searchParams.get('fleet')==='1'&&await isDispatchUser()))return Response.json({error:'Administrator access required.'},{status:403});
  const storyReference=new URL(request.url).searchParams.get('story');
  if(storyReference){if(!/^\d{1,20}$/.test(storyReference))return Response.json({error:'Invalid booking reference.'},{status:400});
   try{return Response.json(await taxiCrmBookingStory(storyReference),{headers:{'Cache-Control':'no-store'}})}

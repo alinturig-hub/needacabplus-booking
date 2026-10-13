@@ -4,7 +4,7 @@ import {bookingRequirements} from '@/lib/booking-requirements';
 import {readBookingDetails} from '@/lib/autocab-api';
 import {z} from 'zod';
 import {database} from '@/lib/database';
-import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
+import {isDispatchUser,sameOrigin,unavailable} from '@/lib/security';
 import {simulateDispatch,simulationDefaults,dispatchEventKind} from '@/lib/dispatch-simulation';
 import {milesBetween,roadDurations,validPoint,trackEstimate} from '@/lib/dispatch-routing';
 import {taxiCrmDispatchReadEnabled} from '@/lib/taxicrm-database';
@@ -12,7 +12,7 @@ import {taxiCrmDispatchReadEnabled} from '@/lib/taxicrm-database';
 export const dynamic='force-dynamic';
 const eligible=`external_booking_id IS NOT NULL AND status IN ('Booked','Created','Modified','Running Late') AND COALESCE(pricing_data->>'testBooking','false')<>'true' AND COALESCE(driver_data->>'id',driver_data->>'driverId','')='' AND COALESCE(vehicle_data->>'id',vehicle_data->>'vehicleId','')=''`;
 export async function GET(){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!await isDispatchUser())return Response.json({error:'Administrator access required.'},{status:403});
  if(taxiCrmDispatchReadEnabled())return Response.json({error:'Dispatch data is managed in TaxiCRM.'},{status:409});
  try{
   const db=database();
@@ -24,7 +24,7 @@ export async function GET(){
  }catch(error){return unavailable(error)}
 }
 export async function POST(request:Request){
- if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!sameOrigin(request)||!await isDispatchUser())return Response.json({error:'Administrator access required.'},{status:403});
  if(taxiCrmDispatchReadEnabled())return Response.json({error:'Dispatch data is managed in TaxiCRM.'},{status:409});
  let id:string;try{id=z.object({bookingId:z.string().uuid()}).strict().parse(await request.json()).bookingId}catch{return Response.json({error:'Choose a booking.'},{status:400})}
  try{

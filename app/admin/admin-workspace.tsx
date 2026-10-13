@@ -12,7 +12,7 @@ const groups:MenuGroup[]=[
  {id:'bookings',label:'Booking',icon:BookOpen,items:[{label:'Live overview',href:'/admin'},{label:'Search bookings',href:'/admin/bookings'},{label:'Booking rules',href:'/admin/configuration#bookings'}]},
  {id:'pricing',label:'Pricing & Payments',icon:CreditCard,items:[{label:'Fares & promotions',href:'/admin/configuration#pricing'},{label:'Payments',href:'/admin/configuration#payments'}]},
  {id:'systems',label:'Systems',icon:Database,items:[{label:'API connections',href:'/admin/configuration#api'},{label:'Webhooks',href:'/admin/configuration#webhooks'},{label:'TaxiCRM database',href:'/admin/configuration#taxicrm'},{label:'SMS gateway',href:'/admin/configuration#sms'},{label:'Maps & places',href:'/admin/configuration#maps'}]},
- {id:'settings',label:'Settings',icon:Settings2,items:[{label:'Settings overview',href:'/admin/configuration#overview'},{label:'General & security',href:'/admin/configuration#general'},{label:'Customer sign-in',href:'/admin/configuration#identity'},{label:'Dispatch rules',href:'/admin/configuration#dispatch'}]},
+ {id:'settings',label:'Settings',icon:Settings2,items:[{label:'Settings overview',href:'/admin/configuration#overview'},{label:'General & security',href:'/admin/configuration#general'},{label:'Users & access',href:'/admin/users'},{label:'Customer sign-in',href:'/admin/configuration#identity'},{label:'Dispatch rules',href:'/admin/configuration#dispatch'}]},
 ];
 function subscribeHash(callback:()=>void){window.addEventListener('hashchange',callback);return()=>window.removeEventListener('hashchange',callback)}
 export default function AdminWorkspace({children}:{children:ReactNode}){

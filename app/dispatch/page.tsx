@@ -1,9 +1,9 @@
 import {redirect} from 'next/navigation';
-import {isAdmin} from '@/lib/security';
+import {isDispatchUser} from '@/lib/security';
 import DispatcherWorkspace from '../admin/dispatcher/workspace';
 
 export const dynamic='force-dynamic';
 export default async function DispatchPage(){
- if(!await isAdmin())redirect('/dispatch/login');
+ if(!await isDispatchUser())redirect('/dispatch/login');
  return <DispatcherWorkspace/>;
 }

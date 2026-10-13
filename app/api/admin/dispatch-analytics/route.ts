@@ -1,5 +1,5 @@
 import {database} from '@/lib/database';
-import {isAdmin,unavailable} from '@/lib/security';
+import {isDispatchUser,unavailable} from '@/lib/security';
 import {aggregateDispatch,bookingMetrics,receiptText,type Receipt} from '@/lib/dispatch-analytics';
 import {operationKind,receiptCallsigns} from '@/lib/dispatch-history';
 import {dispatchObservation} from '@/lib/dispatch-observation';
@@ -20,7 +20,7 @@ async function currentAssignment(bookingId:string){
 }
 export const dynamic='force-dynamic';
 export async function GET(request:Request){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!await isDispatchUser())return Response.json({error:'Administrator access required.'},{status:403});
  const bookingId=new URL(request.url).searchParams.get('bookingId');
  if(bookingId&&bookingId.length>100)return Response.json({error:'Invalid booking reference.'},{status:400});
  if(taxiCrmDispatchReadEnabled()&&bookingId){try{const story=await taxiCrmBookingStory(bookingId);return story?Response.json(story,{headers:{'Cache-Control':'no-store','X-Data-Source':'TaxiCRM'}}):Response.json({error:'Booking not found in TaxiCRM.'},{status:404})}catch(error){return unavailable(error)}}

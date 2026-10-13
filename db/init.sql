@@ -500,6 +500,25 @@ CREATE TABLE IF NOT EXISTS admin_login_challenges (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_admin_login_challenges_expiry ON admin_login_challenges(expires_at);
+CREATE TABLE IF NOT EXISTS staff_accounts (
+ id uuid PRIMARY KEY,
+ email text NOT NULL,
+ full_name text NOT NULL,
+ password_hash text NOT NULL,
+ role text NOT NULL CHECK(role IN ('admin','dispatcher')),
+ enabled boolean NOT NULL DEFAULT true,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_accounts_email ON staff_accounts(lower(email));
+CREATE TABLE IF NOT EXISTS staff_sessions (
+ token_hash text PRIMARY KEY,
+ staff_id uuid NOT NULL REFERENCES staff_accounts(id) ON DELETE CASCADE,
+ expires_at timestamptz NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_staff_sessions_staff ON staff_sessions(staff_id,expires_at DESC);
+ALTER TABLE admin_login_challenges ADD COLUMN IF NOT EXISTS staff_id uuid REFERENCES staff_accounts(id) ON DELETE CASCADE;
 CREATE TABLE IF NOT EXISTS customer_oauth_states(state_hash text PRIMARY KEY,provider text NOT NULL,browser_hash text NOT NULL,nonce text NOT NULL,verifier text NOT NULL,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_identities(provider text NOT NULL,subject text NOT NULL,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,PRIMARY KEY(provider,subject));
 

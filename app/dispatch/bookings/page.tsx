@@ -1,9 +1,9 @@
 import {redirect} from 'next/navigation';
-import {isAdmin} from '@/lib/security';
+import {isDispatchUser} from '@/lib/security';
 import AdminApp from '../../admin/admin-app';
 
 export const dynamic='force-dynamic';
 export default async function DispatchBookingsPage(){
- if(!await isAdmin())redirect('/dispatch/login');
+ if(!await isDispatchUser())redirect('/dispatch/login');
  return <AdminApp mode="search" workspace="dispatch"/>;
 }

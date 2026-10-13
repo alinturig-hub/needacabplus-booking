@@ -1,4 +1,4 @@
-import {isAdmin} from '@/lib/security';
+import {isDispatchUser} from '@/lib/security';
 import {bookingEvents} from '@/lib/booking-events';
 import {taxiCrmBookingReadEnabled} from '@/lib/taxicrm-database';
 import {latestTaxiCrmWebhookEvents,type TaxiCrmWebhookEvent} from '@/lib/taxicrm-webhook-events';
@@ -7,7 +7,7 @@ export const dynamic='force-dynamic';
 export const runtime='nodejs';
 
 export async function GET(request:Request){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!await isDispatchUser())return Response.json({error:'Administrator access required.'},{status:403});
  if(taxiCrmBookingReadEnabled()){
   let initial:TaxiCrmWebhookEvent[];
   try{initial=await latestTaxiCrmWebhookEvents()}catch{

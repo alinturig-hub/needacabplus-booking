@@ -7,7 +7,7 @@ import {livePassengerSql} from '@/lib/booking-live-summary';
 import {bookingPeriod,bookingCsv} from '@/lib/booking-period';
 import {z} from 'zod';
 import {database} from '@/lib/database';
-import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
+import {isAdmin,isDispatchUser,sameOrigin,unavailable} from '@/lib/security';
 import {verifyQuote,loadQuotePolicy} from '@/lib/quotes';
 import {validateSchedule} from '@/lib/quote-policy';
 import {getCustomer} from '@/lib/customer-auth';
@@ -42,7 +42,7 @@ export async function POST(request:Request){
 }
 
 export async function GET(request:Request){
- if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ if(!await isDispatchUser())return Response.json({error:'Dispatch access required.'},{status:403});
  if(new URL(request.url).searchParams.get('requireTaxiCrm')==='1'&&(!taxiCrmDatabaseConfigured()||!taxiCrmBookingReadEnabled()))return Response.json({error:'TaxiCRM booking search is not connected. Configure the read-only TaxiCRM database connection and enable booking reads.'},{status:503,headers:{'Cache-Control':'no-store'}});
  if(taxiCrmDatabaseConfigured()&&taxiCrmBookingReadEnabled()){
   try{
