@@ -30,6 +30,23 @@ The read-only audit is `node scripts/audit-webhook-correspondence.mjs` in the Ne
 
 The `/booking_dispatch` and `/booking_accepted` configuration labels were reversed. Startup migration now aligns the labels with the event delivered to each endpoint. The combined `DriverShiftStartedEnded` payload now uses its `SubEventType` and `EndedDate` to determine whether the shift started or ended.
 
+
+## Booking payload field coverage
+
+The TaxiCRM booking mapper and Need A Cab Plus normalizer were compared against the 51 top-level keys present in recent real booking webhook payloads. The current local normalizer preserves the most recent raw payload, but does **not** reproduce every TaxiCRM column or the full event history.
+
+| Source data | TaxiCRM | Current Need A Cab Plus | Cutover gap |
+| --- | --- | --- | --- |
+| Booking ID, source, type, passenger name, phone, email, passenger and luggage counts | Structured `Booking` columns | Mostly structured `bookings` columns | Additional source and type variants need exact mapping |
+| Pickup, destination, via points, coordinates and zones | `BookingLocation` and `BookingVia` rows | Pickup/destination JSON and raw vias | No equivalent relational location/via history |
+| Driver and vehicle identity | Driver/vehicle IDs, callsigns, registration and plate in booking and fleet models | Booking JSON plus live driver positions | Assignment history and several identity fields are missing |
+| Dispatch, arrival, pickup, completion and due times | Dedicated timestamp columns plus timeline events | Partial `timeline_data` JSON | No complete event timeline; estimated pickup and drop-off times not fully mapped |
+| Company, account, references and capabilities | Dedicated columns and structured references | Partial notes and dispatch requirements; latest raw payload | Account/company identity, loyalty card and reference fields are incomplete |
+| Fare, cost, price, payment split, waiting, area charges, comparison and tariff | Dedicated financial columns | Partial `pricing_data` JSON | Multiple pricing and comparison fields are missing |
+| Raw event, deduplication and processing result | One `WebhookEvent` per request with status and idempotency key | Latest booking raw payload; `webhook_events` stores normalization failures | Cannot yet replay or reconcile each successful booking event |
+
+These gaps are why switching booking webhook writes to the local `bookings` table now would lose information. The single shared database migration must carry TaxiCRM's complete booking model and event journal first.
+
 ## Path to full booking parity
 
 The live admin comparison is available in General Settings → Webhooks. It is diagnostic and does not duplicate bookings. Full correspondence requires the single shared operational database and the booking writer cutover described in [booking-database-ownership.md](booking-database-ownership.md). That migration must preserve booking locations, via points, financial data, customer links, timeline, raw events, idempotency, and the historical recovery tables. Only after those records and code paths are reconciled should booking webhook delivery move from TaxiCRM to Need A Cab Plus.
