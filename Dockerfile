@@ -25,6 +25,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/compare-booking.mjs ./scr
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/booking-migration-preflight.mjs ./scripts/booking-migration-preflight.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/booking-restore-verify.mjs ./scripts/booking-restore-verify.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-booking-recovery.mjs ./scripts/audit-booking-recovery.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/deduplicate-booking-recovery.mjs ./scripts/deduplicate-booking-recovery.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-fetch.mjs ./scripts/audit-fetch.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-reference.mjs ./scripts/audit-reference.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-time-evidence.mjs ./scripts/audit-time-evidence.mjs
