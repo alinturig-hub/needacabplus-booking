@@ -6,6 +6,7 @@ import {Activity,CarFront,Clock3,LogOut,MapPin,Plus,RefreshCw,Search,X} from 'lu
 import styles from './workspace.module.css';
 import DispatcherDriverMap,{type MapDriver} from './driver-map';
 import DispatcherAddressInput,{type AddressChoice} from './address-input';
+import type {FleetMapVehicle} from '@/lib/taxicrm-fleet-map';
 
 type Job={id:string;reference:string;pickup:string;destination:string;pickup_zone?:string|null;status:string;due_at:string|null;vehicle:string|null;assigned:boolean};
 type Driver=MapDriver;
@@ -71,14 +72,23 @@ export default function DispatcherWorkspace(){
   let timer:ReturnType<typeof setTimeout>;
   const load=async()=>{
    if(!document.hidden){
-    const [jobsResult,driversResult]=await Promise.allSettled([
+    const [jobsResult,driversResult,detailsResult]=await Promise.allSettled([
      fetch('/api/admin/dispatch-live',{cache:'no-store'}).then(async response=>{const value=await response.json() as DispatchData&{error?:string};if(!response.ok)throw new Error(value.error||'Booking feed unavailable');return value}),
      fetch('/api/admin/taxicrm-database?fleet=1',{cache:'no-store'}).then(async response=>{const value=await response.json() as {drivers:Driver[];zones:Zone[];zoneError?:boolean;error?:string};if(!response.ok)throw new Error(value.error||'Fleet feed unavailable');return value}),
+     fetch('/api/drivers/live',{cache:'no-store'}).then(async response=>{const value=await response.json() as FleetMapVehicle[]&{error?:string};if(!response.ok||!Array.isArray(value))throw new Error(value.error||'Driver details unavailable');return value}),
     ]);
     if(!active)return;
     if(jobsResult.status==='fulfilled'){setData(jobsResult.value);setError('');setUpdatedAt(new Date().toISOString())}
     else setError(jobsResult.reason instanceof Error?jobsResult.reason.message:'Booking feed unavailable');
-    if(driversResult.status==='fulfilled'){setDrivers(driversResult.value.drivers);setKnownZones(driversResult.value.zones);setZoneError(Boolean(driversResult.value.zoneError));setFleetError('')}
+    if(driversResult.status==='fulfilled'){
+     const byDriver=new Map(detailsResult.status==='fulfilled'?detailsResult.value.filter(item=>item.driverId).map(item=>[item.driverId,item] as const):[]);
+     const byRegistration=new Map(detailsResult.status==='fulfilled'?detailsResult.value.filter(item=>item.registration).map(item=>[item.registration?.toUpperCase(),item] as const):[]);
+     setDrivers(driversResult.value.drivers.map(driver=>{
+      const detail=byRegistration.get(driver.registration?.toUpperCase())||byDriver.get(driver.driverId);
+      return detail?{...driver,operationalStatus:detail.operationalStatus,isLive:detail.isLive,registration:detail.registration,bookingId:detail.bookingId,pickupAddress:detail.pickupAddress,destinationAddress:detail.destinationAddress,todayRevenue:detail.todayRevenue}:driver;
+     }));
+     setKnownZones(driversResult.value.zones);setZoneError(Boolean(driversResult.value.zoneError));setFleetError('')
+    }
     else setFleetError(driversResult.reason instanceof Error?driversResult.reason.message:'Fleet feed unavailable');
    }
    if(active)timer=setTimeout(load,5000);

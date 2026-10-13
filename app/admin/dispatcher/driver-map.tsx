@@ -3,12 +3,13 @@
 import {useEffect,useRef,useState} from 'react';
 import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
 import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
+import {driverMarker,driverPopup,updateDriverMarker} from '../driver-map-presentation';
+import type {DriverMapDetails} from '../driver-map-presentation';
 import styles from './workspace.module.css';
 
-export type MapDriver={driverId:string;vehicleId:string;callsign:string|null;vehicleCallsign:string|null;name:string|null;zone?:string|null;vehicleStatus:string;recordedAt:string;latitude:number;longitude:number};
+export type MapDriver=DriverMapDetails&{driverId:string;vehicleId:string;vehicleCallsign:string|null;zone?:string|null;latitude:number;longitude:number};
 type MapZone={externalId:string;name:string;latitude:number|null;longitude:number|null};
 const center:[number,number]=[-4.143,50.374];
-const isClear=(status:string)=>status.trim().toLowerCase()==='clear';
 const coordinate=(driver:MapDriver)=>[driver.longitude,driver.latitude] as [number,number];
 const valid=(driver:MapDriver)=>Number.isFinite(driver.latitude)&&Number.isFinite(driver.longitude)&&Math.abs(driver.latitude)<=90&&Math.abs(driver.longitude)<=180;
 
@@ -50,18 +51,14 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
    const id=driver.vehicleId;
    const label=driver.vehicleCallsign||driver.callsign||id;
    const existing=current.get(id);
-   const element=existing?.getElement()||document.createElement('button');
-   if(!existing){element.setAttribute('type','button');element.className=styles.mapMarker;element.addEventListener('click',()=>onSelect(id))}
-   element.textContent=label;
-   element.setAttribute('aria-label',`Vehicle ${label}, ${driver.vehicleStatus}${driver.zone?`, zone ${driver.zone}`:''}`);
-   element.classList.toggle(styles.mapMarkerBusy,!isClear(driver.vehicleStatus));
+   const element=existing?.getElement()||driverMarker({...driver,callsign:label},id);
+   if(!existing){element.addEventListener('click',()=>onSelect(id))}
+   updateDriverMarker(element,{...driver,callsign:label},id);
    element.classList.toggle(styles.mapMarkerDim,Boolean(selectedZone&&driver.zone&&driver.zone!==selectedZone));
    element.classList.toggle(styles.mapMarkerSelected,id===selectedDriver);
-   const popup=document.createElement('div');
-   const title=document.createElement('strong');title.textContent=`Vehicle ${label}`;popup.appendChild(title);
-   const detail=document.createElement('div');detail.textContent=`${driver.name||'Driver unavailable'} · ${driver.vehicleStatus}${driver.zone?` · ${driver.zone}`:''}`;popup.appendChild(detail);
+   const popup=driverPopup({...driver,callsign:label},id);
    if(existing){existing.setLngLat(coordinate(driver));existing.getPopup()?.setDOMContent(popup)}
-   else current.set(id,new Marker({element}).setLngLat(coordinate(driver)).setPopup(new Popup({offset:17}).setDOMContent(popup)).addTo(map));
+   else current.set(id,new Marker({element}).setLngLat(coordinate(driver)).setPopup(new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap',maxWidth:'min(410px, calc(100vw - 32px))'}).setDOMContent(popup)).addTo(map));
   }
   if(!fitted.current&&validDrivers.length){
    fitted.current=true;

@@ -5,13 +5,11 @@ import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,LogOut,MapPin,Maximize,RefreshCw} from 'lucide-react';
 import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
 import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
+import {driverMarker,driverPopup,updateDriverMarker} from './driver-map-presentation';
 
 type Driver={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB'|'OFFLINE'|'UNKNOWN';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
 type LiveMarker={marker:Marker;coordinate:[number,number];recordedAt:number;heading:number;animationFrame:number|null};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
-function timeAgo(iso:string){const s=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));if(s<60)return `${s}s ago`;if(s<3600)return `${Math.floor(s/60)}m ago`;return `${Math.floor(s/3600)}h ago`;}
-function markerLabel(driver:Driver){return(driver.callsign||driver.name||driver.id).trim().slice(0,4).toUpperCase();}
-const statusLabel:Record<Driver['operationalStatus'],string>={CLEAR:'CLEAR - Available',DOW:'DOW - Driver On The Way',DAP:'DAP - Driver At Pickup',POB:'POB - Passenger On Board',OFFLINE:'OFFLINE - Not working',UNKNOWN:'Status unknown'};
 function bearing(from:[number,number],to:[number,number]){
  const lon1=from[0]*Math.PI/180,lat1=from[1]*Math.PI/180,lon2=to[0]*Math.PI/180,lat2=to[1]*Math.PI/180;
  const y=Math.sin(lon2-lon1)*Math.cos(lat2);
@@ -19,21 +17,6 @@ function bearing(from:[number,number],to:[number,number]){
  return(Math.atan2(y,x)*180/Math.PI+360)%360;
 }
 function nearestHeading(current:number,next:number){return current+((next-current+540)%360-180);}
-function makePopup(driver:Driver):HTMLElement{
- const wrap=document.createElement('div');wrap.className='driver-popup';
- const name=document.createElement('strong');name.textContent=`Driver ${driver.callsign||'—'}`;wrap.appendChild(name);
- const field=(label:string,detail:string)=>{const row=document.createElement('span');const title=document.createElement('b');title.textContent=`${label}: `;row.appendChild(title);row.appendChild(document.createTextNode(detail));wrap.appendChild(row)};
- field('Name',driver.name||'Not available');
- field('Today Revenue',driver.todayRevenue===null?'Not available':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(driver.todayRevenue));
- field('Vehicle',driver.registration||'Not available');
- field('Status',statusLabel[driver.operationalStatus]);
- if(driver.operationalStatus==='DOW'||driver.operationalStatus==='DAP')field('Pickup',driver.pickupAddress||'Not available');
- if(driver.operationalStatus==='POB')field('Destination',driver.destinationAddress||'Not available');
- field('Booking',driver.bookingId===null?'None':String(driver.bookingId));
- field('Last update',timeAgo(driver.recordedAt));
- field('Connection',driver.isLive?'Live':'Stale');
- return wrap;
-}
 export default function DriverLiveMap(){
  const router=useRouter();
  const mapContainer=useRef<HTMLDivElement>(null);
@@ -99,9 +82,8 @@ export default function DriverLiveMap(){
   for(const driver of visibleDrivers){
    if(existing.has(driver.id)){
     const state=existing.get(driver.id)!;
-    state.marker.getPopup()?.setDOMContent(makePopup(driver));
-    state.marker.getElement().className=`driver-map-marker driver-map-marker-${driver.operationalStatus.toLowerCase()}`;
-    const label=state.marker.getElement().querySelector('span');if(label)label.textContent=markerLabel(driver);
+    state.marker.getPopup()?.setDOMContent(driverPopup(driver,driver.id));
+    updateDriverMarker(state.marker.getElement(),driver,driver.id);
     const target:[number,number]=[driver.longitude,driver.latitude];
     const from:[number,number]=[state.coordinate[0],state.coordinate[1]];
     const moved=Math.abs(target[0]-from[0])+Math.abs(target[1]-from[1])>0.000001;
@@ -127,11 +109,8 @@ export default function DriverLiveMap(){
      state.recordedAt=Number.isFinite(nextRecordedAt)?nextRecordedAt:Date.now();
     }
    }else{
-    const el=document.createElement('div');el.className=`driver-map-marker driver-map-marker-${driver.operationalStatus.toLowerCase()}`;
-    const car=document.createElement('img');car.src='/car-marker-live.png';car.alt='';car.draggable=false;el.appendChild(car);
-    const label=document.createElement('span');label.textContent=markerLabel(driver);el.appendChild(label);
-    el.setAttribute('aria-label',driver.name||driver.callsign||driver.id);
-    const popup=new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap'}).setDOMContent(makePopup(driver));
+    const el=driverMarker(driver,driver.id);
+    const popup=new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap',maxWidth:'min(410px, calc(100vw - 32px))'}).setDOMContent(driverPopup(driver,driver.id));
     const marker=new Marker({element:el}).setLngLat([driver.longitude,driver.latitude]).setPopup(popup).addTo(map);
     const recordedAt=new Date(driver.recordedAt).getTime();
     existing.set(driver.id,{marker,coordinate:[driver.longitude,driver.latitude],recordedAt:Number.isFinite(recordedAt)?recordedAt:Date.now(),heading:0,animationFrame:null});

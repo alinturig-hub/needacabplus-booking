@@ -68,16 +68,16 @@
 .driver-live-filters input:focus,.driver-live-filters select:focus{outline:2px solid #c2aa70;outline-offset:1px}
 .driver-map-marker{width:48px;height:70px;cursor:pointer;display:flex;align-items:flex-start;justify-content:center;transition:transform .15s}
 .driver-map-marker:hover,.driver-map-marker:focus{transform:scale(1.16);z-index:2!important}
-.driver-map-marker img{position:absolute;left:8px;top:12px;width:32px;height:56px;object-fit:contain;transform-origin:50% 50%;filter:drop-shadow(0 3px 4px #000b);pointer-events:none;user-select:none;will-change:transform}
-.driver-map-marker span{position:relative;z-index:1;display:block;min-width:25px;max-width:45px;padding:3px 6px;background:#f2dd4a;border:1.5px solid #fff;border-radius:9px;box-shadow:0 2px 5px #0008;font-size:9px;font-weight:800;text-align:center;color:#101313;line-height:1;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.driver-map-marker-clear span{background:#92dda3}.driver-map-marker-dow span{background:#f0c46c}.driver-map-marker-dap span{background:#80bded}.driver-map-marker-pob span{background:#ee9b9b}.driver-map-marker-offline span{background:#a8afb6}.driver-map-marker-unknown span{background:#d3c7ac}
-.driver-popup{font-size:12px;line-height:1.6;min-width:150px;display:flex;flex-direction:column;gap:2px}
-.driver-popup strong{font-size:13px;display:block;margin-bottom:3px;color:#f5f5f2}
-.driver-popup span{color:#c0c9c5}
-.driver-popup-status{display:inline-block;background:#1c3a25;color:#7de0a4;border-radius:9px;padding:1px 8px;font-size:10px;margin-top:4px;align-self:flex-start}
-.driver-popup-time{font-size:10px;color:#7a8f89;margin-top:2px}
-.driver-popup-wrap .maplibregl-popup-content{background:#181c1a;border:1px solid #3a4340;border-radius:10px;padding:12px 14px;color:#f5f5f2;font-family:Arial,sans-serif}
-.driver-popup-wrap .maplibregl-popup-tip{border-top-color:#181c1a}
+.driver-map-marker img{position:absolute;left:8px;top:12px;width:32px;height:56px;object-fit:contain;transform-origin:50% 50%;filter:invert(1) drop-shadow(0 3px 4px #000b);pointer-events:none;user-select:none;will-change:transform}
+.driver-map-marker span{position:relative;z-index:1;display:block;min-width:25px;max-width:45px;padding:3px 6px;background:#fff;border:2px solid #e0b448;border-radius:9px;box-shadow:0 2px 5px #0008;font-size:10px;font-weight:800;text-align:center;color:#101313;line-height:1;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.driver-map-marker-clear span{border-color:#52b960}.driver-map-marker-dow span{border-color:#e2a438}.driver-map-marker-dap span{border-color:#599bc9}.driver-map-marker-pob span{border-color:#dc6e6e}.driver-map-marker-offline span{border-color:#929da6}.driver-map-marker-unknown span{border-color:#c3ad77}
+.driver-popup{font-size:15px;line-height:1.4;min-width:min(340px,calc(100vw - 80px));display:flex;flex-direction:column;gap:8px;padding:5px 8px 3px}
+.driver-popup strong{font-size:20px;display:block;margin-bottom:17px;color:#303030}
+.driver-popup span{color:#363636;overflow-wrap:anywhere}
+.driver-popup b{font-weight:700}
+.driver-popup-wrap .maplibregl-popup-content{background:#fff;border:1px solid #ddd;border-radius:16px;padding:20px 22px;color:#303030;font-family:Arial,sans-serif;box-shadow:0 10px 28px #0003}
+.driver-popup-wrap .maplibregl-popup-tip{border-top-color:#fff}
+.driver-popup-wrap .maplibregl-popup-close-button{font-size:21px;color:#747474;top:9px;right:10px;padding:2px 6px}
 .driver-live-canvas .maplibregl-ctrl-group{background:#171c19}
 .driver-live-canvas .maplibregl-ctrl button span{filter:invert(1)}
 .driver-live-canvas .maplibregl-ctrl-attrib{background:#f7f7f7cc;color:#222}
