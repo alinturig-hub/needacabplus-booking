@@ -58,6 +58,15 @@ async function exactBookingCounts(pool,source){
        FROM public."BookingOrphanBackup_20261006" backup WHERE NOT EXISTS (
         SELECT 1 FROM public."Booking" current
         WHERE current.provider=backup.provider AND current."externalId"=backup."externalId")`)).rows[0].total);
+     if(columns.has('status')&&columns.has('pickupDueTime')){
+      counts.orphanBackupMissingByStatus=(await client.query(`SELECT backup.status,count(*)::bigint AS total,
+        min(backup."pickupDueTime") AS earliest_pickup,max(backup."pickupDueTime") AS latest_pickup
+        FROM public."BookingOrphanBackup_20261006" backup WHERE NOT EXISTS (
+         SELECT 1 FROM public."Booking" current
+         WHERE current.provider=backup.provider AND current."externalId"=backup."externalId")
+        GROUP BY backup.status ORDER BY total DESC`)).rows.map(row=>({status:row.status,total:Number(row.total),
+         earliestPickup:row.earliest_pickup,latestPickup:row.latest_pickup}));
+     }
     }
    }
   }
