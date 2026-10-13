@@ -36,6 +36,23 @@ async function inspect(pool){
  finally{client.release()}
 }
 
+async function exactBookingCounts(pool,source){
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN READ ONLY');
+  await client.query("SET LOCAL statement_timeout='120s'");
+  const tables=source?['Booking','BookingOrphanBackup_20261006']:['bookings'];
+  const counts={};
+  for(const table of tables){
+   const exists=(await client.query('SELECT to_regclass($1) IS NOT NULL AS present',[`public."${table}"`])).rows[0]?.present;
+   if(exists)counts[table]=Number((await client.query(`SELECT count(*)::bigint AS total FROM public."${table}"`)).rows[0].total);
+  }
+  await client.query('COMMIT');
+  return counts;
+ }catch(error){await client.query('ROLLBACK').catch(()=>undefined);throw error}
+ finally{client.release()}
+}
+
 const source=createPool(sourceUrl),target=createPool(targetUrl);
 try{
  const [from,to]=await Promise.all([inspect(source),inspect(target)]);
@@ -50,6 +67,10 @@ try{
  const result={checkedAt:new Date().toISOString(),source:from,target:to,exactNameCollisions:collisions,
   missingRequiredSourceTables:missing,sameDatabase,
   readyForRestore:!missing.length&&!collisions.length&&!sameDatabase};
+ if(process.argv.includes('--exact')){
+  const [sourceCounts,targetCounts]=await Promise.all([exactBookingCounts(source,true),exactBookingCounts(target,false)]);
+  result.exactBookingCounts={source:sourceCounts,target:targetCounts};
+ }
  console.log(JSON.stringify(result,null,2));
  if(!result.readyForRestore)process.exitCode=1;
 }catch(error){
