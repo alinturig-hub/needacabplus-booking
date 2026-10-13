@@ -3,6 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {Map as LeafletMap,Marker as LeafletMarker} from 'leaflet';
 import {driverMarker,driverPopup} from '../driver-map-presentation';
+import {cancelDriverMarkerMotion,createDriverMarkerMotion,moveDriverMarker,restoreDriverMarkerHeading,type DriverMarkerMotion} from '../driver-marker-motion';
 import type {DriverMapDetails} from '../driver-map-presentation';
 import styles from './workspace.module.css';
 
@@ -21,6 +22,7 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
  const leafletRef=useRef<typeof import('leaflet')|null>(null);
  const markers=useRef(new Map<string,LeafletMarker>());
  const markerAppearance=useRef(new Map<string,string>());
+ const motion=useRef(new Map<string,DriverMarkerMotion>());
  const onSelectRef=useRef(onSelect);
  const fitted=useRef(false);
  const centeredZone=useRef('');
@@ -33,6 +35,7 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
   let observer:ResizeObserver|null=null;
   const mountedMarkers=markers.current;
   const appearance=markerAppearance.current;
+  const motionStates=motion.current;
   void import('leaflet').then(({default:L})=>{
    if(disposed||!container.current)return;
    leafletRef.current=L;
@@ -44,7 +47,7 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
    requestAnimationFrame(()=>{if(!disposed)map.invalidateSize({pan:false})});
    setReady(true);
   });
-  return()=>{disposed=true;observer?.disconnect();mountedMarkers.clear();appearance.clear();mapRef.current?.remove();mapRef.current=null;leafletRef.current=null};
+  return()=>{disposed=true;observer?.disconnect();mountedMarkers.clear();appearance.clear();motionStates.forEach(cancelDriverMarkerMotion);motionStates.clear();mapRef.current?.remove();mapRef.current=null;leafletRef.current=null};
  },[]);
 
  useEffect(()=>{
@@ -52,15 +55,15 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
   const current=markers.current;
   const validDrivers=drivers.filter(valid);
   const ids=new Set(validDrivers.map(driver=>driver.vehicleId));
-  for(const [id,marker] of current)if(!ids.has(id)){marker.remove();current.delete(id);markerAppearance.current.delete(id)}
+  for(const [id,marker] of current)if(!ids.has(id)){marker.remove();current.delete(id);markerAppearance.current.delete(id);const state=motion.current.get(id);if(state)cancelDriverMarkerMotion(state);motion.current.delete(id)}
   for(const driver of validDrivers){
    const id=driver.vehicleId;
    const label=driver.vehicleCallsign||driver.callsign||id;
    const appearance=`${label}|${driver.operationalStatus||driver.vehicleStatus}|${driver.isLive}`;
    let marker=current.get(id);
    if(marker){
-    marker.setLatLng(coordinate(driver));
-    if(markerAppearance.current.get(id)!==appearance)marker.setIcon(icon(L,driver,label));
+    if(markerAppearance.current.get(id)!==appearance){marker.setIcon(icon(L,driver,label));restoreDriverMarkerHeading(marker,motion.current.get(id)!)}
+    moveDriverMarker(marker,motion.current.get(id)!,coordinate(driver),driver.recordedAt);
     marker.setPopupContent(driverPopup({...driver,callsign:label},id));
    }else{
     marker=L.marker(coordinate(driver),{icon:icon(L,driver,label),keyboard:true})
@@ -68,6 +71,7 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
      .on('click',()=>onSelectRef.current(id))
      .addTo(map);
     current.set(id,marker);
+    motion.current.set(id,createDriverMarkerMotion(coordinate(driver),driver.recordedAt));
    }
    markerAppearance.current.set(id,appearance);
    marker.getElement()?.classList.toggle(styles.mapMarkerDim,Boolean(selectedZone&&driver.zone&&driver.zone!==selectedZone));

@@ -5,6 +5,7 @@ import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,LogOut,MapPin,Maximize,RefreshCw} from 'lucide-react';
 import type {Map as LeafletMap,Marker as LeafletMarker} from 'leaflet';
 import {driverMarker,driverPopup} from './driver-map-presentation';
+import {cancelDriverMarkerMotion,createDriverMarkerMotion,moveDriverMarker,restoreDriverMarkerHeading,type DriverMarkerMotion} from './driver-marker-motion';
 
 type Driver={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB'|'OFFLINE'|'UNKNOWN';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
 const DEFAULT_CENTER:[number,number]=[50.374,-4.143];
@@ -20,6 +21,7 @@ export default function DriverLiveMap(){
  const leafletRef=useRef<typeof import('leaflet')|null>(null);
  const markersRef=useRef<Map<string,LeafletMarker>>(new Map());
  const appearanceRef=useRef(new Map<string,string>());
+ const motionRef=useRef(new Map<string,DriverMarkerMotion>());
  const fittedRef=useRef(false);
  const selectionRef=useRef('all:');
  const [mapReady,setMapReady]=useState(false);
@@ -72,7 +74,7 @@ export default function DriverLiveMap(){
  useEffect(()=>{
   let disposed=false;
   let observer:ResizeObserver|null=null;
-  const markers=markersRef.current,appearance=appearanceRef.current;
+  const markers=markersRef.current,appearance=appearanceRef.current,motionStates=motionRef.current;
   void import('leaflet').then(({default:L})=>{
    if(disposed||!mapContainer.current)return;
    leafletRef.current=L;
@@ -84,26 +86,27 @@ export default function DriverLiveMap(){
    requestAnimationFrame(()=>{if(!disposed)map.invalidateSize({pan:false})});
    setMapReady(true);
   });
-  return()=>{disposed=true;observer?.disconnect();markers.clear();appearance.clear();mapRef.current?.remove();mapRef.current=null;leafletRef.current=null};
+  return()=>{disposed=true;observer?.disconnect();markers.clear();appearance.clear();motionStates.forEach(cancelDriverMarkerMotion);motionStates.clear();mapRef.current?.remove();mapRef.current=null;leafletRef.current=null};
  },[]);
  useEffect(()=>{
   const map=mapRef.current,L=leafletRef.current;if(!map||!L||!mapReady)return;
   const existing=markersRef.current;
   const points=visibleDrivers.filter(valid);
   const newIds=new Set(points.map(driver=>driver.id));
-  for(const [id,marker] of existing)if(!newIds.has(id)){marker.remove();existing.delete(id);appearanceRef.current.delete(id)}
+  for(const [id,marker] of existing)if(!newIds.has(id)){marker.remove();existing.delete(id);appearanceRef.current.delete(id);const state=motionRef.current.get(id);if(state)cancelDriverMarkerMotion(state);motionRef.current.delete(id)}
   for(const driver of points){
    const signature=`${driver.callsign}|${driver.operationalStatus}|${driver.isLive}`;
    let marker=existing.get(driver.id);
    if(marker){
-    marker.setLatLng(coordinate(driver));
-    if(appearanceRef.current.get(driver.id)!==signature)marker.setIcon(icon(L,driver));
+    if(appearanceRef.current.get(driver.id)!==signature){marker.setIcon(icon(L,driver));restoreDriverMarkerHeading(marker,motionRef.current.get(driver.id)!)}
+    moveDriverMarker(marker,motionRef.current.get(driver.id)!,coordinate(driver),driver.recordedAt);
     marker.setPopupContent(driverPopup(driver,driver.id));
    }else{
     marker=L.marker(coordinate(driver),{icon:icon(L,driver),keyboard:true})
      .bindPopup(driverPopup(driver,driver.id),{className:'driver-popup-wrap',maxWidth:410,autoPan:true})
      .addTo(map);
     existing.set(driver.id,marker);
+    motionRef.current.set(driver.id,createDriverMarkerMotion(coordinate(driver),driver.recordedAt));
    }
    appearanceRef.current.set(driver.id,signature);
   }
