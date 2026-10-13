@@ -1,7 +1,7 @@
 import pg from 'pg';
 
-const connectionString = process.env.TAXICRM_DATABASE_URL || process.env.DATABASE_URL;
-if (!connectionString) throw new Error('TAXICRM_DATABASE_URL or DATABASE_URL is required');
+const connectionString = process.env.RESTORE_URL || process.env.TAXICRM_DATABASE_URL || process.env.DATABASE_URL;
+if (!connectionString) throw new Error('RESTORE_URL, TAXICRM_DATABASE_URL or DATABASE_URL is required');
 
 const pool = new pg.Pool({
   connectionString,
