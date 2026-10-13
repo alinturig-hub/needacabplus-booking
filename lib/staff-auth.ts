@@ -10,11 +10,11 @@ function tokenHash(value:string){return createHash('sha256').update(value).diges
 function cookieOptions(maxAge:number){return {httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax' as const,path:'/',maxAge,expires:new Date(Date.now()+maxAge*1000)}}
 
 export async function findStaff(email:string){return (await database().query<StaffAccount&{password_hash:string}>(
- 'SELECT id,email,full_name,role,enabled,password_hash FROM staff_accounts WHERE lower(email)=lower($1)',[email.trim()])).rows[0]||null}
+ "SELECT id,email,full_name,role,enabled,password_hash FROM staff_accounts WHERE lower(email)=lower($1) AND (start_date IS NULL OR start_date <= (now() AT TIME ZONE 'Europe/London')::date) AND (end_date IS NULL OR end_date >= (now() AT TIME ZONE 'Europe/London')::date)",[email.trim()])).rows[0]||null}
 
 export async function currentStaff(){
  const token=(await cookies()).get(COOKIE)?.value;if(!token)return null;
- return (await database().query<StaffAccount>(`SELECT a.id,a.email,a.full_name,a.role,a.enabled FROM staff_sessions s JOIN staff_accounts a ON a.id=s.staff_id WHERE s.token_hash=$1 AND s.expires_at>now() AND a.enabled=true`,[tokenHash(token)])).rows[0]||null;
+ return (await database().query<StaffAccount>(`SELECT a.id,a.email,a.full_name,a.role,a.enabled FROM staff_sessions s JOIN staff_accounts a ON a.id=s.staff_id WHERE s.token_hash=$1 AND s.expires_at>now() AND a.enabled=true AND (a.start_date IS NULL OR a.start_date <= (now() AT TIME ZONE 'Europe/London')::date) AND (a.end_date IS NULL OR a.end_date >= (now() AT TIME ZONE 'Europe/London')::date)`,[tokenHash(token)])).rows[0]||null;
 }
 
 export async function setStaffSession(staffId:string){

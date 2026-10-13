@@ -511,6 +511,13 @@ CREATE TABLE IF NOT EXISTS staff_accounts (
  updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_accounts_email ON staff_accounts(lower(email));
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS first_name text NOT NULL DEFAULT '';
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS surname text NOT NULL DEFAULT '';
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS mobile text NOT NULL DEFAULT '';
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS landline text NOT NULL DEFAULT '';
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS start_date date;
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS end_date date;
+ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS company_id uuid;
 CREATE TABLE IF NOT EXISTS staff_sessions (
  token_hash text PRIMARY KEY,
  staff_id uuid NOT NULL REFERENCES staff_accounts(id) ON DELETE CASCADE,
@@ -529,6 +536,7 @@ CREATE TABLE IF NOT EXISTS operating_companies (
  updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_operating_companies_name ON operating_companies(name);
+CREATE INDEX IF NOT EXISTS idx_staff_accounts_company ON staff_accounts(company_id);
 ALTER TABLE admin_login_challenges ADD COLUMN IF NOT EXISTS staff_id uuid REFERENCES staff_accounts(id) ON DELETE CASCADE;
 CREATE TABLE IF NOT EXISTS customer_oauth_states(state_hash text PRIMARY KEY,provider text NOT NULL,browser_hash text NOT NULL,nonce text NOT NULL,verifier text NOT NULL,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_identities(provider text NOT NULL,subject text NOT NULL,customer_id uuid NOT NULL REFERENCES customer_accounts(id) ON DELETE CASCADE,PRIMARY KEY(provider,subject));
