@@ -10,6 +10,8 @@ try{
  try{
   await client.query('BEGIN READ ONLY');
   await client.query("SET LOCAL statement_timeout='120s'");
+  await client.query('SET LOCAL max_parallel_workers_per_gather=0');
+  await client.query("SET LOCAL work_mem='8MB'");
   const rows=(await client.query(`SELECT table_name,column_name FROM information_schema.columns
     WHERE table_schema='public' AND table_name IN ('Booking','BookingOrphanBackup_20261006')
     ORDER BY table_name,ordinal_position`)).rows;
