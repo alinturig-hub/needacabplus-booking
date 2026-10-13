@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {saveDriverEvent} from '../lib/driver-events.ts';
+import {handlesDriverEvent,saveDriverEvent} from '../lib/driver-events.ts';
 
 test('vehicle track webhook stores driver and vehicle positions, including unassigned vehicles',async()=>{
  const writes=[];
@@ -17,4 +17,15 @@ test('vehicle track webhook stores driver and vehicle positions, including unass
  assert.deepEqual(stored.map(position=>[position.driver_id,position.vehicle_id,position.latitude,position.longitude]),[
   ['132','81',50.375,-4.143],['vehicle:219','219',50.37,-4.12],
  ]);
+});
+
+
+test('TaxiCRM combined driver shift event maps to an ended shift',async()=>{
+ const writes=[];
+ const db={query:async(sql,params)=>{writes.push({sql,params});return {rows:[]}}};
+ const result=await saveDriverEvent(db,{SubEventType:'Ended',Driver:{Id:132,Callsign:'132'},StartedDate:'2026-10-13T08:00:00Z',EndedDate:'2026-10-13T16:00:00Z',ModifiedDate:'2026-10-13T16:00:02Z'},'Driver Shift Started/Ended');
+ assert.equal(handlesDriverEvent('DriverShiftStartedEnded'),true);
+ assert.deepEqual(result,{saved:true,shift:'ended',driverId:'132'});
+ const shift=JSON.parse(writes.find(write=>write.sql.includes('INSERT INTO driver_shifts')).params[0]);
+ assert.equal(shift.ended_at,'2026-10-13T16:00:00.000Z');
 });

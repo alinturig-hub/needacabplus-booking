@@ -20,11 +20,15 @@ async function upsertDrivers(db:Pool,drivers:DriverInput[]){
   SELECT id,NULLIF(callsign,''),NULLIF(forename,''),NULLIF(surname,''),NULLIF(badge_number,''),NULLIF(licence_number,''),COALESCE(active,true),now(),now() FROM input WHERE id IS NOT NULL AND id<>''
   ON CONFLICT (id) DO UPDATE SET callsign=COALESCE(EXCLUDED.callsign,drivers.callsign),forename=COALESCE(EXCLUDED.forename,drivers.forename),surname=COALESCE(EXCLUDED.surname,drivers.surname),badge_number=COALESCE(EXCLUDED.badge_number,drivers.badge_number),licence_number=COALESCE(EXCLUDED.licence_number,drivers.licence_number),active=EXCLUDED.active,last_seen=now()`,[JSON.stringify(unique)]);
 }
-export function handlesDriverEvent(eventType:string){const normalized=eventKey(eventType);return normalized==='vehicletrackschanged'||normalized==='drivershiftstarted'||normalized==='drivershiftended'}
+export function handlesDriverEvent(eventType:string){const normalized=eventKey(eventType);return normalized==='vehicletrackschanged'||normalized==='drivershiftstarted'||normalized==='drivershiftended'||normalized==='drivershiftstartedended'}
 export async function saveDriverEvent(db:Pool,payload:unknown,eventType:string){
  const normalized=eventKey(eventType);const root=object(payload);if(!root)return {saved:false,reason:'Payload is not an object'};
  if(normalized==='vehicletrackschanged')return saveVehicleTracks(db,root);
- if(normalized==='drivershiftstarted'||normalized==='drivershiftended')return saveDriverShift(db,root,normalized==='drivershiftstarted');
+ if(normalized==='drivershiftstarted'||normalized==='drivershiftended'||normalized==='drivershiftstartedended'){
+  const subEvent=text(key(root,'subEventType'))?.toLowerCase();
+  const started=normalized==='drivershiftstarted'||normalized==='drivershiftstartedended'&&subEvent!=='ended'&&!dateText(key(root,'endedDate'));
+  return saveDriverShift(db,root,started);
+ }
  return {saved:false,reason:'Unsupported driver event'};
 }
 async function saveVehicleTracks(db:Pool,root:JsonObject){

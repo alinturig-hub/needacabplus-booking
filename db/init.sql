@@ -195,6 +195,12 @@ CREATE TABLE IF NOT EXISTS provider_webhooks (
 CREATE INDEX IF NOT EXISTS idx_provider_webhooks_provider ON provider_webhooks(provider_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_webhooks_suffix_unique ON provider_webhooks(event_url_suffix);
 
+-- Match the Autocab event carried by each historical endpoint before booking ingestion is enabled.
+UPDATE provider_webhooks SET name='Booking Dispatched',event_type='Booking Dispatched',updated_at=now()
+WHERE event_url_suffix='/booking_dispatch' AND event_type='Booking Dispatch Accepted';
+UPDATE provider_webhooks SET name='Booking Dispatch Accepted',event_type='Booking Dispatch Accepted',updated_at=now()
+WHERE event_url_suffix='/booking_accepted' AND event_type='Booking Dispatch Offered';
+
 CREATE TABLE IF NOT EXISTS webhook_events (
   id uuid PRIMARY KEY,
   provider_id uuid NOT NULL REFERENCES webhook_providers(id) ON DELETE CASCADE,
