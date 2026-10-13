@@ -1,4 +1,5 @@
 import pg from 'pg';
+import {isDeepStrictEqual} from 'node:util';
 
 const url=process.env.TAXICRM_DATABASE_URL;
 if(!url)throw new Error('TAXICRM_DATABASE_URL is required');
@@ -36,8 +37,14 @@ try{
     coalesce(sum(n-1),0)::bigint AS extra_rows FROM (
     SELECT count(*) n FROM public."BookingOrphanBackup_20261006"
     GROUP BY provider,"externalId" HAVING count(*)>1) duplicates`)).rows[0];
+  const exactRootIds=(await client.query(`SELECT backup.id
+    FROM public."BookingOrphanBackup_20261006" backup
+    JOIN public."Booking" current ON current.id=backup.id
+      AND current.provider=backup.provider AND current."externalId"=backup."externalId"
+    WHERE to_jsonb(backup)=to_jsonb(current)`)).rows.map(row=>row.id);
   const relatedPairs=['BookingLocation','BookingVia','BookingTimelineEvent','BookingSnapshot'];
   const related=[];
+  const uncoveredRoots=new Set();
   for(const currentName of relatedPairs){
    const backupName=`${currentName}OrphanBackup_20261006`;
    const relatedColumns=(await client.query(`SELECT table_name,column_name FROM information_schema.columns
@@ -50,37 +57,30 @@ try{
     related.push({table:currentName,sameColumns,comparisonAvailable:false});
     continue;
    }
-   const child=(await client.query(`SELECT count(*)::bigint AS archived_rows,
-     count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM public."${currentName}" current_child
-       WHERE current_child.id=backup_child.id AND to_jsonb(current_child)=to_jsonb(backup_child)))::bigint AS unmatched_rows
-     FROM public."${backupName}" backup_child
-     JOIN public."BookingOrphanBackup_20261006" backup ON backup.id=backup_child."bookingId"
-     JOIN public."Booking" current ON current.provider=backup.provider
-       AND current."externalId"=backup."externalId"
-     WHERE to_jsonb(backup)=to_jsonb(current)`)).rows[0];
+   const archived=(await client.query(`SELECT * FROM public."${backupName}"
+     WHERE "bookingId"=ANY($1::text[])`,[exactRootIds])).rows;
+   const currentIds=archived.map(row=>row.id);
+   const currentRows=currentIds.length?(await client.query(`SELECT * FROM public."${currentName}"
+     WHERE id=ANY($1::text[])`,[currentIds])).rows:[];
+   const currentById=new Map(currentRows.map(row=>[row.id,row]));
+   let unmatchedRows=0;
+   for(const child of archived){
+    if(!isDeepStrictEqual(child,currentById.get(child.id))){
+     unmatchedRows++;
+     uncoveredRoots.add(child.bookingId);
+    }
+   }
    related.push({table:currentName,sameColumns,comparisonAvailable:true,
-    archivedRows:Number(child.archived_rows),unmatchedRows:Number(child.unmatched_rows)});
+    archivedRows:archived.length,unmatchedRows});
   }
   const allRelatedComparable=related.every(item=>item.comparisonAvailable);
-  let fullyCoveredExactRows=null;
-  if(allRelatedComparable){
-   const coveragePredicates=relatedPairs.map((name,index)=>`AND NOT EXISTS (
-     SELECT 1 FROM public."${name}OrphanBackup_20261006" child_${index}
-     WHERE child_${index}."bookingId"=backup.id AND NOT EXISTS (
-       SELECT 1 FROM public."${name}" current_child_${index}
-       WHERE current_child_${index}.id=child_${index}.id
-         AND to_jsonb(current_child_${index})=to_jsonb(child_${index})))`).join('\n');
-   fullyCoveredExactRows=Number((await client.query(`SELECT count(*)::bigint AS total
-     FROM public."BookingOrphanBackup_20261006" backup
-     JOIN public."Booking" current ON current.provider=backup.provider
-       AND current."externalId"=backup."externalId"
-     WHERE to_jsonb(backup)=to_jsonb(current) ${coveragePredicates}`)).rows[0].total);
-  }
+  const fullyCoveredExactRows=allRelatedComparable?
+   exactRootIds.filter(id=>!uncoveredRoots.has(id)).length:null;
   await client.query('COMMIT');
   console.log(JSON.stringify({checkedAt:new Date().toISOString(),sameColumns,currentOnly,backupOnly,
    overlap:Object.fromEntries(Object.entries(compare).map(([name,value])=>[name,Number(value)])),
    withinBackup:Object.fromEntries(Object.entries(withinBackup).map(([name,value])=>[name,Number(value)])),
-   related,fullyCoveredExactRows}));
+   related,exactRootCount:exactRootIds.length,fullyCoveredExactRows}));
  }catch(error){await client.query('ROLLBACK').catch(()=>undefined);throw error}
  finally{client.release()}
 }catch(error){
