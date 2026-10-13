@@ -47,6 +47,20 @@ async function exactBookingCounts(pool,source){
    const exists=(await client.query('SELECT to_regclass($1) IS NOT NULL AS present',[`public."${table}"`])).rows[0]?.present;
    if(exists)counts[table]=Number((await client.query(`SELECT count(*)::bigint AS total FROM public."${table}"`)).rows[0].total);
   }
+  if(source){
+   counts.byProvider=(await client.query('SELECT provider,count(*)::bigint AS total FROM public."Booking" GROUP BY provider ORDER BY provider')).rows
+    .map(row=>({provider:row.provider,total:Number(row.total)}));
+   if(counts.BookingOrphanBackup_20261006!==undefined){
+    const columns=new Set((await client.query(`SELECT column_name FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='BookingOrphanBackup_20261006'`)).rows.map(row=>row.column_name));
+    if(columns.has('provider')&&columns.has('externalId')){
+     counts.orphanBackupNotInBooking=Number((await client.query(`SELECT count(*)::bigint AS total
+       FROM public."BookingOrphanBackup_20261006" backup WHERE NOT EXISTS (
+        SELECT 1 FROM public."Booking" current
+        WHERE current.provider=backup.provider AND current."externalId"=backup."externalId")`)).rows[0].total);
+    }
+   }
+  }
   await client.query('COMMIT');
   return counts;
  }catch(error){await client.query('ROLLBACK').catch(()=>undefined);throw error}
