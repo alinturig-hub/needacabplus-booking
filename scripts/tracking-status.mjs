@@ -23,7 +23,13 @@ try{
   if(!/^\d{1,6}$/.test(callsign))throw new Error('A numeric vehicle callsign is required');
   const local=await pool.query(`SELECT vehicle_id,vehicle_callsign,latitude,longitude,vehicle_status,recorded_at,received_at
    FROM driver_positions WHERE vehicle_callsign=$1 OR vehicle_id=$1 ORDER BY recorded_at DESC LIMIT 12`,[callsign]);
+  const sampleAt=process.argv[3];
+  if(sampleAt&&!Number.isFinite(Date.parse(sampleAt)))throw new Error('A valid sample timestamp is required');
+  const localAt=sampleAt?await pool.query(`SELECT vehicle_id,vehicle_callsign,latitude,longitude,vehicle_status,recorded_at
+   FROM driver_positions WHERE vehicle_callsign=$1 AND recorded_at BETWEEN $2::timestamptz-interval '45 seconds' AND $2::timestamptz+interval '45 seconds'
+   ORDER BY recorded_at DESC LIMIT 20`,[callsign,sampleAt]):null;
   let taxiCrm=null;
+  let taxiCrmAt=null;
   if(process.env.TAXICRM_DATABASE_URL){
    const source=new pg.Pool({connectionString:process.env.TAXICRM_DATABASE_URL,connectionTimeoutMillis:5000});
    try{
@@ -31,8 +37,15 @@ try{
      "currentStatus" vehicle_status,"lastSeenAt" recorded_at FROM public."Vehicle"
      WHERE callsign=$1 OR "externalId"=$1 ORDER BY "lastSeenAt" DESC LIMIT 5`,[callsign]);
     taxiCrm=result.rows;
+    if(sampleAt){
+     const snapshots=await source.query(`SELECT snapshot.latitude,snapshot.longitude,snapshot."vehicleStatus" vehicle_status,snapshot."snapshotAt" recorded_at
+      FROM public."VehicleSnapshot" snapshot JOIN public."Vehicle" vehicle ON vehicle.id=snapshot."vehicleId"
+      WHERE vehicle.callsign=$1 AND snapshot."snapshotAt" BETWEEN $2::timestamptz-interval '45 seconds' AND $2::timestamptz+interval '45 seconds'
+      ORDER BY snapshot."snapshotAt" DESC LIMIT 8`,[callsign,sampleAt]);
+     taxiCrmAt=snapshots.rows;
+    }
    }finally{await source.end()}
   }
-  console.log(JSON.stringify({callsign,local:local.rows,taxiCrm}));
+  console.log(JSON.stringify({callsign,local:local.rows,taxiCrm,sampleAt,localAt:localAt?.rows||null,taxiCrmAt}));
  }
 }finally{await pool.end()}
