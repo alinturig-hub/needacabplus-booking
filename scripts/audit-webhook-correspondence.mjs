@@ -2,7 +2,7 @@ import pg from 'pg';
 
 const local=new pg.Pool({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:5000});
 const source=new pg.Pool({connectionString:process.env.TAXICRM_DATABASE_URL,connectionTimeoutMillis:5000});
-const normalize=value=>String(value||'').toLowerCase().replace(/[^a-z]/g,'');
+const expectedPaths={BookingCreated:'/booking_created',BookingModified:'/booking_modified',BookingDispatched:'/booking_dispatch',BookingDispatchAccepted:'/booking_accepted',BookingArrived:'/dap',BookingPOB:'/pob',BookingComplete:'/booking_done',BookingCancelled:'/booking_cancelled',BookingNoFare:'/booking_no_fare',BookingRejected:'/booking_rejected',BookingRecovered:'/booking_recovered',BookingRunningLate:'/running_late',DriverShiftStartedEnded:'/driver_shift_start',VehicleTracksChanged:'/tracks_change'};
 try{
  const [sourceEvents,sourceSamples,localHooks,localEvents,localBookings,localPositions]=await Promise.all([
   source.query(`SELECT "eventType" event_type,status::text status,count(*)::int count,max("receivedAt") last_received_at
@@ -27,8 +27,8 @@ try{
  const correspondence=sampleIds.length?await local.query(`SELECT external_booking_id,status,last_event_type,updated_at FROM bookings WHERE external_booking_id=ANY($1::text[])`,[sampleIds]):{rows:[]};
  const localById=new Map(correspondence.rows.map(row=>[row.external_booking_id,row]));
  const eventNames=[...new Set(sourceEvents.rows.map(row=>row.event_type))];
- const hookNames=new Set(localHooks.rows.filter(row=>row.active).map(row=>normalize(row.event_type)));
- const missingNames=eventNames.filter(name=>!hookNames.has(normalize(name)));
+ const activePaths=new Set(localHooks.rows.filter(row=>row.active).map(row=>row.event_url_suffix));
+ const missingNames=eventNames.filter(name=>!expectedPaths[name]||!activePaths.has(expectedPaths[name]));
  const matched=sampleIds.filter(id=>localById.has(id));
  const unmatched=sampleIds.filter(id=>!localById.has(id));
  const sampleKeys=[...new Set(sourceSamples.rows.flatMap(row=>Object.keys(row.payload||{})))].sort();
