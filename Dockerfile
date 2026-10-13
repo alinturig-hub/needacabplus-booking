@@ -29,6 +29,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-fetch.mjs ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-reference.mjs ./scripts/audit-reference.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/audit-time-evidence.mjs ./scripts/audit-time-evidence.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/tracking-status.mjs ./scripts/tracking-status.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/ensure-tracking-webhook.mjs ./scripts/ensure-tracking-webhook.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/db/init.sql ./db/init.sql
 COPY --from=builder --chown=nextjs:nodejs /app/lib/autocab-time.mjs ./lib/autocab-time.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-bookings.mjs ./scripts/reconcile-bookings.mjs
