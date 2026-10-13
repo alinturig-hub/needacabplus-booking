@@ -9,22 +9,25 @@ try{
  const client=await pool.connect();
  try{
   await client.query('BEGIN READ ONLY');
-  await client.query("SET LOCAL statement_timeout='60s'");
+  await client.query("SET LOCAL statement_timeout='120s'");
   const identity=(await client.query(`SELECT current_database() AS database,
     pg_database_size(current_database())::bigint AS bytes`)).rows[0];
   const tables=(await client.query(`SELECT c.relname AS name,c.reltuples::bigint AS estimated_rows
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relkind IN ('r','p') ORDER BY c.relname`)).rows;
   const counts={};
-  for(const table of ['bookings','customer_accounts']){
+  for(const table of ['bookings','customer_accounts','Booking','BookingOrphanBackup_20261006']){
    if(tables.some(row=>row.name===table)){
-    counts[table]=Number((await client.query(`SELECT count(*)::bigint AS total FROM public.${table}`)).rows[0].total);
+    counts[table]=Number((await client.query(`SELECT count(*)::bigint AS total FROM public."${table}"`)).rows[0].total);
    }
   }
   await client.query('COMMIT');
   console.log(JSON.stringify({database:identity.database,bytes:Number(identity.bytes),
    tableCount:tables.length,tableNames:tables.map(row=>row.name),counts,
-   driverPositionsEstimated:Number(tables.find(row=>row.name==='driver_positions')?.estimated_rows??0)}));
+   driverPositionsEstimated:Number(tables.find(row=>row.name==='driver_positions')?.estimated_rows??0),
+   bookingTableEstimates:Object.fromEntries(tables.filter(row=>
+    ['BookingLocation','BookingVia','WebhookEvent','BookingTimelineEvent','BookingSnapshot'].includes(row.name))
+    .map(row=>[row.name,Number(row.estimated_rows)]))}));
  }catch(error){await client.query('ROLLBACK').catch(()=>undefined);throw error}
  finally{client.release()}
 }catch(error){
