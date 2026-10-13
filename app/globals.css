@@ -66,8 +66,9 @@
 .driver-live-filters select{min-width:180px}
 .driver-live-filters input::placeholder{color:#8190a0}
 .driver-live-filters input:focus,.driver-live-filters select:focus{outline:2px solid #c2aa70;outline-offset:1px}
-.driver-map-marker{width:48px;height:70px;cursor:pointer;display:flex;align-items:flex-start;justify-content:center;transition:transform .15s}
-.driver-map-marker:hover,.driver-map-marker:focus{transform:scale(1.16);z-index:2!important}
+.driver-map-marker{width:48px;height:70px;cursor:pointer;display:flex;align-items:flex-start;justify-content:center}
+.driver-map-marker:hover,.driver-map-marker:focus{z-index:2!important}
+.driver-map-marker:hover span,.driver-map-marker:focus span{box-shadow:0 0 0 3px #e0b44880,0 2px 5px #0008}
 .driver-map-marker img{position:absolute;left:8px;top:12px;width:32px;height:56px;object-fit:contain;transform-origin:50% 50%;filter:invert(1) drop-shadow(0 3px 4px #000b);pointer-events:none;user-select:none;will-change:transform}
 .driver-map-marker span{position:relative;z-index:1;display:block;min-width:25px;max-width:45px;padding:3px 6px;background:#fff;border:2px solid #e0b448;border-radius:9px;box-shadow:0 2px 5px #0008;font-size:10px;font-weight:800;text-align:center;color:#101313;line-height:1;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .driver-map-marker-clear span{border-color:#52b960}.driver-map-marker-dow span{border-color:#e2a438}.driver-map-marker-dap span{border-color:#599bc9}.driver-map-marker-pob span{border-color:#dc6e6e}.driver-map-marker-offline span{border-color:#929da6}.driver-map-marker-unknown span{border-color:#c3ad77}
