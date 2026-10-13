@@ -1,78 +1,91 @@
 'use client';
 
 import {useEffect,useRef,useState} from 'react';
-import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
-import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
-import {driverMarker,driverPopup,updateDriverMarker} from '../driver-map-presentation';
+import type {Map as LeafletMap,Marker as LeafletMarker} from 'leaflet';
+import {driverMarker,driverPopup} from '../driver-map-presentation';
 import type {DriverMapDetails} from '../driver-map-presentation';
 import styles from './workspace.module.css';
 
 export type MapDriver=DriverMapDetails&{driverId:string;vehicleId:string;vehicleCallsign:string|null;zone?:string|null;latitude:number;longitude:number};
 type MapZone={externalId:string;name:string;latitude:number|null;longitude:number|null};
-const center:[number,number]=[-4.143,50.374];
-const coordinate=(driver:MapDriver)=>[driver.longitude,driver.latitude] as [number,number];
+const center:[number,number]=[50.374,-4.143];
+const coordinate=(driver:MapDriver)=>[driver.latitude,driver.longitude] as [number,number];
 const valid=(driver:MapDriver)=>Number.isFinite(driver.latitude)&&Number.isFinite(driver.longitude)&&Math.abs(driver.latitude)<=90&&Math.abs(driver.longitude)<=180;
+function icon(L:typeof import('leaflet'),driver:MapDriver,label:string){
+ return L.divIcon({className:'fleet-vehicle-div-icon',html:driverMarker({...driver,callsign:label},driver.vehicleId).outerHTML,iconSize:[48,70],iconAnchor:[24,42],popupAnchor:[0,-38]});
+}
 
 export default function DispatcherDriverMap({drivers,zones,selectedZone,selectedDriver,onSelect}:{drivers:MapDriver[];zones:MapZone[];selectedZone:string;selectedDriver:string;onSelect:(vehicleId:string)=>void}){
  const container=useRef<HTMLDivElement>(null);
- const mapRef=useRef<MapLibreMap|null>(null);
- const markers=useRef(new Map<string,Marker>());
+ const mapRef=useRef<LeafletMap|null>(null);
+ const leafletRef=useRef<typeof import('leaflet')|null>(null);
+ const markers=useRef(new Map<string,LeafletMarker>());
+ const markerAppearance=useRef(new Map<string,string>());
+ const onSelectRef=useRef(onSelect);
  const fitted=useRef(false);
  const centeredZone=useRef('');
  const centeredDriver=useRef('');
  const [ready,setReady]=useState(false);
+ useEffect(()=>{onSelectRef.current=onSelect},[onSelect]);
 
  useEffect(()=>{
-  if(!container.current)return;
   let disposed=false;
+  let observer:ResizeObserver|null=null;
   const mountedMarkers=markers.current;
-  const controller=new AbortController();
-  void configuredMapStyle('dark',controller.signal).then(style=>{
+  const appearance=markerAppearance.current;
+  void import('leaflet').then(({default:L})=>{
    if(disposed||!container.current)return;
-   const map=new MapLibreMap({container:container.current,style:style||openStreetMapStyle,center,zoom:11,attributionControl:{compact:true}});
-   map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+   leafletRef.current=L;
+   const map=L.map(container.current,{center,zoom:11,zoomControl:true,scrollWheelZoom:true});
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map);
    mapRef.current=map;
-   setReady(true);
-  }).catch(()=>{
-   if(disposed||!container.current)return;
-   const map=new MapLibreMap({container:container.current,style:openStreetMapStyle,center,zoom:11,attributionControl:{compact:true}});
-   mapRef.current=map;
+   observer=new ResizeObserver(()=>map.invalidateSize({pan:false}));
+   observer.observe(container.current);
+   requestAnimationFrame(()=>{if(!disposed)map.invalidateSize({pan:false})});
    setReady(true);
   });
-  return()=>{disposed=true;controller.abort();for(const marker of mountedMarkers.values())marker.remove();mountedMarkers.clear();mapRef.current?.remove();mapRef.current=null};
+  return()=>{disposed=true;observer?.disconnect();mountedMarkers.clear();appearance.clear();mapRef.current?.remove();mapRef.current=null;leafletRef.current=null};
  },[]);
 
  useEffect(()=>{
-  const map=mapRef.current;if(!ready||!map)return;
+  const map=mapRef.current,L=leafletRef.current;if(!ready||!map||!L)return;
   const current=markers.current;
   const validDrivers=drivers.filter(valid);
   const ids=new Set(validDrivers.map(driver=>driver.vehicleId));
-  for(const [id,marker] of current)if(!ids.has(id)){marker.remove();current.delete(id)}
+  for(const [id,marker] of current)if(!ids.has(id)){marker.remove();current.delete(id);markerAppearance.current.delete(id)}
   for(const driver of validDrivers){
    const id=driver.vehicleId;
    const label=driver.vehicleCallsign||driver.callsign||id;
-   const existing=current.get(id);
-   const element=existing?.getElement()||driverMarker({...driver,callsign:label},id);
-   if(!existing){element.addEventListener('click',()=>onSelect(id))}
-   updateDriverMarker(element,{...driver,callsign:label},id);
-   element.classList.toggle(styles.mapMarkerDim,Boolean(selectedZone&&driver.zone&&driver.zone!==selectedZone));
-   element.classList.toggle(styles.mapMarkerSelected,id===selectedDriver);
-   const popup=driverPopup({...driver,callsign:label},id);
-   if(existing){existing.setLngLat(coordinate(driver));existing.getPopup()?.setDOMContent(popup)}
-   else current.set(id,new Marker({element}).setLngLat(coordinate(driver)).setPopup(new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap',maxWidth:'min(410px, calc(100vw - 32px))'}).setDOMContent(popup)).addTo(map));
+   const appearance=`${label}|${driver.operationalStatus||driver.vehicleStatus}|${driver.isLive}`;
+   let marker=current.get(id);
+   if(marker){
+    marker.setLatLng(coordinate(driver));
+    if(markerAppearance.current.get(id)!==appearance)marker.setIcon(icon(L,driver,label));
+    marker.setPopupContent(driverPopup({...driver,callsign:label},id));
+   }else{
+    marker=L.marker(coordinate(driver),{icon:icon(L,driver,label),keyboard:true})
+     .bindPopup(driverPopup({...driver,callsign:label},id),{className:'driver-popup-wrap',maxWidth:410,autoPan:true})
+     .on('click',()=>onSelectRef.current(id))
+     .addTo(map);
+    current.set(id,marker);
+   }
+   markerAppearance.current.set(id,appearance);
+   marker.getElement()?.classList.toggle(styles.mapMarkerDim,Boolean(selectedZone&&driver.zone&&driver.zone!==selectedZone));
+   marker.getElement()?.classList.toggle(styles.mapMarkerSelected,id===selectedDriver);
   }
   if(!fitted.current&&validDrivers.length){
    fitted.current=true;
-   if(validDrivers.length===1)map.flyTo({center:coordinate(validDrivers[0]),zoom:13,duration:0});
-   else{const bounds=new maplibregl.LngLatBounds();for(const driver of validDrivers)bounds.extend(coordinate(driver));map.fitBounds(bounds,{padding:50,maxZoom:13,duration:0})}
+   map.invalidateSize({pan:false});
+   if(validDrivers.length===1)map.setView(coordinate(validDrivers[0]),13,{animate:false});
+   else map.fitBounds(L.latLngBounds(validDrivers.map(coordinate)),{padding:[40,40],maxZoom:13,animate:false});
   }
- },[drivers,onSelect,ready,selectedDriver,selectedZone]);
+ },[drivers,ready,selectedDriver,selectedZone]);
 
  useEffect(()=>{
   const map=mapRef.current;if(!ready||!map||!selectedDriver)return;
   if(centeredDriver.current===selectedDriver)return;
   const driver=drivers.find(item=>item.vehicleId===selectedDriver&&valid(item));
-  if(driver){centeredDriver.current=selectedDriver;map.flyTo({center:coordinate(driver),zoom:Math.max(map.getZoom(),13),duration:650})}
+  if(driver){centeredDriver.current=selectedDriver;map.flyTo(coordinate(driver),Math.max(map.getZoom(),13),{duration:.65})}
  },[drivers,ready,selectedDriver]);
 
  useEffect(()=>{if(!selectedDriver)centeredDriver.current=''},[selectedDriver]);
@@ -82,7 +95,7 @@ export default function DispatcherDriverMap({drivers,zones,selectedZone,selected
   if(!selectedZone){centeredZone.current='';return}
   if(centeredZone.current===selectedZone)return;
   const zone=zones.find(item=>item.name===selectedZone);
-  if(zone&&zone.latitude!==null&&zone.longitude!==null&&Number.isFinite(zone.latitude)&&Number.isFinite(zone.longitude)){centeredZone.current=selectedZone;map.flyTo({center:[zone.longitude,zone.latitude],zoom:12,duration:650})}
+  if(zone&&zone.latitude!==null&&zone.longitude!==null&&Number.isFinite(zone.latitude)&&Number.isFinite(zone.longitude)){centeredZone.current=selectedZone;map.flyTo([zone.latitude,zone.longitude],12,{duration:.65})}
  },[ready,selectedZone,zones]);
 
  return <div ref={container} className={styles.mapCanvas} role="region" aria-label="Live driver map"/>;

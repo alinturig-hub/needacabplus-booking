@@ -66,6 +66,12 @@
 .driver-live-filters select{min-width:180px}
 .driver-live-filters input::placeholder{color:#8190a0}
 .driver-live-filters input:focus,.driver-live-filters select:focus{outline:2px solid #c2aa70;outline-offset:1px}
+.fleet-vehicle-div-icon{background:transparent;border:0}
+.fleet-vehicle-div-icon .driver-map-marker{position:relative}
+.driver-popup-wrap .leaflet-popup-content-wrapper{background:#fff;border:1px solid #ddd;border-radius:16px;padding:14px;color:#303030;font-family:Arial,sans-serif;box-shadow:0 10px 28px #0003}
+.driver-popup-wrap .leaflet-popup-content{margin:4px;max-width:calc(100vw - 84px)}
+.driver-popup-wrap .leaflet-popup-tip{background:#fff}
+.driver-popup-wrap .leaflet-popup-close-button{font-size:21px!important;color:#747474!important;top:9px!important;right:10px!important}
 .driver-map-marker{width:48px;height:70px;cursor:pointer;display:flex;align-items:flex-start;justify-content:center}
 .driver-map-marker:hover,.driver-map-marker:focus{z-index:2!important}
 .driver-map-marker:hover span,.driver-map-marker:focus span{box-shadow:0 0 0 3px #e0b44880,0 2px 5px #0008}

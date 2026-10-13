@@ -3,25 +3,23 @@ import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,LogOut,MapPin,Maximize,RefreshCw} from 'lucide-react';
-import maplibregl,{Map as MapLibreMap,Marker,Popup} from 'maplibre-gl';
-import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
-import {driverMarker,driverPopup,updateDriverMarker} from './driver-map-presentation';
+import type {Map as LeafletMap,Marker as LeafletMarker} from 'leaflet';
+import {driverMarker,driverPopup} from './driver-map-presentation';
 
 type Driver={id:string;driverId:string|null;callsign:string|null;name:string|null;latitude:number;longitude:number;vehicleStatus:string;operationalStatus:'CLEAR'|'DOW'|'DAP'|'POB'|'OFFLINE'|'UNKNOWN';recordedAt:string;isLive:boolean;registration:string|null;bookingId:number|null;pickupAddress:string|null;destinationAddress:string|null;todayRevenue:number|null};
-type LiveMarker={marker:Marker;coordinate:[number,number];recordedAt:number;heading:number;animationFrame:number|null};
-const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
-function bearing(from:[number,number],to:[number,number]){
- const lon1=from[0]*Math.PI/180,lat1=from[1]*Math.PI/180,lon2=to[0]*Math.PI/180,lat2=to[1]*Math.PI/180;
- const y=Math.sin(lon2-lon1)*Math.cos(lat2);
- const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(lon2-lon1);
- return(Math.atan2(y,x)*180/Math.PI+360)%360;
+const DEFAULT_CENTER:[number,number]=[50.374,-4.143];
+const coordinate=(driver:Driver)=>[driver.latitude,driver.longitude] as [number,number];
+const valid=(driver:Driver)=>Number.isFinite(driver.latitude)&&Number.isFinite(driver.longitude)&&Math.abs(driver.latitude)<=90&&Math.abs(driver.longitude)<=180;
+function icon(L:typeof import('leaflet'),driver:Driver){
+ return L.divIcon({className:'fleet-vehicle-div-icon',html:driverMarker(driver,driver.id).outerHTML,iconSize:[48,70],iconAnchor:[24,42],popupAnchor:[0,-38]});
 }
-function nearestHeading(current:number,next:number){return current+((next-current+540)%360-180);}
 export default function DriverLiveMap(){
  const router=useRouter();
  const mapContainer=useRef<HTMLDivElement>(null);
- const mapRef=useRef<MapLibreMap|null>(null);
- const markersRef=useRef<Map<string,LiveMarker>>(new Map());
+ const mapRef=useRef<LeafletMap|null>(null);
+ const leafletRef=useRef<typeof import('leaflet')|null>(null);
+ const markersRef=useRef<Map<string,LeafletMarker>>(new Map());
+ const appearanceRef=useRef(new Map<string,string>());
  const fittedRef=useRef(false);
  const selectionRef=useRef('all:');
  const [mapReady,setMapReady]=useState(false);
@@ -41,11 +39,12 @@ export default function DriverLiveMap(){
   return !term||[driver.callsign,driver.name,driver.registration,driver.bookingId?.toString()].some(value=>value?.toLowerCase().includes(term));
  }),[drivers,query,filter]);
  const showAll=useCallback(()=>{
-  const map=mapRef.current;if(!map||!visibleDrivers.length)return;
-  if(visibleDrivers.length===1){map.flyTo({center:[visibleDrivers[0].longitude,visibleDrivers[0].latitude],zoom:14,duration:800});return;}
-  const bounds=new maplibregl.LngLatBounds();
-  for(const driver of visibleDrivers)bounds.extend([driver.longitude,driver.latitude]);
-  map.fitBounds(bounds,{padding:80,maxZoom:14,duration:800});
+  const map=mapRef.current,L=leafletRef.current;
+  const points=visibleDrivers.filter(valid);
+  if(!map||!L||!points.length)return;
+  map.invalidateSize({pan:false});
+  if(points.length===1){map.flyTo(coordinate(points[0]),14,{duration:.8});return;}
+  map.flyToBounds(L.latLngBounds(points.map(coordinate)),{padding:[40,40],maxZoom:14,duration:.8});
  },[visibleDrivers]);
  const fetchDrivers=useCallback(async()=>{
   try{
@@ -71,58 +70,52 @@ export default function DriverLiveMap(){
   return()=>events.close();
  },[]);
  useEffect(()=>{
-  if(!mapContainer.current||mapRef.current)return;
-  const markers=markersRef.current,controller=new AbortController();let map:MapLibreMap|null=null,disposed=false;
-  void configuredMapStyle('dark',controller.signal).then(style=>{if(disposed||!mapContainer.current)return;map=new MapLibreMap({container:mapContainer.current,style:style||openStreetMapStyle,center:DEFAULT_CENTER,zoom:11,attributionControl:{compact:true}});map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');mapRef.current=map;setMapReady(true)});
-  return()=>{disposed=true;controller.abort();markers.forEach(({marker,animationFrame})=>{if(animationFrame!==null)cancelAnimationFrame(animationFrame);marker.remove()});markers.clear();map?.remove();mapRef.current=null;};
+  let disposed=false;
+  let observer:ResizeObserver|null=null;
+  const markers=markersRef.current,appearance=appearanceRef.current;
+  void import('leaflet').then(({default:L})=>{
+   if(disposed||!mapContainer.current)return;
+   leafletRef.current=L;
+   const map=L.map(mapContainer.current,{center:DEFAULT_CENTER,zoom:11,scrollWheelZoom:true});
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map);
+   mapRef.current=map;
+   observer=new ResizeObserver(()=>map.invalidateSize({pan:false}));
+   observer.observe(mapContainer.current);
+   requestAnimationFrame(()=>{if(!disposed)map.invalidateSize({pan:false})});
+   setMapReady(true);
+  });
+  return()=>{disposed=true;observer?.disconnect();markers.clear();appearance.clear();mapRef.current?.remove();mapRef.current=null;leafletRef.current=null};
  },[]);
  useEffect(()=>{
-  const map=mapRef.current;if(!map||!mapReady)return;
+  const map=mapRef.current,L=leafletRef.current;if(!map||!L||!mapReady)return;
   const existing=markersRef.current;
-  const newIds=new Set(visibleDrivers.map(d=>d.id));
-  for(const [id,state] of existing){if(!newIds.has(id)){if(state.animationFrame!==null)cancelAnimationFrame(state.animationFrame);state.marker.remove();existing.delete(id);}}
-  for(const driver of visibleDrivers){
-   if(existing.has(driver.id)){
-    const state=existing.get(driver.id)!;
-    state.marker.getPopup()?.setDOMContent(driverPopup(driver,driver.id));
-    updateDriverMarker(state.marker.getElement(),driver,driver.id);
-    const target:[number,number]=[driver.longitude,driver.latitude];
-    const from:[number,number]=[state.coordinate[0],state.coordinate[1]];
-    const moved=Math.abs(target[0]-from[0])+Math.abs(target[1]-from[1])>0.000001;
-    if(moved){
-     if(state.animationFrame!==null)cancelAnimationFrame(state.animationFrame);
-     const nextRecordedAt=new Date(driver.recordedAt).getTime();
-     const gap=Number.isFinite(nextRecordedAt)&&state.recordedAt>0?Math.abs(nextRecordedAt-state.recordedAt):1200;
-     const duration=Math.max(800,Math.min(5000,gap*.92||1200));
-     const fromHeading=state.heading;
-     const toHeading=nearestHeading(fromHeading,bearing(from,target));
-     const car=state.marker.getElement().querySelector('img');
-     const started=performance.now();
-     const animate=(now:number)=>{
-      const progress=Math.min(1,(now-started)/duration);
-      const eased=progress*progress*(3-2*progress);
-      state.coordinate=[from[0]+(target[0]-from[0])*eased,from[1]+(target[1]-from[1])*eased];
-      state.marker.setLngLat(state.coordinate);
-      state.heading=fromHeading+(toHeading-fromHeading)*eased;
-      if(car)car.setAttribute('style',`transform:rotate(${state.heading}deg)`);
-      state.animationFrame=progress<1?requestAnimationFrame(animate):null;
-     };
-     state.animationFrame=requestAnimationFrame(animate);
-     state.recordedAt=Number.isFinite(nextRecordedAt)?nextRecordedAt:Date.now();
-    }
+  const points=visibleDrivers.filter(valid);
+  const newIds=new Set(points.map(driver=>driver.id));
+  for(const [id,marker] of existing)if(!newIds.has(id)){marker.remove();existing.delete(id);appearanceRef.current.delete(id)}
+  for(const driver of points){
+   const signature=`${driver.callsign}|${driver.operationalStatus}|${driver.isLive}`;
+   let marker=existing.get(driver.id);
+   if(marker){
+    marker.setLatLng(coordinate(driver));
+    if(appearanceRef.current.get(driver.id)!==signature)marker.setIcon(icon(L,driver));
+    marker.setPopupContent(driverPopup(driver,driver.id));
    }else{
-    const el=driverMarker(driver,driver.id);
-    const popup=new Popup({offset:28,closeButton:true,closeOnClick:false,className:'driver-popup-wrap',maxWidth:'min(410px, calc(100vw - 32px))'}).setDOMContent(driverPopup(driver,driver.id));
-    const marker=new Marker({element:el}).setLngLat([driver.longitude,driver.latitude]).setPopup(popup).addTo(map);
-    const recordedAt=new Date(driver.recordedAt).getTime();
-    existing.set(driver.id,{marker,coordinate:[driver.longitude,driver.latitude],recordedAt:Number.isFinite(recordedAt)?recordedAt:Date.now(),heading:0,animationFrame:null});
+    marker=L.marker(coordinate(driver),{icon:icon(L,driver),keyboard:true})
+     .bindPopup(driverPopup(driver,driver.id),{className:'driver-popup-wrap',maxWidth:410,autoPan:true})
+     .addTo(map);
+    existing.set(driver.id,marker);
    }
+   appearanceRef.current.set(driver.id,signature);
   }
   const selection=`${filter}:${query.trim().toLowerCase()}`;
-  if(visibleDrivers.length&&(!fittedRef.current||selectionRef.current!==selection)){
-   fittedRef.current=true;selectionRef.current=selection;showAll();
+  if(points.length&&(!fittedRef.current||selectionRef.current!==selection)){
+   fittedRef.current=true;selectionRef.current=selection;
+   map.invalidateSize({pan:false});
+   if(points.length===1)map.setView(coordinate(points[0]),14,{animate:false});
+   else map.fitBounds(L.latLngBounds(points.map(coordinate)),{padding:[40,40],maxZoom:14,animate:false});
   }
- },[visibleDrivers,mapReady,filter,query,showAll]);
+ },[visibleDrivers,mapReady,filter,query]);
+
  return(
   <main className="admin-shell driver-live-shell premium-admin">
    <header className="brandbar"><Link className="brand" href="/dispatch"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Dispatch</small></span></Link>
