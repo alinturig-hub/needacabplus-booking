@@ -25,12 +25,19 @@ async function inspect(pool){
     pg_total_relation_size(c.oid)::bigint AS bytes
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relkind IN ('r','p') ORDER BY c.relname`)).rows;
+  const relationNames=(await client.query(`SELECT c.relname AS name,c.relkind AS kind
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','S','i','I') ORDER BY c.relname`)).rows;
+  const standaloneTypes=(await client.query(`SELECT t.typname AS name,t.typtype AS kind
+    FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace
+    WHERE n.nspname='public' AND t.typtype IN ('e','d','r','m') ORDER BY t.typname`)).rows;
   const references=(await client.query(`SELECT c.conrelid::regclass::text AS dependent_table
     FROM pg_constraint c WHERE c.contype='f' AND c.confrelid=to_regclass('public."Booking"')
     ORDER BY dependent_table`)).rows.map(row=>row.dependent_table);
   await client.query('COMMIT');
   return {database:identity.database,role:identity.role,readOnly:identity.read_only,
    databaseBytes:Number(identity.database_bytes),tables:tables.map(row=>({name:row.name,estimatedRows:Number(row.estimated_rows),bytes:Number(row.bytes)})),
+   relationNames,standaloneTypes,
    bookingDependents:references};
  }catch(error){await client.query('ROLLBACK').catch(()=>undefined);throw error}
  finally{client.release()}
@@ -84,6 +91,10 @@ try{
  const sourceTables=new Set(from.tables.map(table=>table.name));
  const targetTables=new Set(to.tables.map(table=>table.name));
  const collisions=[...sourceTables].filter(name=>targetTables.has(name));
+ const targetRelations=new Set(to.relationNames.map(relation=>relation.name));
+ const relationNameCollisions=from.relationNames.filter(relation=>targetRelations.has(relation.name));
+ const targetTypes=new Set(to.standaloneTypes.map(type=>type.name));
+ const standaloneTypeNameCollisions=from.standaloneTypes.filter(type=>targetTypes.has(type.name));
  const required=['Booking','BookingLocation','BookingVia','WebhookEvent','BookingTimelineEvent','BookingSnapshot',
   'BookingOrphanBackup_20261006','BookingLocationOrphanBackup_20261006',
   'BookingViaOrphanBackup_20261006','BookingTimelineEventOrphanBackup_20261006',
@@ -93,8 +104,9 @@ try{
  const sameDatabase=sourceAddress.hostname===targetAddress.hostname&&
   (sourceAddress.port||'5432')===(targetAddress.port||'5432')&&sourceAddress.pathname===targetAddress.pathname;
  const result={checkedAt:new Date().toISOString(),source:from,target:to,exactNameCollisions:collisions,
+  relationNameCollisions,standaloneTypeNameCollisions,
   missingRequiredSourceTables:missing,sameDatabase,
-  readyForRestore:!missing.length&&!collisions.length&&!sameDatabase};
+  readyForRestore:!missing.length&&!relationNameCollisions.length&&!standaloneTypeNameCollisions.length&&!sameDatabase};
  if(process.argv.includes('--exact')){
   const [sourceCounts,targetCounts]=await Promise.all([exactBookingCounts(source,true),exactBookingCounts(target,false)]);
   result.exactBookingCounts={source:sourceCounts,target:targetCounts};
