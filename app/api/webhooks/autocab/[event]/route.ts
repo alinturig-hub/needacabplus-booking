@@ -44,11 +44,18 @@ export async function POST(request: Request, context: { params: Promise<{ event:
   });
   if (!configuration?.isEnabled || !configuration.webhookProvider.isEnabled) return response({ error: 'EVENT_DISABLED' }, 404);
   const provider = configuration.webhookProvider;
-  if (!provider.apiKeyEncrypted) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503);
   let expected: string;
-  try { expected = decryptWebhookSecret(provider.apiKeyEncrypted); }
+  const secretHeader = provider.apiKeyEncrypted ? provider.apiKeyHeader : 'x-api-key';
+  try {
+    // The historical TaxiCRM source has no stored key. Reuse the already
+    // configured direct-tracking token for those Autocab callbacks.
+    expected = provider.apiKeyEncrypted
+      ? decryptWebhookSecret(provider.apiKeyEncrypted)
+      : provider.id === 'autocab' ? process.env.TRACKING_WEBHOOK_TOKEN || '' : '';
+    if (expected.length < (provider.apiKeyEncrypted ? 16 : 32)) throw new Error('Webhook source key is missing.');
+  }
   catch { return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503); }
-  if (!webhookSecretsMatch(request.headers.get(provider.apiKeyHeader), expected)) return response({ error: 'UNAUTHORIZED' }, 401);
+  if (!webhookSecretsMatch(request.headers.get(secretHeader), expected)) return response({ error: 'UNAUTHORIZED' }, 401);
 
   const length = Number(request.headers.get('content-length') || 0);
   if (length > maxBodyBytes) return response({ error: 'PAYLOAD_TOO_LARGE' }, 413);
@@ -73,7 +80,7 @@ export async function POST(request: Request, context: { params: Promise<{ event:
       provider: 'AUTOCAB', eventType,
       externalBookingId: bookingExternalId(payload) || payloadText(payload, ['originalBookingId', 'bookingId', 'id']),
       idempotencyKey, status: 'RECEIVED', payload: payload as Prisma.InputJsonObject,
-      rawBody, headers: safeHeaders(request, provider.apiKeyHeader), webhookConfigurationId: configuration.id,
+      rawBody, headers: safeHeaders(request, secretHeader), webhookConfigurationId: configuration.id,
     }, select: { id: true } });
     return response({ accepted: true, duplicate: false, eventId: event.id }, 202);
   } catch (error) {
