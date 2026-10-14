@@ -44,3 +44,6 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Prisma client is generated during the build.
+/generated/prisma/
