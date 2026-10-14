@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // retries. Once the parent exists, put them back in the queue.
     const waiting = await prisma.webhookEvent.findMany({
       where: {
-        eventType: { startsWith: 'Booking' },
+        provider: 'AUTOCAB', eventType: { startsWith: 'Booking' },
         status: 'FAILED', processingError: waitingForBooking,
         attemptCount: { gte: 5 }, externalBookingId: { not: null },
       },
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     const pending = await prisma.webhookEvent.findMany({
-      where: { AND: [retryableWebhooks(), { eventType: { startsWith: 'Booking' } }] },
+      where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB', eventType: { startsWith: 'Booking' } }] },
       orderBy: { receivedAt: 'asc' }, take: 10, select: { id: true },
     });
     let processed = 0;
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       const cutoverAt = new Date(process.env.AUTOCAB_OPERATIONAL_CUTOVER_AT || '');
       if (Number.isNaN(cutoverAt.getTime())) throw new Error('AUTOCAB_OPERATIONAL_CUTOVER_AT is required for the fleet webhook cutover.');
       const operational = await prisma.webhookEvent.findMany({
-        where: { AND: [retryableWebhooks(), { receivedAt: { gte: cutoverAt } }, { eventType: { in: ['VehicleTracksChanged', 'DriverShiftStartedEnded', 'DriverShiftStarted', 'DriverShiftEnded'] } }] },
+        where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB', receivedAt: { gte: cutoverAt } }, { eventType: { in: ['VehicleTracksChanged', 'DriverShiftStartedEnded', 'DriverShiftStarted', 'DriverShiftEnded'] } }] },
         orderBy: { receivedAt: 'asc' }, take: 10, select: { id: true },
       });
       for (const event of operational) {
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       ? { disabled: true, claimed: 0, completed: 0, failed: 0 }
       : await drainBookingPostCommitEffects(5);
     const remaining = await prisma.webhookEvent.count({
-      where: { AND: [retryableWebhooks(), { eventType: { startsWith: 'Booking' } }] },
+      where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB', eventType: { startsWith: 'Booking' } }] },
     });
     return NextResponse.json({ enabled: true, processed, failed, remaining, effects });
   } catch (error) {
