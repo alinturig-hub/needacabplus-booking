@@ -77,13 +77,16 @@ export async function POST(request: NextRequest) {
     if (process.env.AUTOCAB_OPERATIONAL_WEBHOOK_WRITER_ENABLED === 'true') {
       const cutoverAt = new Date(process.env.AUTOCAB_OPERATIONAL_CUTOVER_AT || '');
       if (Number.isNaN(cutoverAt.getTime())) throw new Error('AUTOCAB_OPERATIONAL_CUTOVER_AT is required for the fleet webhook cutover.');
-      const operational = await prisma.webhookEvent.findMany({
-        where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB', receivedAt: { gte: cutoverAt } }, { eventType: { in: ['VehicleTracksChanged', 'DriverShiftStartedEnded', 'DriverShiftStarted', 'DriverShiftEnded'] } }] },
-        orderBy: { receivedAt: 'asc' }, take: 10, select: { id: true },
-      });
-      for (const event of operational) {
-        try { await processOperationalWebhookEvent(event.id); processed++; }
-        catch (error) { console.error(`Operational webhook processing failed for ${event.id}:`, error); failed++; }
+      const operationalWhere = { AND: [retryableWebhooks(), { provider: 'AUTOCAB' as const, receivedAt: { gte: cutoverAt } }, { eventType: { in: ['VehicleTracksChanged', 'DriverShiftStartedEnded', 'DriverShiftStarted', 'DriverShiftEnded'] } }] };
+      // Fresh positions keep the map current while the oldest events are also
+      // drained, so a historical backlog cannot starve live tracking.
+      const [fresh, oldest] = await Promise.all([
+        prisma.webhookEvent.findMany({ where: operationalWhere, orderBy: { receivedAt: 'desc' }, take: 20, select: { id: true } }),
+        prisma.webhookEvent.findMany({ where: operationalWhere, orderBy: { receivedAt: 'asc' }, take: 20, select: { id: true } }),
+      ]);
+      for (const id of new Set([...fresh, ...oldest].map(event => event.id))) {
+        try { await processOperationalWebhookEvent(id); processed++; }
+        catch (error) { console.error(`Operational webhook processing failed for ${id}:`, error); failed++; }
       }
     }
     const effects = process.env.CANONICAL_BOOKING_EFFECTS_ENABLED === 'false'
