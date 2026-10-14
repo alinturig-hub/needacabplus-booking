@@ -505,12 +505,29 @@ model WebhookEvent {
 
   timelineEvents BookingTimelineEvent[]
   snapshots      BookingSnapshot[]
+  postCommitEffect BookingPostCommitEffect?
 
   @@index([provider, eventType])
   @@index([externalBookingId])
   @@index([status])
   @@index([receivedAt])
   @@index([webhookConfigurationId])
+}
+
+model BookingPostCommitEffect {
+  webhookEventId String @id
+  status String @default("PENDING")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseUntil DateTime?
+  processedAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  webhookEvent WebhookEvent @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
 }
 
 model BookingTimelineEvent {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
 import type { Prisma } from '@/generated/prisma/client';
 
 const url=process.env.CANONICAL_WRITER_TEST_URL;
@@ -10,6 +11,7 @@ process.env.DATABASE_URL=url;
 
 const {prisma}=await import('@/lib/prisma');
 const {processCanonicalBookingEvent}=await import('@/lib/autocab/process-canonical-booking-event');
+const {drainBookingPostCommitEffects}=await import('@/lib/autocab/booking-post-commit-outbox');
 
 async function apply(eventType:string,payload:Prisma.InputJsonObject){
  await prisma.webhookProvider.upsert({where:{id:'autocab'},create:{id:'autocab',name:'Autocab',baseUrl:'https://example.invalid',isEnabled:true},update:{}});
@@ -49,9 +51,32 @@ try{
  assert.equal(booking.timelineEvents.length,5);
  assert.equal(booking.snapshots.length,5);
  assert.ok(booking.normalCustomerId);
+ assert.equal(await prisma.bookingPostCommitEffect.count({where:{webhookEvent:{bookingId:booking.id}}}),3);
  const createdSnapshotCount=booking.snapshots.length;
  await processCanonicalBookingEvent(created.id);
  assert.equal(await prisma.bookingSnapshot.count({where:{bookingId:booking.id}}),createdSnapshotCount);
+
+ let calls=0;
+ const server=createServer((_request,response)=>{
+  calls++;
+  response.writeHead(calls===1?503:200);
+  response.end();
+ });
+ await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+ try{
+  const address=server.address();
+  if(!address || typeof address==='string')throw new Error('Test server has no TCP port.');
+  process.env.TAXICRM_BOOKING_EFFECTS_URL=`http://127.0.0.1:${address.port}/effects`;
+  process.env.BOOKING_EFFECTS_SHARED_SECRET='local-test-secret';
+  const first=await drainBookingPostCommitEffects(1);
+  assert.deepEqual(first,{claimed:1,completed:0,failed:1});
+  await prisma.bookingPostCommitEffect.updateMany({where:{status:'PENDING'},data:{nextAttemptAt:new Date(0)}});
+  const second=await drainBookingPostCommitEffects(10);
+  assert.ok(second.completed>=1);
+  assert.equal(await prisma.bookingPostCommitEffect.count({where:{webhookEvent:{bookingId:booking.id},status:'DONE'}}),3);
+ }finally{
+  await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+ }
  console.log('canonical booking handler integration: passed');
 }finally{
  await prisma.$disconnect();

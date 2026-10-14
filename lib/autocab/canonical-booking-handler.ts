@@ -39,5 +39,9 @@ export async function applyCanonicalBookingEvent(
 ) {
  const definition=definitions[normaliseEventType(eventType)];
  if(!definition)throw new Error('Unsupported canonical booking event.');
- return persistBookingEvent(tx,webhookEventId,definition);
+ const result=await persistBookingEvent(tx,webhookEventId,definition);
+ if(definition.status){
+  await tx.bookingPostCommitEffect.create({data:{webhookEventId}});
+ }
+ return result;
 }
