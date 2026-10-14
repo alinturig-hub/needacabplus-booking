@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { syncAutocabRegistry, type RegistryEntity } from '@/lib/autocab/registry-sync';
+import type { RegistryEntity } from '@/lib/autocab/registry-sync';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,10 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as { entity?: string; dryRun?: boolean } | null;
   const entity = body?.entity?.toUpperCase() as RegistryEntity | undefined;
   if (!entity || !entities.has(entity)) return Response.json({ error: 'INVALID_ENTITY' }, { status: 400 });
-  try { return Response.json(await syncAutocabRegistry(entity, body?.dryRun === true)); }
+  try {
+    const { syncAutocabRegistry } = await import('@/lib/autocab/registry-sync');
+    return Response.json(await syncAutocabRegistry(entity, body?.dryRun === true));
+  }
   catch (error) {
     console.error(`Autocab ${entity} registry sync failed:`, error);
     return Response.json({ error: 'REGISTRY_SYNC_FAILED' }, { status: 503 });
