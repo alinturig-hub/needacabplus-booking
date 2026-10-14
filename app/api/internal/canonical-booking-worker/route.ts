@@ -22,11 +22,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [{ prisma }, { retryableWebhooks }, { processCanonicalBookingEvent }, { drainBookingPostCommitEffects }] = await Promise.all([
+    const [{ prisma }, { retryableWebhooks }, { processCanonicalBookingEvent }, { drainBookingPostCommitEffects }, { processOperationalWebhookEvent }] = await Promise.all([
       import('@/lib/prisma'),
       import('@/lib/autocab/webhook-processing'),
       import('@/lib/autocab/process-canonical-booking-event'),
       import('@/lib/autocab/booking-post-commit-outbox'),
+      import('@/lib/autocab/process-operational-webhook-event'),
     ]);
     // Events that arrived before BookingCreated may have exhausted their normal
     // retries. Once the parent exists, put them back in the queue.
@@ -66,6 +67,18 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error(`Canonical booking processing failed for ${event.id}:`, error);
         failed++;
+      }
+    }
+    if (process.env.AUTOCAB_OPERATIONAL_WEBHOOK_WRITER_ENABLED === 'true') {
+      const cutoverAt = new Date(process.env.AUTOCAB_OPERATIONAL_CUTOVER_AT || '');
+      if (Number.isNaN(cutoverAt.getTime())) throw new Error('AUTOCAB_OPERATIONAL_CUTOVER_AT is required for the fleet webhook cutover.');
+      const operational = await prisma.webhookEvent.findMany({
+        where: { AND: [retryableWebhooks(), { receivedAt: { gte: cutoverAt } }, { eventType: { in: ['VehicleTracksChanged', 'DriverShiftStartedEnded', 'DriverShiftStarted', 'DriverShiftEnded'] } }] },
+        orderBy: { receivedAt: 'asc' }, take: 10, select: { id: true },
+      });
+      for (const event of operational) {
+        try { await processOperationalWebhookEvent(event.id); processed++; }
+        catch (error) { console.error(`Operational webhook processing failed for ${event.id}:`, error); failed++; }
       }
     }
     const effects = process.env.CANONICAL_BOOKING_EFFECTS_ENABLED === 'false'

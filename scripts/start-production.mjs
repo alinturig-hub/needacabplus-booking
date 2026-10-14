@@ -57,5 +57,27 @@ if(process.env.CANONICAL_BOOKING_WRITER_ENABLED==='true'&&process.env.CANONICAL_
  bookingWriterTimer=setInterval(pollCanonicalBookings,10_000);
  setTimeout(pollCanonicalBookings,10_000);
 }
-child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);audit?.kill();reconciliation?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);audit?.kill(signal);reconciliation?.kill(signal);child.kill(signal)});
+const registryEntities=['DRIVERS','VEHICLES','ACCOUNTS','ZONES'];
+let registryTimer,registryStartTimer,registryBusy=false,registryIndex=0;
+async function pollAutocabRegistry(){
+ if(closing||registryBusy||process.env.AUTOCAB_REGISTRY_WRITER_ENABLED!=='true')return;
+ const secret=process.env.BOOKING_WRITER_JOB_SECRET;
+ if(!secret){console.error('Autocab registry job secret is missing.');return}
+ registryBusy=true;
+ const entity=registryEntities[registryIndex++%registryEntities.length];
+ try{
+  const port=process.env.PORT||'3000';
+  const result=await fetch(`http://127.0.0.1:${port}/api/internal/autocab-registry-sync`,{
+   method:'POST',headers:{'Content-Type':'application/json','x-booking-writer-secret':secret},
+   body:JSON.stringify({entity}),signal:AbortSignal.timeout(10*60_000),
+  });
+  if(!result.ok)console.error(`Autocab ${entity} registry sync returned ${result.status}.`);
+ }catch(error){console.error(`Autocab ${entity} registry request failed (${error instanceof Error?error.name:'unknown'}).`)}
+ finally{registryBusy=false}
+}
+if(process.env.AUTOCAB_REGISTRY_WRITER_ENABLED==='true'){
+ registryTimer=setInterval(pollAutocabRegistry,15*60_000);
+ registryStartTimer=setTimeout(pollAutocabRegistry,60_000);
+}
+child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);clearInterval(registryTimer);clearTimeout(registryStartTimer);audit?.kill();reconciliation?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);clearInterval(registryTimer);clearTimeout(registryStartTimer);audit?.kill(signal);reconciliation?.kill(signal);child.kill(signal)});
