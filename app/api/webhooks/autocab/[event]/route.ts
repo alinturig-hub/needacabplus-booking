@@ -75,17 +75,22 @@ export async function POST(request: Request, context: { params: Promise<{ event:
   const legacyKey = `AUTOCAB:${eventSlug}:${createHash('sha256').update(rawBody).digest('hex')}`;
   try {
     const duplicate = await prisma.webhookEvent.findFirst({ where: { idempotencyKey: { in: [idempotencyKey, legacyKey] } }, select: { id: true } });
-    if (duplicate) return response({ accepted: true, duplicate: true, eventId: duplicate.id });
+    if (duplicate) {
+      if (eventSlug !== 'tracks') console.info('Autocab callback received', { eventSlug, duplicate: true });
+      return response({ accepted: true, duplicate: true, eventId: duplicate.id });
+    }
     const event = await prisma.webhookEvent.create({ data: {
       provider: 'AUTOCAB', eventType,
       externalBookingId: bookingExternalId(payload) || payloadText(payload, ['originalBookingId', 'bookingId', 'id']),
       idempotencyKey, status: 'RECEIVED', payload: payload as Prisma.InputJsonObject,
       rawBody, headers: safeHeaders(request, secretHeader), webhookConfigurationId: configuration.id,
     }, select: { id: true } });
+    if (eventSlug !== 'tracks') console.info('Autocab callback received', { eventSlug, duplicate: false });
     return response({ accepted: true, duplicate: false, eventId: event.id }, 202);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const duplicate = await prisma.webhookEvent.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (eventSlug !== 'tracks') console.info('Autocab callback received', { eventSlug, duplicate: true });
       return response({ accepted: true, duplicate: true, eventId: duplicate?.id });
     }
     console.error('Autocab webhook intake failed:', error);
