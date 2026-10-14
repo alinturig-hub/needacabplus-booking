@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { RegistryEntity } from '@/lib/autocab/registry-sync';
+import { taxiCrmLiveReadEnabled } from '@/lib/taxicrm-database';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -82,6 +83,7 @@ export async function GET(request: Request) {
   return Response.json({
     receiverEnabled: process.env.AUTOCAB_WEBHOOK_INGEST_ENABLED === 'true',
     operationalWriterEnabled: process.env.AUTOCAB_OPERATIONAL_WEBHOOK_WRITER_ENABLED === 'true',
+    fleetReadSource: taxiCrmLiveReadEnabled() ? 'Vehicle' : 'driver_positions',
     registryWriterEnabled: process.env.AUTOCAB_REGISTRY_WRITER_ENABLED === 'true',
     configurations: configurations.map(row => ({ eventType: row.eventType, endpointSlug: row.endpointSlug, enabled: row.isEnabled && row.webhookProvider.isEnabled, keyConfigured: !!row.webhookProvider.apiKeyEncrypted || !!process.env.TRACKING_WEBHOOK_TOKEN })),
     recentJobs: jobs,
