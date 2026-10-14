@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@/generated/prisma/client';
 import { bookingExternalId, webhookIdempotencyKey } from '@/lib/autocab/webhook-processing';
 import { decryptWebhookSecret, webhookSecretsMatch } from '@/lib/autocab/webhook-secret';
-import { autocabWebhookUrlToken } from '@/lib/autocab/webhook-url-auth';
+import { autocabWebhookHeaderToken, autocabWebhookUrlToken } from '@/lib/autocab/webhook-url-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ function payloadText(payload: Record<string, unknown>, names: string[]) {
 function safeHeaders(request: Request, secretHeader: string): Prisma.InputJsonObject {
   const headers: Record<string, string> = {};
   request.headers.forEach((value, key) => {
-    if (!['authorization', 'cookie', secretHeader.toLowerCase(), 'x-autocab-api-key'].includes(key.toLowerCase())) headers[key] = value;
+    if (!['authorization', 'cookie', 'x-api-key', secretHeader.toLowerCase(), 'x-autocab-api-key'].includes(key.toLowerCase())) headers[key] = value;
   });
   return headers;
 }
@@ -46,20 +46,20 @@ export async function POST(request: Request, context: { params: Promise<{ event:
   if (!configuration?.isEnabled || !configuration.webhookProvider.isEnabled) return response({ error: 'EVENT_DISABLED' }, 404);
   const provider = configuration.webhookProvider;
   const urlExpected = provider.id === 'autocab' ? autocabWebhookUrlToken(eventSlug) : null;
+  const providerHeaderExpected = provider.id === 'autocab' ? autocabWebhookHeaderToken() : null;
   let headerExpected = '';
   const secretHeader = provider.apiKeyEncrypted ? provider.apiKeyHeader : 'x-api-key';
   try {
-    // The historical TaxiCRM source has no stored key. Reuse the already
-    // configured direct-tracking token for those Autocab callbacks.
     headerExpected = provider.apiKeyEncrypted
       ? decryptWebhookSecret(provider.apiKeyEncrypted)
-      : provider.id === 'autocab' ? process.env.TRACKING_WEBHOOK_TOKEN || '' : '';
+      : '';
   }
-  catch { if (!urlExpected) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503); }
-  if (headerExpected.length < (provider.apiKeyEncrypted ? 16 : 32)) headerExpected = '';
-  if (!headerExpected && !urlExpected) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503);
+  catch { if (!providerHeaderExpected && !urlExpected) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503); }
+  if (headerExpected.length < 16) headerExpected = '';
+  if (!headerExpected && !providerHeaderExpected && !urlExpected) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503);
   const urlTokens = new URL(request.url).searchParams.getAll('token');
-  const headerAuthorized = !!headerExpected && webhookSecretsMatch(request.headers.get(secretHeader), headerExpected);
+  const headerAuthorized = (!!headerExpected && webhookSecretsMatch(request.headers.get(secretHeader), headerExpected))
+    || (!!providerHeaderExpected && webhookSecretsMatch(request.headers.get('x-api-key'), providerHeaderExpected));
   const urlAuthorized = !!urlExpected && urlTokens.length === 1 && webhookSecretsMatch(urlTokens[0], urlExpected);
   if (!headerAuthorized && !urlAuthorized) {
     // Record only the event slug: callback URLs and auth headers contain secrets.
