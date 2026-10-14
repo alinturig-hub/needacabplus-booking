@@ -68,7 +68,9 @@ export async function POST(request: NextRequest) {
         failed++;
       }
     }
-    const effects = await drainBookingPostCommitEffects(5);
+    const effects = process.env.CANONICAL_BOOKING_EFFECTS_ENABLED === 'false'
+      ? { disabled: true, claimed: 0, completed: 0, failed: 0 }
+      : await drainBookingPostCommitEffects(5);
     const remaining = await prisma.webhookEvent.count({
       where: { AND: [retryableWebhooks(), { eventType: { startsWith: 'Booking' } }] },
     });

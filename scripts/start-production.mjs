@@ -53,7 +53,7 @@ async function pollCanonicalBookings(){
  }catch(error){console.error(`Canonical booking worker request failed (${error instanceof Error?error.name:'unknown'}).`)}
  finally{bookingWriterBusy=false}
 }
-if(process.env.CANONICAL_BOOKING_WRITER_ENABLED==='true'){
+if(process.env.CANONICAL_BOOKING_WRITER_ENABLED==='true'&&process.env.CANONICAL_BOOKING_WRITER_AUTOPOLL_ENABLED!=='false'){
  bookingWriterTimer=setInterval(pollCanonicalBookings,10_000);
  setTimeout(pollCanonicalBookings,10_000);
 }
