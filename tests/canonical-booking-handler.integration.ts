@@ -13,12 +13,17 @@ const {prisma}=await import('@/lib/prisma');
 const {processCanonicalBookingEvent}=await import('@/lib/autocab/process-canonical-booking-event');
 const {drainBookingPostCommitEffects}=await import('@/lib/autocab/booking-post-commit-outbox');
 
-async function apply(eventType:string,payload:Prisma.InputJsonObject){
+async function prepare(eventType:string,payload:Prisma.InputJsonObject){
  await prisma.webhookProvider.upsert({where:{id:'autocab'},create:{id:'autocab',name:'Autocab',baseUrl:'https://example.invalid',isEnabled:true},update:{}});
  const configuration=await prisma.autocabWebhookConfiguration.upsert({
   where:{eventType},create:{eventType,displayName:eventType,endpointSlug:eventType.toLowerCase()},update:{isEnabled:true},
  });
  const event=await prisma.webhookEvent.create({data:{eventType,payload,idempotencyKey:`test:${randomUUID()}`,webhookConfigurationId:configuration.id}});
+ return event;
+}
+
+async function apply(eventType:string,payload:Prisma.InputJsonObject){
+ const event=await prepare(eventType,payload);
  await processCanonicalBookingEvent(event.id);
  return event;
 }
@@ -55,6 +60,27 @@ try{
  const createdSnapshotCount=booking.snapshots.length;
  await processCanonicalBookingEvent(created.id);
  assert.equal(await prisma.bookingSnapshot.count({where:{bookingId:booking.id}}),createdSnapshotCount);
+
+ const concurrentId=`writer-concurrent-${randomUUID()}`;
+ const concurrent=await prepare('BookingCreated',{BookingId:concurrentId});
+ await Promise.all([
+  processCanonicalBookingEvent(concurrent.id),
+  processCanonicalBookingEvent(concurrent.id),
+  processCanonicalBookingEvent(concurrent.id),
+ ]);
+ assert.equal((await prisma.webhookEvent.findUniqueOrThrow({where:{id:concurrent.id}})).attemptCount,1);
+ assert.equal(await prisma.bookingSnapshot.count({where:{webhookEventId:concurrent.id}}),1);
+ assert.equal(await prisma.bookingPostCommitEffect.count({where:{webhookEventId:concurrent.id}}),1);
+
+ const lateId=`writer-late-${randomUUID()}`;
+ await apply('BookingComplete',{BookingId:lateId,EventTimestamp:'2026-10-14T11:00:00Z',Driver:{Id:'new-driver',BadgeNumber:'NEW'},Pricing:{Fare:20}});
+ await apply('BookingCreated',{BookingId:lateId,EventTimestamp:'2026-10-14T09:00:00Z',Driver:{Id:'old-driver',BadgeNumber:'OLD'},Pricing:{Fare:5}});
+ await apply('BookingCancelled',{BookingId:lateId,EventTimestamp:'2026-10-14T10:00:00Z'});
+ const late=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:lateId}}});
+ assert.equal(late.status,'COMPLETED');
+ assert.equal(late.driverBadgeNumber,'NEW');
+ assert.equal(Number(late.fare),20);
+ assert.equal(late.cancelledAt,null);
 
  let calls=0;
  const server=createServer((_request,response)=>{
