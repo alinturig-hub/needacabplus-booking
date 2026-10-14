@@ -70,7 +70,7 @@ async function tablePlan(){
 
 try{
  await db.connect();
- await db.query('BEGIN');transactionOpen=true;
+ await db.query(apply?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');transactionOpen=true;
  await setupForeignSource();
  const plan=await tablePlan();
  if(plan.length<63)throw new Error(`Expected at least 63 TaxiCRM tables; found ${plan.length}`);
@@ -81,7 +81,9 @@ try{
    timestampTables:plan.filter(item=>item.primaryKey.length>0&&item.timestamp).length}));
   await db.query('ROLLBACK');transactionOpen=false;
  }else{
-  await db.query('COMMIT');transactionOpen=false;
+  // Keep one source snapshot across the parent and child tables. Separate
+  // transactions can copy a new webhook after scanning its Booking parent.
+  await db.query("SET LOCAL session_replication_role='replica'");
   const applied=[];
   for(const item of plan){
    if(item.primaryKey.length===0)continue;
@@ -97,25 +99,38 @@ try{
     ?` WHERE EXCLUDED."updatedAt">=${quote(item.name)}."updatedAt"`:'';
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
     ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}${freshness}`:'DO NOTHING'}`;
-   await db.query('BEGIN');transactionOpen=true;
    try{
-    await db.query("SET LOCAL session_replication_role='replica'");
     // Via rows may be replaced with new IDs while keeping the same booking/position.
     // Replacing this small table also removes rows deleted since the backup.
     if(item.name==='BookingVia')await db.query(`DELETE FROM ${target}`);
     const result=item.name==='BookingVia'
      ?await db.query(`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}`)
      :await db.query(sql,item.timestamp?[cutoff]:[]);
-    await db.query('COMMIT');transactionOpen=false;
     const outcome={table:item.name,matchedRows:result.rowCount,
      mode:item.name==='BookingVia'?'replace':item.timestamp?'since-cutoff':'full'};
     applied.push(outcome);
-    console.log(JSON.stringify(outcome));
    }catch(error){
-    await db.query('ROLLBACK');transactionOpen=false;
     throw new Error(`Reconciliation stopped at ${item.name}: ${error instanceof Error?error.message:'Unknown error'}`);
    }
   }
+  const links=[
+   ['BookingLocation','bookingId','Booking','id'],
+   ['BookingVia','bookingId','Booking','id'],
+   ['BookingTimelineEvent','bookingId','Booking','id'],
+   ['BookingTimelineEvent','webhookEventId','WebhookEvent','id'],
+   ['BookingSnapshot','bookingId','Booking','id'],
+   ['BookingSnapshot','webhookEventId','WebhookEvent','id'],
+   ['WebhookEvent','bookingId','Booking','id'],
+   ['Booking','normalCustomerId','NormalCustomer','id'],
+  ];
+  for(const [child,childColumn,parent,parentColumn] of links){
+   const result=await db.query(`SELECT EXISTS (SELECT 1 FROM public.${quote(child)} c
+    WHERE c.${quote(childColumn)} IS NOT NULL AND NOT EXISTS (
+     SELECT 1 FROM public.${quote(parent)} p
+     WHERE p.${quote(parentColumn)}=c.${quote(childColumn)})) AS orphan`);
+   if(result.rows[0].orphan)throw new Error(`Orphan ${child}.${childColumn} after reconciliation`);
+  }
+  await db.query('COMMIT');transactionOpen=false;
   console.log(JSON.stringify({mode:'applied',cutoff,applied,withoutKey}));
  }
 }catch(error){

@@ -70,7 +70,7 @@ async function tablePlan(){
 
 try{
  await db.connect();
- await db.query('BEGIN');transactionOpen=true;
+ await db.query(apply?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');transactionOpen=true;
  await setupForeignSource();
  const plan=await tablePlan();
  if(plan.length!==42)throw new Error(`Expected 42 Need A Cab Plus tables; found ${plan.length}`);
@@ -81,7 +81,7 @@ try{
    timestampTables:plan.filter(item=>item.primaryKey.length>0&&item.timestamp).length}));
   await db.query('ROLLBACK');transactionOpen=false;
  }else{
-  await db.query('COMMIT');transactionOpen=false;
+  await db.query("SET LOCAL session_replication_role='replica'");
   const applied=[];
   for(const item of plan){
    if(item.primaryKey.length===0)continue;
@@ -95,20 +95,16 @@ try{
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
     ${item.name==='driver_positions'?'ON CONFLICT DO NOTHING':
      `ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}`:'DO NOTHING'}`}`;
-   await db.query('BEGIN');transactionOpen=true;
    try{
-    await db.query("SET LOCAL session_replication_role='replica'");
     const result=await db.query(sql,item.timestamp?[cutoff]:[]);
-    await db.query('COMMIT');transactionOpen=false;
     const outcome={table:item.name,matchedRows:result.rowCount,
      mode:item.timestamp?'since-cutoff':'full'};
     applied.push(outcome);
-    console.log(JSON.stringify(outcome));
    }catch(error){
-    await db.query('ROLLBACK');transactionOpen=false;
     throw new Error(`Reconciliation stopped at ${item.name}: ${error instanceof Error?error.message:'Unknown error'}`);
    }
   }
+  await db.query('COMMIT');transactionOpen=false;
   console.log(JSON.stringify({mode:'applied',cutoff,applied,withoutKey}));
  }
 }catch(error){
