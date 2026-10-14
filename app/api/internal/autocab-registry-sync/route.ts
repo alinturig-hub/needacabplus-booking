@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     receiverEnabled: process.env.AUTOCAB_WEBHOOK_INGEST_ENABLED === 'true',
     operationalWriterEnabled: process.env.AUTOCAB_OPERATIONAL_WEBHOOK_WRITER_ENABLED === 'true',
     registryWriterEnabled: process.env.AUTOCAB_REGISTRY_WRITER_ENABLED === 'true',
-    configurations: configurations.map(row => ({ eventType: row.eventType, endpointSlug: row.endpointSlug, enabled: row.isEnabled && row.webhookProvider.isEnabled, keyConfigured: !!row.webhookProvider.apiKeyEncrypted })),
+    configurations: configurations.map(row => ({ eventType: row.eventType, endpointSlug: row.endpointSlug, enabled: row.isEnabled && row.webhookProvider.isEnabled, keyConfigured: !!row.webhookProvider.apiKeyEncrypted || !!process.env.TRACKING_WEBHOOK_TOKEN })),
     recentJobs: jobs,
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
