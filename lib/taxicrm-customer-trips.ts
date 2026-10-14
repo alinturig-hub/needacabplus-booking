@@ -1,6 +1,6 @@
 import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
 import {normalizedStatus} from '@/lib/taxicrm-bookings';
-import {database} from '@/lib/database';
+import {bookingAttemptDatabase} from '@/lib/database';
 
 type Row={external_id:string;pickup:string|null;destination:string|null;vehicle:string|null;fare:string|number|null;status:string;booking_type:string|null;payment_type:string|null;scheduled_at:Date|string|null;created_at:Date|string};
 
@@ -29,7 +29,7 @@ export async function taxiCrmBookingIdForQuote(quoteId:string,pickupDueTime:stri
 }
 
 export async function taxiCrmBookingLinkHealth(){
- const attempts=await database().query<{quote_id:string;external_booking_id:string}>(`SELECT quote_id,external_booking_id FROM web_booking_attempts WHERE state='confirmed' AND external_booking_id IS NOT NULL ORDER BY updated_at DESC LIMIT 20`);
+ const attempts=await bookingAttemptDatabase().query<{quote_id:string;external_booking_id:string}>(`SELECT quote_id,external_booking_id FROM web_booking_attempts WHERE state='confirmed' AND external_booking_id IS NOT NULL ORDER BY updated_at DESC LIMIT 20`);
  return withTaxiCrmReadOnly(async client=>{
   const references=attempts.rows.map(row=>`NAC-${row.quote_id}`),externalIds=attempts.rows.map(row=>row.external_booking_id);
   const result=await client.query<{by_reference:string;by_external_id:string}>(`SELECT count(*) FILTER(WHERE "ourReference"=ANY($1::text[]))::text by_reference,

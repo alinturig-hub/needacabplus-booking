@@ -6,7 +6,7 @@ import {readLiveAttempt,submitLiveCashBooking} from '@/lib/live-cash-booking';
 import {livePassengerSql} from '@/lib/booking-live-summary';
 import {bookingPeriod,bookingCsv} from '@/lib/booking-period';
 import {z} from 'zod';
-import {database} from '@/lib/database';
+import {bookingAttemptDatabase,database} from '@/lib/database';
 import {isAdmin,isDispatchUser,sameOrigin,unavailable} from '@/lib/security';
 import {verifyQuote,loadQuotePolicy} from '@/lib/quotes';
 import {validateSchedule} from '@/lib/quote-policy';
@@ -24,15 +24,16 @@ export async function POST(request:Request){
  const stops=[body.pickup,...body.viaPoints,body.destination].map(stop=>stop.toLowerCase());if(new Set(stops).size!==stops.length)return Response.json({error:'Each stop must use a different address.'},{status:400});
  try{
  const customer=await getCustomer(),guest=customer?null:await getGuestSession(),userId=customer?.id||guest?.id;if(!userId)return Response.json({error:'Sign in or continue as guest before confirming your booking.'},{status:401});
- const existingLive=await readLiveAttempt(database(),body.id,userId);if(existingLive)return Response.json(existingLive,{status:existingLive.rejected?422:existingLive.pending?202:200});
+ const attemptsDb=bookingAttemptDatabase();
+ const existingLive=await readLiveAttempt(attemptsDb,body.id,userId);if(existingLive)return Response.json(existingLive,{status:existingLive.rejected?422:existingLive.pending?202:200});
  let quote;try{quote=verifyQuote(body.quoteToken);const policy=await loadQuotePolicy();if(!policy.enabled)throw new Error('Live quotes are currently unavailable.');validateSchedule(quote.service,quote.scheduledAt,policy.minPrebookMinutes);validateBookingPayment(await loadBookingPolicy(),quote.paymentMethod||'card',Boolean(quote.liveBooking))}catch(error){return Response.json({error:error instanceof Error?error.message:'Request a new fare.'},{status:409})}
  if(body.id!==quote.id||body.vehicle!==quote.vehicle||body.pickup!==quote.pickup||body.destination!==quote.destination||JSON.stringify(body.viaPoints)!==JSON.stringify(quote.vias))return Response.json({error:'The journey changed. Request a new quote.'},{status:409});
  const db=database();const existing=await db.query<{id:string;status:string}>('SELECT id,status FROM bookings WHERE id=$1 AND user_id=$2',[body.id,userId]);if(existing.rows[0])return Response.json(existing.rows[0]);
  if(quote.liveBooking){
- const uncertain=await db.query("SELECT quote_id FROM web_booking_attempts WHERE user_id=$1 AND state IN ('sending','unknown') LIMIT 1",[userId]);
+ const uncertain=await attemptsDb.query("SELECT quote_id FROM web_booking_attempts WHERE user_id=$1 AND state IN ('sending','unknown') LIMIT 1",[userId]);
  if(uncertain.rows.length)return Response.json({error:'An earlier booking is awaiting confirmation. Please contact the operator before booking again.'},{status:409});
  let requestBody;try{requestBody=buildLiveCashBookingRequest(quote,{name:body.name,telephoneNumber:body.phone,customerEmail:customer?.email||'',passengers:body.passengers,luggage:body.luggage,driverNote:body.pickupNote})}catch(e){return Response.json({error:e instanceof Error?e.message:'Request a new quote.'},{status:409})}
- const result=await submitLiveCashBooking(db,quote,userId,requestBody,createCashBooking);return Response.json(result,{status:result.rejected?422:result.pending?202:201});
+ const result=await submitLiveCashBooking(attemptsDb,quote,userId,requestBody,createCashBooking);return Response.json(result,{status:result.rejected?422:result.pending?202:201});
  }
  if(taxiCrmNoBookingCopyEnabled())return Response.json({error:'Bookings are unavailable while the operator connection is in test mode.'},{status:409});
  const inserted=await db.query(`INSERT INTO bookings (id,user_id,name,phone,pickup,destination,via_points,pickup_note,vehicle,fare_pence,status,created_at,source,payment_type,passengers,updated_at,pricing_data,timeline_data,booking_type,pickup_data,destination_data,vias_data)
