@@ -38,5 +38,24 @@ function launchReconciliation(){
  reconciliation.on('exit',()=>{if(!closing)reconciliationTimer=setTimeout(launchReconciliation,60000)});
 }
 if(process.env.TAXICRM_BOOKINGS_READ_ENABLED!=='true')launchReconciliation();
-child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);audit?.kill();reconciliation?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);audit?.kill(signal);reconciliation?.kill(signal);child.kill(signal)});
+let bookingWriterTimer,bookingWriterBusy=false;
+async function pollCanonicalBookings(){
+ if(closing||bookingWriterBusy||process.env.CANONICAL_BOOKING_WRITER_ENABLED!=='true')return;
+ const secret=process.env.BOOKING_WRITER_JOB_SECRET;
+ if(!secret){console.error('Booking writer job secret is missing.');return}
+ bookingWriterBusy=true;
+ try{
+  const port=process.env.PORT||'3000';
+  const response=await fetch(`http://127.0.0.1:${port}/api/internal/canonical-booking-worker`,{
+   method:'POST',headers:{'x-booking-writer-secret':secret},signal:AbortSignal.timeout(600_000),
+  });
+  if(!response.ok)console.error(`Canonical booking worker returned ${response.status}.`);
+ }catch(error){console.error(`Canonical booking worker request failed (${error instanceof Error?error.name:'unknown'}).`)}
+ finally{bookingWriterBusy=false}
+}
+if(process.env.CANONICAL_BOOKING_WRITER_ENABLED==='true'){
+ bookingWriterTimer=setInterval(pollCanonicalBookings,10_000);
+ setTimeout(pollCanonicalBookings,10_000);
+}
+child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);audit?.kill();reconciliation?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);audit?.kill(signal);reconciliation?.kill(signal);child.kill(signal)});

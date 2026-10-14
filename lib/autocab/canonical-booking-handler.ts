@@ -9,8 +9,8 @@ type BookingEventDefinition = {
  status?: BookingOperationalStatus;
 };
 
-// Keep these definitions in step with TaxiCRM's booking event registry until
-// the production worker and its after-commit CRM effects have moved here.
+// Keep these definitions in step with TaxiCRM's booking event registry while
+// the two applications share the same webhook inbox.
 const definitions: Record<string, BookingEventDefinition> = {
  bookingcreated: {title:'Booking Created',description:'Booking created in Autocab.',status:'CREATED'},
  bookingdispatched: {title:'Booking Dispatched',description:'Booking dispatched to a driver.',status:'DISPATCHED'},
@@ -30,8 +30,7 @@ export function isCanonicalBookingEvent(eventType: string): boolean {
  return normaliseEventType(eventType) in definitions;
 }
 
-// This is deliberately a domain operation, not a live worker entry point.
-// The handoff must first add post-commit CRM effects and a single-writer switch.
+// The worker calls this only after the exclusive writer switch is enabled.
 export async function applyCanonicalBookingEvent(
  tx: Prisma.TransactionClient,
  webhookEventId: string,

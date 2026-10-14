@@ -6,8 +6,8 @@ async function lockEvent(tx:Prisma.TransactionClient,id:string){
  await tx.$queryRaw`SELECT "id" FROM "WebhookEvent" WHERE "id" = ${id} FOR UPDATE`;
 }
 
-// Deliberately has no HTTP route or scheduler until post-commit CRM effects and
-// the exclusive writer handoff have been implemented and verified.
+// Invoked by the secret-authenticated worker only when the exclusive writer
+// flag has been enabled after TaxiCRM has stopped processing Booking events.
 export async function processCanonicalBookingEvent(webhookEventId:string):Promise<void>{
  try{
   await prisma.$transaction(async tx=>{
