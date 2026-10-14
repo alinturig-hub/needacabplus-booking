@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     prisma.webhookEvent.findMany({
       where: { provider: 'AUTOCAB', receivedAt: { gte: new Date(Date.now() - 30 * 60_000) } },
       orderBy: { receivedAt: 'desc' }, take: 1000,
-      select: { headers: true, receivedAt: true },
+      select: { headers: true, receivedAt: true, eventType: true, status: true },
     }),
   ]);
   const ingress = {
@@ -34,7 +34,10 @@ export async function GET(request: Request) {
     taxiCRM: { count: 0, lastReceivedAt: null as Date | null },
     unknown: { count: 0, lastReceivedAt: null as Date | null },
   };
+  const recentEventStatuses: Record<string, Record<string, number>> = {};
   for (const event of recentEvents) {
+    const statuses = recentEventStatuses[event.eventType] ||= {};
+    statuses[event.status] = (statuses[event.status] || 0) + 1;
     const headers = event.headers && typeof event.headers === 'object' && !Array.isArray(event.headers)
       ? event.headers as Record<string, unknown> : {};
     const host = String(headers['x-forwarded-host'] || headers.host || '').toLowerCase();
@@ -50,6 +53,7 @@ export async function GET(request: Request) {
     configurations: configurations.map(row => ({ eventType: row.eventType, endpointSlug: row.endpointSlug, enabled: row.isEnabled && row.webhookProvider.isEnabled, keyConfigured: !!row.webhookProvider.apiKeyEncrypted || !!process.env.TRACKING_WEBHOOK_TOKEN })),
     recentJobs: jobs,
     recentIngress: { windowMinutes: 30, sampledEvents: recentEvents.length, ...ingress },
+    recentEventStatuses,
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
 

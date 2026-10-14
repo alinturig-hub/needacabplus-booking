@@ -22,18 +22,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [{ prisma }, { retryableWebhooks }, { processCanonicalBookingEvent }, { drainBookingPostCommitEffects }, { processOperationalWebhookEvent }] = await Promise.all([
+    const [{ prisma }, { retryableWebhooks }, { processCanonicalBookingEvent }, { drainBookingPostCommitEffects }, { processOperationalWebhookEvent }, { canonicalBookingAliasTypes }] = await Promise.all([
       import('@/lib/prisma'),
       import('@/lib/autocab/webhook-processing'),
       import('@/lib/autocab/process-canonical-booking-event'),
       import('@/lib/autocab/booking-post-commit-outbox'),
       import('@/lib/autocab/process-operational-webhook-event'),
+      import('@/lib/autocab/canonical-booking-handler'),
     ]);
+    const bookingTypeFilter = { OR: [
+      { eventType: { startsWith: 'Booking' } },
+      { eventType: { in: canonicalBookingAliasTypes } },
+    ] };
     // Events that arrived before BookingCreated may have exhausted their normal
     // retries. Once the parent exists, put them back in the queue.
     const waiting = await prisma.webhookEvent.findMany({
       where: {
-        provider: 'AUTOCAB', eventType: { startsWith: 'Booking' },
+        provider: 'AUTOCAB', ...bookingTypeFilter,
         status: 'FAILED', processingError: waitingForBooking,
         attemptCount: { gte: 5 }, externalBookingId: { not: null },
       },
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const pending = await prisma.webhookEvent.findMany({
-      where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB', eventType: { startsWith: 'Booking' } }] },
+      where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB' }, bookingTypeFilter] },
       orderBy: { receivedAt: 'asc' }, take: 10, select: { id: true },
     });
     let processed = 0;
@@ -85,7 +90,7 @@ export async function POST(request: NextRequest) {
       ? { disabled: true, claimed: 0, completed: 0, failed: 0 }
       : await drainBookingPostCommitEffects(5);
     const remaining = await prisma.webhookEvent.count({
-      where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB', eventType: { startsWith: 'Booking' } }] },
+      where: { AND: [retryableWebhooks(), { provider: 'AUTOCAB' }, bookingTypeFilter] },
     });
     return NextResponse.json({ enabled: true, processed, failed, remaining, effects });
   } catch (error) {
