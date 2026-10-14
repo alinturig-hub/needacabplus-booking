@@ -38,7 +38,8 @@ async function fetchRegistry(entity: RegistryEntity) {
   if (!Array.isArray(payload)) throw new Error(`Autocab ${entity} did not return an array.`);
   // An unexpected empty response must never deactivate a populated registry.
   if (!payload.length) throw new Error(`Autocab ${entity} returned no records.`);
-  return payload.filter(isRecordWithId);
+  if (!payload.every(isRecordWithId)) throw new Error(`Autocab ${entity} returned records without IDs.`);
+  return payload as RecordWithId[];
 }
 
 async function upsertRecord(entity: RegistryEntity, item: RecordWithId, syncedAt: Date) {
