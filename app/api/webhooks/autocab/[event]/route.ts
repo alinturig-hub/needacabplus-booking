@@ -61,7 +61,11 @@ export async function POST(request: Request, context: { params: Promise<{ event:
   const urlTokens = new URL(request.url).searchParams.getAll('token');
   const headerAuthorized = !!headerExpected && webhookSecretsMatch(request.headers.get(secretHeader), headerExpected);
   const urlAuthorized = !!urlExpected && urlTokens.length === 1 && webhookSecretsMatch(urlTokens[0], urlExpected);
-  if (!headerAuthorized && !urlAuthorized) return response({ error: 'UNAUTHORIZED' }, 401);
+  if (!headerAuthorized && !urlAuthorized) {
+    // Record only the event slug: callback URLs and auth headers contain secrets.
+    console.warn('Autocab callback rejected', { eventSlug, reason: 'unauthorized' });
+    return response({ error: 'UNAUTHORIZED' }, 401);
+  }
 
   const length = Number(request.headers.get('content-length') || 0);
   if (length > maxBodyBytes) return response({ error: 'PAYLOAD_TOO_LARGE' }, 413);
