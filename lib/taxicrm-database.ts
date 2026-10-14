@@ -4,8 +4,17 @@ const globalTaxiCrm=globalThis as unknown as {taxiCrmPool?:Pool};
 
 export class TaxiCrmDatabaseConfigurationError extends Error{}
 
+function configuredConnectionString(){
+ const shared=process.env.TAXICRM_SHARED_DATABASE_URL?.trim();
+ return process.env.DATABASE_SCHEMA_MANAGED_EXTERNALLY==='true'
+  ?shared
+  :shared||process.env.TAXICRM_DATABASE_URL?.trim();
+}
+
 function connectionString(){
- const value=process.env.TAXICRM_SHARED_DATABASE_URL?.trim()||process.env.TAXICRM_DATABASE_URL?.trim();
+ // After the physical cutover, a missing shared reader must fail visibly rather
+ // than silently reconnecting to the old, increasingly stale TaxiCRM database.
+ const value=configuredConnectionString();
  if(!value)throw new TaxiCrmDatabaseConfigurationError('TaxiCRM database connection is not configured.');
  return value;
 }
@@ -56,7 +65,7 @@ export type TaxiCrmDatabaseSnapshot={
  tables:Array<{schema:string;table:string;estimatedRows:number;sizeBytes:number}>;
 };
 
-export function taxiCrmDatabaseConfigured(){return Boolean(process.env.TAXICRM_SHARED_DATABASE_URL?.trim()||process.env.TAXICRM_DATABASE_URL?.trim())}
+export function taxiCrmDatabaseConfigured(){return Boolean(configuredConnectionString())}
 export function taxiCrmBookingReadEnabled(){return process.env.TAXICRM_BOOKINGS_READ_ENABLED?.trim().toLowerCase()==='true'}
 export function taxiCrmLiveReadEnabled(){return process.env.TAXICRM_LIVE_READ_ENABLED?.trim().toLowerCase()==='true'}
 export function taxiCrmDispatchReadEnabled(){return process.env.TAXICRM_DISPATCH_READ_ENABLED?.trim().toLowerCase()==='true'}
