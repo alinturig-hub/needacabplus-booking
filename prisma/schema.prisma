@@ -1,0 +1,1361 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SmsGatewayConfiguration {
+  id String @id @default("default")
+  endpoint String
+  signedParametersEncrypted String
+  phoneParameter String @default("customer_phone")
+  messageParameter String @default("message")
+  senderParameter String @default("sender")
+  sender String @default("TaxiCRM")
+  isEnabled Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NotificationJob {
+  id String @id @default(cuid())
+  name String
+  sourceField String
+  sourceValue String
+  defaultRecipient String
+  rules Json
+  sourceConfirmed Boolean @default(false)
+  isEnabled Boolean @default(false)
+  nextRunAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  runs NotificationJobRun[]
+  @@index([isEnabled, nextRunAt])
+}
+
+model NotificationJobRun {
+  id String @id @default(cuid())
+  jobId String
+  scheduledFor DateTime
+  status String
+  result Json?
+  error String?
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  job NotificationJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  deliveries NotificationDelivery[]
+  @@unique([jobId, scheduledFor])
+  @@index([startedAt])
+}
+
+model NotificationDelivery {
+  id String @id @default(cuid())
+  jobRunId String
+  eventType String
+  destination String
+  message String
+  status String @default("PENDING")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseUntil DateTime?
+  providerMessageId String?
+  lastError String?
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+  jobRun NotificationJobRun @relation(fields: [jobRunId], references: [id], onDelete: Restrict)
+  @@unique([jobRunId, eventType, destination])
+  @@index([status, nextAttemptAt])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+}
+
+enum BookingLocationType {
+  PICKUP
+  DESTINATION
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum BookingTimelineSource {
+  AUTOCAB
+  SYSTEM
+  USER
+  AI
+}
+
+enum WebhookProcessingMode {
+  ALWAYS
+  WHEN_CONDITIONS_MATCH
+}
+
+enum WebhookConditionMode {
+  ALL
+  ANY
+}
+
+enum WebhookConditionOperator {
+  EQUALS
+  NOT_EQUALS
+  CONTAINS
+  NOT_CONTAINS
+  EXISTS
+  NOT_EXISTS
+  GREATER_THAN
+  GREATER_THAN_OR_EQUALS
+  LESS_THAN
+  LESS_THAN_OR_EQUALS
+  IN
+  NOT_IN
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  role               UserRole  @default(OPERATOR)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  deactivatedAt      DateTime?
+
+  roleAssignments AdministrationUserRole[]
+  auditEvents     AdministrationAuditEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdministrationRole {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  description String? @db.Text
+  isSystem    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  users       AdministrationUserRole[]
+  permissions AdministrationRolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, name])
+}
+
+model AdministrationPermission {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  module      String
+  action      String
+  name        String
+  description String? @db.Text
+
+  roles AdministrationRolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([module, action])
+}
+
+model AdministrationUserRole {
+  userId           String
+  roleId           String
+  assignedByUserId String?
+  assignedAt       DateTime @default(now())
+
+  user User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role AdministrationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([assignedAt])
+}
+
+model AdministrationRolePermission {
+  roleId       String
+  permissionId String
+  grantedAt    DateTime @default(now())
+
+  role       AdministrationRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission AdministrationPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model AdministrationAuditEvent {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  evidence    Json
+  occurredAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, occurredAt])
+  @@index([targetType, targetId, occurredAt])
+  @@index([action, occurredAt])
+}
+
+model AutomationRule {
+  id          String @id @default(cuid())
+  key         String @unique
+  name        String
+  description String @db.Text
+  jobKey      String @unique
+
+  status              String  @default("DISABLED")
+  mode                String  @default("SIMULATION")
+  requiresApproval    Boolean @default(true)
+  expectedIntervalMin Int
+  defaultBatchSize    Int
+  configuration       Json
+
+  lastSimulatedAt DateTime?
+  lastExecutedAt  DateTime?
+
+  executions AutomationExecution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, mode])
+  @@index([jobKey])
+}
+
+model AutomationExecution {
+  id           String @id @default(cuid())
+  executionKey String @unique
+  ruleId       String
+
+  mode              String
+  status            String
+  source            String  @default("MANUAL")
+  requestedByUserId String?
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+
+  selected  Int      @default(0)
+  processed Int      @default(0)
+  succeeded Int      @default(0)
+  failed    Int      @default(0)
+  hasMore   Boolean?
+
+  evidence Json
+  error    String? @db.Text
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ruleId, startedAt])
+  @@index([status, startedAt])
+  @@index([requestedByUserId, startedAt])
+}
+
+model Booking {
+  id                String  @id @default(cuid())
+  provider          String  @default("AUTOCAB")
+  externalId        String
+  originalBookingId String?
+  bookingType       String?
+  typeOfBooking     String?
+  status            String  @default("ACTIVE")
+
+  pickupDueTime  DateTime?
+  dropOffDueTime DateTime?
+  bookedAtTime   DateTime?
+  dispatchedAt   DateTime?
+  acceptedAt     DateTime?
+  arrivedAt      DateTime?
+  pickedUpAt     DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  noFareAt       DateTime?
+
+  driverId            String?
+  driverCallSign      String?
+  driverForename      String?
+  driverSurname       String?
+  driverBadgeNumber   String?
+  vehicleId           String?
+  vehicleCallSign     String?
+  vehicleRegistration String?
+  vehiclePlateNumber  String?
+
+  customerName    String?
+  telephoneNumber String?
+  customerEmail   String?
+
+  normalCustomerId String?
+  normalCustomer   NormalCustomer? @relation(fields: [normalCustomerId], references: [id], onDelete: SetNull)
+
+  paymentType String?
+  accountType String?
+  accountId   String?
+  accountCode String?
+  accountName String?
+
+  companyId           String?
+  companyName         String?
+  companyRegisteredNo String?
+  companyCode         String?
+
+  priority   Int @default(0)
+  passengers Int @default(1)
+  luggage    Int @default(0)
+
+  driverNote           String?
+  officeNote           String?
+  ourReference         String?
+  flightDetails        String?
+  bookedBy             String?
+  bookingSource        String?
+  cabExchangeReference String?
+  loyaltyCardId        String?
+  loyaltyCardCostValue Decimal @default(0) @db.Decimal(12, 2)
+  isStreetPickup       Boolean @default(false)
+
+  fare                  Decimal? @db.Decimal(12, 2)
+  cost                  Decimal? @db.Decimal(12, 2)
+  price                 Decimal? @db.Decimal(12, 2)
+  accountAmount         Decimal? @db.Decimal(12, 2)
+  cashAmount            Decimal? @db.Decimal(12, 2)
+  cardAmount            Decimal? @db.Decimal(12, 2)
+  extraCost             Decimal? @db.Decimal(12, 2)
+  fixedCost             Decimal? @db.Decimal(12, 2)
+  fixedPrice            Decimal? @db.Decimal(12, 2)
+  chargingAreaCost      Decimal? @db.Decimal(12, 2)
+  chargingAreaPrice     Decimal? @db.Decimal(12, 2)
+  waitingTime           Decimal? @db.Decimal(12, 2)
+  waitingTimeChargeable Decimal? @db.Decimal(12, 2)
+  gratuityAmount        Decimal? @db.Decimal(12, 2)
+  costSource            String?
+  pricingTariff         String?
+  pricingSource         String?
+
+  distance            Decimal? @db.Decimal(12, 3)
+  systemDistance      Decimal? @db.Decimal(12, 3)
+  meterDistance       Decimal? @db.Decimal(12, 3)
+  meterDistanceMetres Int?
+
+  gpsMeterDistance     Decimal? @db.Decimal(12, 3)
+  gpsMeterPrice        Decimal? @db.Decimal(12, 2)
+  gpsMeterPriceSource  String?
+  estimatedDistance    Decimal? @db.Decimal(12, 3)
+  estimatedPrice       Decimal? @db.Decimal(12, 2)
+  estimatedPriceSource String?
+  estimatedTime        String?
+
+  capabilities          Json?
+  yourReferences        Json?
+  promotionCodeDiscount Json?
+  rawPayload            Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations      BookingLocation[]
+  vias           BookingVia[]
+  webhookEvents  WebhookEvent[]
+  timelineEvents BookingTimelineEvent[]
+  snapshots      BookingSnapshot[]
+
+  @@unique([provider, externalId])
+  @@index([pickupDueTime])
+  @@index([telephoneNumber])
+  @@index([customerEmail])
+  @@index([status])
+}
+
+model BookingLocation {
+  id             String              @id @default(cuid())
+  bookingId      String
+  type           BookingLocationType
+  address        String
+  zoneId         String?
+  zoneDescriptor String?
+  zoneName       String?
+  longitude      Decimal?            @db.Decimal(11, 8)
+  latitude       Decimal?            @db.Decimal(10, 8)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  booking             Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  placeIntelligenceId String?
+  placeIntelligence   PlaceIntelligence? @relation(fields: [placeIntelligenceId], references: [id], onDelete: SetNull)
+
+  @@unique([bookingId, type])
+  @@index([zoneId])
+  @@index([placeIntelligenceId])
+}
+
+model BookingVia {
+  id             String   @id @default(cuid())
+  bookingId      String
+  position       Int
+  address        String
+  zoneId         String?
+  zoneDescriptor String?
+  zoneName       String?
+  longitude      Decimal? @db.Decimal(11, 8)
+  latitude       Decimal? @db.Decimal(10, 8)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, position])
+}
+
+model WebhookProvider {
+  id String @id @default(cuid())
+  name String
+  description String?
+  baseUrl String
+  apiKeyHeader String @default("x-autocab-api-key")
+  apiKeyEncrypted String?
+  isEnabled Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  configurations AutocabWebhookConfiguration[]
+}
+
+model AutocabWebhookConfiguration {
+  providerId String @default("autocab")
+  webhookProvider WebhookProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  id             String                @id @default(cuid())
+  displayName    String
+  eventType      String                @unique
+  endpointSlug   String                @unique
+  description    String?
+  isEnabled      Boolean               @default(true)
+  processingMode WebhookProcessingMode @default(ALWAYS)
+  conditionMode  WebhookConditionMode  @default(ALL)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  conditions    WebhookCondition[]
+  webhookEvents WebhookEvent[]
+
+  @@index([isEnabled])
+  @@index([endpointSlug])
+}
+
+model WebhookCondition {
+  id              String                   @id @default(cuid())
+  configurationId String
+  fieldPath       String
+  operator        WebhookConditionOperator
+  expectedValue   Json?
+  position        Int                      @default(0)
+  isEnabled       Boolean                  @default(true)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  configuration AutocabWebhookConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+
+  @@index([configurationId, position])
+  @@index([fieldPath])
+}
+
+model WebhookEvent {
+  id                     String                  @id @default(cuid())
+  provider               String                  @default("AUTOCAB")
+  eventType              String
+  externalBookingId      String?
+  idempotencyKey         String                  @unique
+  status                 WebhookProcessingStatus @default(RECEIVED)
+  payload                Json
+  rawBody                String?
+  headers                Json?
+  processingError        String?
+  attemptCount           Int                     @default(0)
+  receivedAt             DateTime                @default(now())
+  processedAt            DateTime?
+  updatedAt              DateTime                @updatedAt
+  bookingId              String?
+  webhookConfigurationId String?
+
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  webhookConfiguration AutocabWebhookConfiguration? @relation(fields: [webhookConfigurationId], references: [id], onDelete: SetNull)
+
+  timelineEvents BookingTimelineEvent[]
+  snapshots      BookingSnapshot[]
+
+  @@index([provider, eventType])
+  @@index([externalBookingId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([webhookConfigurationId])
+}
+
+model BookingTimelineEvent {
+  id             String                @id @default(cuid())
+  bookingId      String
+  webhookEventId String?
+  eventType      String
+  title          String
+  description    String?
+  source         BookingTimelineSource @default(AUTOCAB)
+  createdBy      String?
+  metadata       Json?
+  occurredAt     DateTime
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  webhookEvent WebhookEvent? @relation(fields: [webhookEventId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, occurredAt])
+  @@index([eventType])
+  @@index([source])
+  @@index([webhookEventId])
+}
+
+model BookingSnapshot {
+  id             String   @id @default(cuid())
+  bookingId      String
+  webhookEventId String?
+  version        Int
+  eventType      String
+  snapshot       Json
+  createdAt      DateTime @default(now())
+
+  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  webhookEvent WebhookEvent? @relation(fields: [webhookEventId], references: [id], onDelete: SetNull)
+
+  @@unique([bookingId, version])
+  @@unique([webhookEventId])
+  @@index([bookingId, createdAt])
+  @@index([eventType])
+}
+
+enum IntegrationSyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum IntegrationSyncEntity {
+  DRIVERS
+  VEHICLES
+  COMPANIES
+  ZONES
+  CAPABILITIES
+  ACCOUNTS
+}
+
+enum DriverShiftStatus {
+  ACTIVE
+  ENDED
+}
+
+model Driver {
+  id         String @id @default(cuid())
+  provider   String @default("AUTOCAB")
+  externalId String
+
+  rowVersion Int?
+  callsign   String?
+  forename   String?
+  surname    String?
+  fullName   String?
+
+  mobile    String?
+  telephone String?
+  email     String?
+
+  badgeNumber   String?
+  licenceNumber String?
+
+  active    Boolean @default(true)
+  suspended Boolean @default(false)
+  archived  Boolean @default(false)
+
+  companyId      Int?
+  shiftPatternId Int?
+  fleetOwnerId   Int?
+
+  postalAddressSummary String?
+
+  badgeExpiryDate       DateTime?
+  cpcExpiryDate         DateTime?
+  dbsExpiryDate         DateTime?
+  tachographExpiryDate  DateTime?
+  licenceExpiryDate     DateTime?
+  insuranceExpiryDate   DateTime?
+  medicalCardExpiryDate DateTime?
+
+  capabilities Json?
+
+  lastApiSyncAt    DateTime?
+  lastSeenInApiAt  DateTime?
+  markedInactiveAt DateTime?
+  rawPayload       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shifts          DriverShift[]
+  currentVehicles Vehicle[]         @relation("CurrentVehicleDriver")
+  snapshots       VehicleSnapshot[]
+
+  @@unique([provider, externalId])
+  @@index([callsign])
+  @@index([badgeNumber])
+  @@index([licenceNumber])
+  @@index([active])
+  @@index([suspended])
+  @@index([companyId])
+  @@index([lastApiSyncAt])
+}
+
+model Vehicle {
+  id         String @id @default(cuid())
+  provider   String @default("AUTOCAB")
+  externalId String
+
+  rowVersion Int?
+  companyId  Int?
+  callsign   String?
+
+  make              String?
+  model             String?
+  colour            String?
+  yearOfManufacture Int?
+  vehicleType       String?
+  size              Int?
+
+  deviceId     String?
+  vinNumber    String?
+  plateNumber  String?
+  registration String?
+  phoneNumber  String?
+
+  isSuspended Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  fleetOwnerId        Int?
+  ownerDriverId       Int?
+  secondOwnerDriverId Int?
+
+  plateExpiryDate     DateTime?
+  insuranceExpiryDate DateTime?
+  motExpiryDate       DateTime?
+  roadTaxExpiryDate   DateTime?
+
+  mileage Int?
+
+  mdtId        Int?
+  terminalId   Int?
+  terminalType String?
+  mdtVersion   String?
+  imei         String?
+  serial       String?
+  simNumber1   String?
+  simNumber2   String?
+
+  capabilities Json?
+  drivers      Json?
+  rawPayload   Json?
+
+  currentDriverId  String?
+  currentStatus    String?
+  currentBookingId Int?
+  currentLatitude  Decimal?  @db.Decimal(10, 7)
+  currentLongitude Decimal?  @db.Decimal(10, 7)
+  lastSeenAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  currentDriver Driver?           @relation("CurrentVehicleDriver", fields: [currentDriverId], references: [id], onDelete: SetNull)
+  shifts        DriverShift[]
+  snapshots     VehicleSnapshot[]
+
+  @@unique([provider, externalId])
+  @@index([callsign])
+  @@index([registration])
+  @@index([currentDriverId])
+  @@index([currentStatus])
+  @@index([currentBookingId])
+  @@index([lastSeenAt])
+}
+
+model DriverShift {
+  id                 String            @id @default(cuid())
+  provider           String            @default("AUTOCAB")
+  driverId           String
+  vehicleId          String?
+  status             DriverShiftStatus @default(ACTIVE)
+  subEventType       String
+  startedAt          DateTime
+  endedAt            DateTime?
+  modifiedAt         DateTime?
+  durationSeconds    Int?
+  sourceWebhookEvent String?
+  rawPayload         Json
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  driver  Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, driverId, startedAt])
+  @@index([status])
+  @@index([startedAt])
+  @@index([endedAt])
+  @@index([vehicleId])
+}
+
+model VehicleSnapshot {
+  id              String   @id @default(cuid())
+  provider        String   @default("AUTOCAB")
+  vehicleId       String
+  driverId        String?
+  bookingId       Int?
+  vehicleStatus   String
+  latitude        Decimal  @db.Decimal(10, 7)
+  longitude       Decimal  @db.Decimal(10, 7)
+  snapshotAt      DateTime
+  receivedAt      DateTime @default(now())
+  sourceWebhookId String?
+  rawPayload      Json
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver  Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId, snapshotAt])
+  @@index([driverId, snapshotAt])
+  @@index([bookingId])
+  @@index([vehicleStatus])
+  @@index([snapshotAt])
+  @@index([sourceWebhookId])
+}
+
+model AutocabApiConfiguration {
+  id                   String    @id @default(cuid())
+  provider             String    @unique @default("AUTOCAB")
+  baseUrl              String    @default("https://autocab-api.azure-api.net")
+  apiKeyEncrypted      String?   @db.Text
+  apiKeyLastFour       String?
+  isEnabled            Boolean   @default(false)
+  lastTestedAt         DateTime?
+  lastSuccessfulSyncAt DateTime?
+  lastError            String?   @db.Text
+
+  driverSyncEnabled          Boolean                @default(false)
+  driverSyncIntervalMinutes  Int                    @default(1440)
+  importActiveDriversOnly    Boolean                @default(true)
+  createNewDrivers           Boolean                @default(true)
+  updateExistingDrivers      Boolean                @default(true)
+  markMissingDriversInactive Boolean                @default(true)
+  lastDriverSyncAt           DateTime?
+  nextDriverSyncAt           DateTime?
+  lastDriverSyncStatus       IntegrationSyncStatus?
+  lastDriverSyncMessage      String?                @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isEnabled])
+  @@index([driverSyncEnabled, nextDriverSyncAt])
+}
+
+model ApiEndpointConfiguration {
+  id        String  @id @default(cuid())
+  provider  String
+  name      String
+  method    String  @default("GET")
+  url       String  @unique
+  path      String?
+  isEnabled Boolean @default(true)
+
+  responseType        String?
+  recordKey           String?
+  jsonSchema          Json?
+  exampleResponse     Json?
+  filterConfiguration Json?
+  storeRecords        Boolean @default(false)
+
+  lastTestedAt       DateTime?
+  lastStatusCode     Int?
+  lastResponseTimeMs Int?
+  lastError          String?   @db.Text
+  sampleResponse     Json?
+
+  records ApiEndpointRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provider])
+  @@index([isEnabled])
+}
+
+model ApiEndpointRecord {
+  id            String   @id @default(cuid())
+  endpointId    String
+  externalId    String
+  data          Json
+  isActive      Boolean  @default(true)
+  sourceVersion String?
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  endpoint ApiEndpointConfiguration @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, externalId])
+  @@index([endpointId])
+  @@index([isActive])
+}
+
+model Zone {
+  id           String   @id @default(cuid())
+  provider     String   @default("AUTOCAB")
+  externalId   String
+  companyId    Int
+  mdtZoneId    Int?
+  name         String
+  descriptor   String?
+  latitude     Decimal? @db.Decimal(10, 7)
+  longitude    Decimal? @db.Decimal(10, 7)
+  active       Boolean  @default(true)
+  rawPayload   Json?
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([provider, externalId])
+  @@index([companyId])
+  @@index([active])
+  @@index([name])
+}
+
+model IntegrationSyncJob {
+  id       String                @id @default(cuid())
+  provider String                @default("AUTOCAB")
+  entity   IntegrationSyncEntity
+  status   IntegrationSyncStatus @default(RUNNING)
+  source   String                @default("MANUAL")
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+
+  recordsReceived Int @default(0)
+  recordsCreated  Int @default(0)
+  recordsUpdated  Int @default(0)
+  recordsSkipped  Int @default(0)
+  recordsDisabled Int @default(0)
+  recordsFailed   Int @default(0)
+
+  message  String? @db.Text
+  error    String? @db.Text
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provider, entity, startedAt])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model NormalCustomer {
+  id                  String    @id @default(cuid())
+  normalizedTelephone String    @unique
+  telephoneNumber     String
+  displayName         String?
+  email               String?
+  firstBookingAt      DateTime?
+  lastBookingAt       DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  bookings           Booking[]
+  profileSnapshots   CustomerProfileSnapshot[]
+  bookingPredictions CustomerBookingPrediction[]
+  intelligenceState  CustomerIntelligenceState?
+  behaviourTags      CustomerBehaviourTag[]
+
+  @@index([telephoneNumber])
+  @@index([email])
+  @@index([lastBookingAt])
+}
+
+model CustomerProfileSnapshot {
+  id               String   @id @default(cuid())
+  normalCustomerId String
+  snapshotDate     DateTime @db.Date
+  generatedAt      DateTime @default(now())
+
+  totalBookings            Int
+  profileSafe              Boolean
+  lifecycle                String
+  needScore                Int?
+  needLevel                String
+  needConfidence           Int
+  relationshipScore        Int?
+  relationshipLevel        String
+  regularityScore          Int?
+  scheduleStatus           String
+  returnRate               Decimal @db.Decimal(6, 2)
+  serviceOutcomeLevel      String
+  recentAdverseRate        Decimal @db.Decimal(6, 2)
+  dataQualityScore         Int
+  dataQualityGrade         String
+  behaviourChangeScore     Int?
+  behaviourChangeDirection String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer NormalCustomer @relation(fields: [normalCustomerId], references: [id], onDelete: Cascade)
+
+  @@unique([normalCustomerId, snapshotDate])
+  @@index([snapshotDate])
+  @@index([needLevel, snapshotDate])
+  @@index([serviceOutcomeLevel, snapshotDate])
+}
+
+model CustomerBehaviourTag {
+  id               String    @id @default(cuid())
+  normalCustomerId String
+  tagId            String
+  label            String
+  category         String
+  confidence       String
+  evidenceCount    Int
+  eligibleCount    Int
+  percentage       Decimal   @db.Decimal(6, 2)
+  windowDays       Int       @default(14)
+  windowStartAt    DateTime
+  windowEndAt      DateTime
+  lastObservedAt   DateTime?
+  active           Boolean   @default(true)
+  source           String    @default("AUTOMATIC")
+  modelVersion     String    @default("CUSTOMER_TAGS_V1")
+  explanation      String    @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer NormalCustomer @relation(fields: [normalCustomerId], references: [id], onDelete: Cascade)
+
+  @@unique([normalCustomerId, tagId])
+  @@index([tagId, active])
+  @@index([normalCustomerId, active])
+  @@index([category, active])
+  @@index([updatedAt])
+}
+
+model BookingDemandForecast {
+  id           String @id @default(cuid())
+  forecastKey  String @unique
+  modelVersion String
+  targetType   String @default("BOOKING_REQUESTS")
+  horizonHours Int    @default(24)
+
+  issuedAt      DateTime
+  windowStartAt DateTime
+  windowEndAt   DateTime
+
+  predictedCount Int
+  lowerBound     Int
+  upperBound     Int
+
+  status          String    @default("PENDING")
+  actualCount     Int?
+  absoluteError   Int?
+  percentageError Decimal?  @db.Decimal(7, 2)
+  evaluatedAt     DateTime?
+
+  calibrationDays Int
+  backtestMae     Decimal @db.Decimal(8, 2)
+  backtestMape    Decimal @db.Decimal(6, 2)
+  averageBias     Decimal @db.Decimal(8, 2)
+
+  slotForecasts Json
+  slotActuals   Json?
+  methodology   Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  alerts BookingDemandAlert[]
+
+  @@index([status, windowEndAt])
+  @@index([issuedAt])
+  @@index([modelVersion, horizonHours, status])
+}
+
+model BookingDemandAlert {
+  id       String @id @default(cuid())
+  alertKey String @unique
+  type     String
+  severity String
+  status   String @default("OPEN")
+
+  forecastId String?
+  message    String  @db.Text
+  evidence   Json
+
+  detectedAt DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  forecast BookingDemandForecast? @relation(fields: [forecastId], references: [id], onDelete: SetNull)
+
+  @@index([status, severity, detectedAt])
+  @@index([type, status])
+  @@index([forecastId])
+  @@index([lastSeenAt])
+}
+
+model CustomerBookingPrediction {
+  id               String   @id @default(cuid())
+  normalCustomerId String
+  modelVersion     String
+  horizonHours     Int      @default(24)
+  issuedAt         DateTime
+  windowStartAt    DateTime
+  windowEndAt      DateTime
+
+  likelyWindowStartAt DateTime?
+  likelyWindowEndAt   DateTime?
+
+  score              Decimal @db.Decimal(6, 2)
+  level              String
+  observedRate       Decimal @db.Decimal(6, 2)
+  evidenceConfidence Int
+  calibrationSamples Int
+
+  status                      String    @default("PENDING")
+  matchedBookingId            String?
+  matchedBookingAt            DateTime?
+  likelyWindowHit             Boolean?
+  likelyWindowDistanceMinutes Int?
+  evaluatedAt                 DateTime?
+  inputFingerprint            String
+  activeKey                   String?   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer       NormalCustomer                    @relation(fields: [normalCustomerId], references: [id], onDelete: Cascade)
+  evidenceEvents CustomerPredictionEvidenceEvent[]
+
+  @@unique([normalCustomerId, modelVersion, horizonHours, inputFingerprint])
+  @@index([normalCustomerId, issuedAt])
+  @@index([status, windowEndAt])
+  @@index([matchedBookingId])
+  @@index([modelVersion, horizonHours, status])
+}
+
+model CustomerPredictionEvidenceEvent {
+  id           String @id @default(cuid())
+  predictionId String
+  dedupeKey    String @unique
+  eventType    String
+  source       String @default("SYSTEM")
+
+  occurredAt DateTime
+  bookingId  String?
+
+  minutesFromIssued       Int?
+  timeSlotDistanceMinutes Int?
+  outcome                 String?
+  message                 String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  prediction CustomerBookingPrediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
+
+  @@index([predictionId, occurredAt])
+  @@index([eventType, occurredAt])
+  @@index([bookingId])
+  @@index([occurredAt])
+}
+
+model CustomerIntelligenceState {
+  normalCustomerId String    @id
+  status           String    @default("DIRTY")
+  inputFingerprint String?
+  dirtyAt          DateTime  @default(now())
+  lastCalculatedAt DateTime?
+  nextRefreshAt    DateTime?
+  lastError        String?
+  attemptCount     Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer NormalCustomer @relation(fields: [normalCustomerId], references: [id], onDelete: Cascade)
+
+  @@index([status, dirtyAt])
+  @@index([nextRefreshAt])
+}
+
+model CustomerIntelligenceJobRun {
+  id     String @id @default(cuid())
+  jobKey String
+  status String @default("RUNNING")
+  source String @default("CRON")
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+
+  selected  Int      @default(0)
+  processed Int      @default(0)
+  succeeded Int      @default(0)
+  failed    Int      @default(0)
+  hasMore   Boolean?
+
+  message  String? @db.Text
+  error    String? @db.Text
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jobKey, startedAt])
+  @@index([status, startedAt])
+  @@index([startedAt])
+}
+
+model AutocabAccount {
+  id              String   @id @default(cuid())
+  provider        String   @default("AUTOCAB")
+  externalId      String
+  accountCode     String
+  displayName     String?
+  accountType     String?
+  active          Boolean  @default(true)
+  suspended       Boolean  @default(false)
+  suspendedReason String?
+  companyId       String?
+  companyName     String?
+  contactName     String?
+  telephone       String?
+  email           String?
+  rawPayload      Json?
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([provider, externalId])
+  @@index([accountCode])
+  @@index([active])
+}
+
+model AccountRevenueRule {
+  id                   String   @id @default(cuid())
+  provider             String   @default("AUTOCAB")
+  accountId            String
+  accountCode          String
+  displayName          String?
+  waitingChargeable    Boolean  @default(false)
+  waitingRatePerMinute Decimal  @default(0.30) @db.Decimal(8, 2)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([provider, accountId])
+  @@index([accountCode])
+  @@index([waitingChargeable])
+}
+
+model DriverRentConfiguration {
+  id             String   @id @default(cuid())
+  key            String   @unique @default("GLOBAL")
+  rentPercentage Decimal  @default(20.00) @db.Decimal(7, 2)
+  weeklyCap      Decimal  @default(160.00) @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model CompanyDailyMetric {
+  id   String   @id @default(cuid())
+  date DateTime @unique @db.Date
+
+  bookings  Int @default(0)
+  completed Int @default(0)
+  cancelled Int @default(0)
+  noFare    Int @default(0)
+  rejected  Int @default(0)
+
+  revenue              Decimal @default(0) @db.Decimal(14, 2)
+  cashRevenue          Decimal @default(0) @db.Decimal(14, 2)
+  accountRevenue       Decimal @default(0) @db.Decimal(14, 2)
+  cardRevenue          Decimal @default(0) @db.Decimal(14, 2)
+  estimatedRevenueLost Decimal @default(0) @db.Decimal(14, 2)
+  averageBookingValue  Decimal @default(0) @db.Decimal(12, 2)
+
+  completionRate   Decimal @default(0) @db.Decimal(7, 2)
+  cancellationRate Decimal @default(0) @db.Decimal(7, 2)
+  noFareRate       Decimal @default(0) @db.Decimal(7, 2)
+  rejectionRate    Decimal @default(0) @db.Decimal(7, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}
+
+model HourlyWeatherObservation {
+  id                  String   @id @default(cuid())
+  locationKey         String   @default("PLYMOUTH")
+  latitude            Decimal  @db.Decimal(10, 6)
+  longitude           Decimal  @db.Decimal(10, 6)
+  observedAt          DateTime
+  temperature         Decimal? @db.Decimal(7, 2)
+  apparentTemperature Decimal? @db.Decimal(7, 2)
+  precipitation       Decimal? @db.Decimal(8, 2)
+  rain                Decimal? @db.Decimal(8, 2)
+  snowfall            Decimal? @db.Decimal(8, 2)
+  windSpeed           Decimal? @db.Decimal(8, 2)
+  windGusts           Decimal? @db.Decimal(8, 2)
+  cloudCover          Int?
+  visibility          Decimal? @db.Decimal(12, 2)
+  isDay               Boolean?
+  weatherCode         Int?
+  source              String   @default("OPEN_METEO")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([source, locationKey, observedAt])
+  @@index([locationKey, observedAt])
+  @@index([observedAt])
+}
+
+model ContextualCalendarEvent {
+  id           String   @id @default(cuid())
+  externalId   String?
+  title        String
+  category     String
+  startsAt     DateTime
+  endsAt       DateTime
+  locationName String?
+  description  String?
+  impactLevel  String   @default("MEDIUM")
+  source       String
+  sourceUrl    String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([source, externalId])
+  @@index([startsAt, endsAt])
+  @@index([category, startsAt])
+  @@index([active, startsAt])
+}
+
+model GeoapifyApiConfiguration {
+  id                     String    @id @default(cuid())
+  provider               String    @unique @default("GEOAPIFY")
+  baseUrl                String    @default("https://api.geoapify.com")
+  apiKeyEncrypted        String?   @db.Text
+  apiKeyLastFour         String?
+  isEnabled              Boolean   @default(false)
+  dailyLimit             Int       @default(3000)
+  dailyUsed              Int       @default(0)
+  usageDate              DateTime?
+  lastTestedAt           DateTime?
+  lastSuccessfulLookupAt DateTime?
+  lastError              String?   @db.Text
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([isEnabled])
+}
+
+model PlaceCategoryDefinition {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  label       String
+  isSensitive Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, label])
+  @@index([createdAt])
+}
+
+model PlaceIntelligence {
+  id                             String    @id @default(cuid())
+  locationKey                    String    @unique
+  latitude                       Decimal   @db.Decimal(10, 8)
+  longitude                      Decimal   @db.Decimal(11, 8)
+  originalAddress                String?
+  placeName                      String?
+  formattedAddress               String?
+  category                       String?
+  categories                     Json?
+  poiCategoryStatus              String    @default("PENDING")
+  poiCategoryAttemptCount        Int       @default(0)
+  poiCategoryLastAttemptAt       DateTime?
+  poiCategoryNextRetryAt         DateTime?
+  poiCategoryEnrichedAt          DateTime?
+  poiCategoryLastError           String?   @db.Text
+  poiCategoryMatchDistanceMetres Decimal?  @db.Decimal(8, 2)
+  poiCategoryProviderPlaceId     String?
+  poiCategoryRawPayload          Json?
+  poiCategorySource              String?
+  poiCategoryReviewedAt          DateTime?
+  poiCategoryReviewedBy          String?
+  website                        String?
+  provider                       String    @default("GEOAPIFY")
+  providerPlaceId                String?
+  confidence                     Decimal?  @db.Decimal(5, 2)
+  isSensitive                    Boolean   @default(false)
+  sensitivityReason              String?
+  status                         String    @default("PENDING")
+  attemptCount                   Int       @default(0)
+  lastAttemptAt                  DateTime?
+  nextRetryAt                    DateTime?
+  enrichedAt                     DateTime?
+  lastError                      String?   @db.Text
+  rawPayload                     Json?
+  createdAt                      DateTime  @default(now())
+  updatedAt                      DateTime  @updatedAt
+
+  bookingLocations BookingLocation[]
+
+  @@index([status, nextRetryAt])
+  @@index([poiCategoryStatus, poiCategoryNextRetryAt])
+  @@index([poiCategorySource])
+  @@index([provider, providerPlaceId])
+  @@index([latitude, longitude])
+  @@index([isSensitive])
+}
