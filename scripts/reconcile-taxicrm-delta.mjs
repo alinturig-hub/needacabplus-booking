@@ -5,6 +5,7 @@ const targetUrl=process.env.RESTORE_URL;
 const expectedHost=process.env.MIGRATION_TARGET_HOST;
 const cutoff=process.env.MIGRATION_CUTOFF;
 const apply=process.argv.includes('--apply');
+const postCutover=process.argv.includes('--post-cutover');
 if(!sourceUrl||!targetUrl||!expectedHost||!cutoff){
  throw new Error('TAXICRM_DATABASE_URL, RESTORE_URL, MIGRATION_TARGET_HOST and MIGRATION_CUTOFF are required');
 }
@@ -77,7 +78,7 @@ try{
  const withoutKey=plan.filter(item=>item.primaryKey.length===0).map(item=>item.name);
  const fullRefresh=plan.filter(item=>item.primaryKey.length>0&&!item.timestamp).map(item=>item.name);
  if(!apply){
-  console.log(JSON.stringify({mode:'plan',cutoff,tableCount:plan.length,withoutKey,fullRefresh,
+  console.log(JSON.stringify({mode:'plan',cutoff,postCutover,tableCount:plan.length,withoutKey,fullRefresh,
    timestampTables:plan.filter(item=>item.primaryKey.length>0&&item.timestamp).length}));
   await db.query('ROLLBACK');transactionOpen=false;
  }else{
@@ -99,8 +100,11 @@ try{
    // in the shared database. Do not replace that state with an older source.
    const freshness=item.columns.includes('updatedAt')
     ?` WHERE EXCLUDED."updatedAt">=${quote(item.name)}."updatedAt"`:'';
+   const preserveTarget=postCutover&&!new Set(['Booking','BookingLocation','BookingVia',
+    'BookingTimelineEvent','BookingSnapshot','WebhookEvent','NormalCustomer']).has(item.name);
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
-    ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}${freshness}`:'DO NOTHING'}`;
+    ${preserveTarget?'ON CONFLICT DO NOTHING':
+     `ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}${freshness}`:'DO NOTHING'}`}`;
    try{
     // Via rows may be replaced with new IDs while keeping the same booking/position.
     // Replacing this small table also removes rows deleted since the backup.
@@ -133,7 +137,7 @@ try{
    if(result.rows[0].orphan)throw new Error(`Orphan ${child}.${childColumn} after reconciliation`);
   }
   await db.query('COMMIT');transactionOpen=false;
-  console.log(JSON.stringify({mode:'applied',cutoff,applied,withoutKey}));
+  console.log(JSON.stringify({mode:'applied',cutoff,postCutover,applied,withoutKey}));
  }
 }catch(error){
  if(transactionOpen)await db.query('ROLLBACK').catch(()=>undefined);

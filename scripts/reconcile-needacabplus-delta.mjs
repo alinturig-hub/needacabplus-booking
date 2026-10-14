@@ -5,14 +5,15 @@ const targetUrl=process.env.RESTORE_URL;
 const expectedHost=process.env.MIGRATION_TARGET_HOST;
 const cutoff=process.env.MIGRATION_CUTOFF;
 const apply=process.argv.includes('--apply');
-if(!sourceUrl||!targetUrl||!expectedHost||!cutoff){
+const postCutover=process.env.MIGRATION_POST_CUTOVER==='true';
+if((!sourceUrl&&!postCutover)||!targetUrl||!expectedHost||!cutoff){
  throw new Error('DATABASE_URL, RESTORE_URL, MIGRATION_TARGET_HOST and MIGRATION_CUTOFF are required');
 }
 if(new URL(targetUrl).hostname!==expectedHost)throw new Error('Unexpected restore database host');
-if(new URL(sourceUrl).host===new URL(targetUrl).host)throw new Error('Source and target must differ');
+if(!postCutover&&new URL(sourceUrl).host===new URL(targetUrl).host)throw new Error('Source and target must differ');
 if(!Number.isFinite(Date.parse(cutoff)))throw new Error('MIGRATION_CUTOFF must be an ISO date');
 
-const source=new URL(sourceUrl);
+const source=!postCutover?new URL(sourceUrl):null;
 const db=new pg.Client({connectionString:targetUrl});
 const schema='migration_needacabplus_source';
 const server='migration_needacabplus_source_server';
@@ -23,6 +24,7 @@ let transactionOpen=false;
 async function setupForeignSource(){
  const exists=(await db.query('SELECT 1 FROM pg_foreign_server WHERE srvname=$1',[server])).rowCount>0;
  if(exists)return;
+ if(postCutover)throw new Error('Post-cutover reconciliation requires the existing source foreign server');
  await db.query(`CREATE SCHEMA ${quote(schema)}`);
  const serverSql=(await db.query(`SELECT format(
   'CREATE SERVER ${server} FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host %L, port %L, dbname %L)',
@@ -70,14 +72,14 @@ async function tablePlan(){
 
 try{
  await db.connect();
- await db.query(apply?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');transactionOpen=true;
+ await db.query(apply&&!postCutover?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');transactionOpen=true;
  await setupForeignSource();
  const plan=await tablePlan();
  if(plan.length!==42)throw new Error(`Expected 42 Need A Cab Plus tables; found ${plan.length}`);
  const withoutKey=plan.filter(item=>item.primaryKey.length===0).map(item=>item.name);
  const fullRefresh=plan.filter(item=>item.primaryKey.length>0&&!item.timestamp).map(item=>item.name);
  if(!apply){
-  console.log(JSON.stringify({mode:'plan',cutoff,tableCount:plan.length,withoutKey,fullRefresh,
+  console.log(JSON.stringify({mode:'plan',cutoff,postCutover,tableCount:plan.length,withoutKey,fullRefresh,
    timestampTables:plan.filter(item=>item.primaryKey.length>0&&item.timestamp).length}));
   await db.query('ROLLBACK');transactionOpen=false;
  }else{
@@ -97,7 +99,7 @@ try{
     ?` WHERE EXCLUDED.updated_at>=${quote(item.name)}.updated_at`:'';
    const where=item.timestamp?` WHERE ${quote(item.timestamp)}>=$1`:'';
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
-    ${item.name==='driver_positions'?'ON CONFLICT DO NOTHING':
+    ${item.name==='driver_positions'||postCutover?'ON CONFLICT DO NOTHING':
      `ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}${freshness}`:'DO NOTHING'}`}`;
    try{
     const result=await db.query(sql,item.timestamp?[cutoff]:[]);
@@ -109,7 +111,7 @@ try{
    }
   }
   await db.query('COMMIT');transactionOpen=false;
-  console.log(JSON.stringify({mode:'applied',cutoff,applied,withoutKey}));
+  console.log(JSON.stringify({mode:'applied',cutoff,postCutover,applied,withoutKey}));
  }
 }catch(error){
  if(transactionOpen)await db.query('ROLLBACK').catch(()=>undefined);
