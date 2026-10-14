@@ -66,10 +66,7 @@ export async function persistBookingEvent(
     stale || regressive || options.status === "REJECTED",
     options.status === "REJECTED",
   );
-  if (
-    options.status &&
-    !(stale && normaliseEventType(event.eventType) === "bookingrecovered")
-  ) {
+  if (options.status && !stale) {
     await updateBookingStatus(tx, bookingId, options.status, recovered);
   }
   const timestampField = {
@@ -84,6 +81,7 @@ export async function persistBookingEvent(
   });
   if (
     options.status &&
+    !stale &&
     options.status in timestampField &&
     (options.status === "ACCEPTED" || applied.status === options.status)
   ) {

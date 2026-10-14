@@ -82,6 +82,39 @@ try{
  assert.equal(Number(late.fare),20);
  assert.equal(late.cancelledAt,null);
 
+ const lifecycleId=`writer-lifecycle-${randomUUID()}`;
+ for(const [eventType,status] of [
+  ['BookingCreated','CREATED'],
+  ['BookingDispatched','DISPATCHED'],
+  ['BookingDispatchAccepted','ACCEPTED'],
+  ['BookingArrived','ARRIVED'],
+  ['BookingPOB','POB'],
+  ['BookingComplete','COMPLETED'],
+ ] as const){
+  await apply(eventType,{BookingId:lifecycleId});
+  const current=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:lifecycleId}}});
+  assert.equal(current.status,status,`${eventType} must set ${status}`);
+ }
+ for(const [terminalEvent,terminalStatus,timestampField] of [
+  ['BookingCancelled','CANCELLED','cancelledAt'],
+  ['BookingNoFare','NO_FARE','noFareAt'],
+ ] as const){
+  const id=`writer-terminal-${randomUUID()}`;
+  await apply('BookingCreated',{BookingId:id});
+  await apply(terminalEvent,{BookingId:id});
+  const current=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:id}}});
+  assert.equal(current.status,terminalStatus);
+  assert.ok(current[timestampField]);
+ }
+
+ const delayedTerminalId=`writer-delayed-terminal-${randomUUID()}`;
+ await apply('BookingCreated',{BookingId:delayedTerminalId,EventTimestamp:'2026-10-14T09:00:00Z'});
+ await apply('BookingDispatched',{BookingId:delayedTerminalId,EventTimestamp:'2026-10-14T11:00:00Z'});
+ await apply('BookingCancelled',{BookingId:delayedTerminalId,EventTimestamp:'2026-10-14T10:00:00Z'});
+ const delayedTerminal=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:delayedTerminalId}}});
+ assert.equal(delayedTerminal.status,'DISPATCHED','An older cancellation must not undo a newer dispatch');
+ assert.equal(delayedTerminal.cancelledAt,null);
+
  let calls=0;
  const server=createServer((_request,response)=>{
   calls++;
@@ -97,8 +130,14 @@ try{
   const first=await drainBookingPostCommitEffects(1);
   assert.deepEqual(first,{claimed:1,completed:0,failed:1});
   await prisma.bookingPostCommitEffect.updateMany({where:{status:'PENDING'},data:{nextAttemptAt:new Date(0)}});
-  const second=await drainBookingPostCommitEffects(10);
-  assert.ok(second.completed>=1);
+  let completed=0;
+  for(let attempt=0;attempt<5;attempt++){
+   const batch=await drainBookingPostCommitEffects(25);
+   completed+=batch.completed;
+   if(await prisma.bookingPostCommitEffect.count({where:{webhookEvent:{bookingId:booking.id},status:'DONE'}})===3)break;
+   await prisma.bookingPostCommitEffect.updateMany({where:{status:'PENDING'},data:{nextAttemptAt:new Date(0)}});
+  }
+  assert.ok(completed>=1);
   assert.equal(await prisma.bookingPostCommitEffect.count({where:{webhookEvent:{bookingId:booking.id},status:'DONE'}}),3);
  }finally{
   await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
