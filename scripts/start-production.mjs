@@ -57,7 +57,7 @@ if(process.env.CANONICAL_BOOKING_WRITER_ENABLED==='true'&&process.env.CANONICAL_
  bookingWriterTimer=setInterval(pollCanonicalBookings,10_000);
  setTimeout(pollCanonicalBookings,10_000);
 }
-const registryEntities=['DRIVERS','VEHICLES','ACCOUNTS','ZONES'];
+const registryEntities=['DRIVERS','VEHICLES','ACCOUNTS','ZONES','GENERIC_API'];
 let registryTimer,registryStartTimer,registryBusy=false,registryIndex=0;
 async function pollAutocabRegistry(){
  if(closing||registryBusy||process.env.AUTOCAB_REGISTRY_WRITER_ENABLED!=='true')return;
