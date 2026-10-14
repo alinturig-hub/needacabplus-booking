@@ -13,6 +13,29 @@ const eventSchema = z.object({ type: z.literal('event'), providerId: slug, name:
 const editEventSchema = z.object({ id: z.string().min(1), providerId: slug, name: z.string().trim().min(2).max(100), slug, description: z.string().trim().max(1000), enabled: z.boolean() }).strict();
 const editProviderSchema = z.object({ type: z.literal('provider'), id: slug, name: z.string().trim().min(2).max(100), description: z.string().trim().max(1000), enabled: z.boolean() }).strict();
 
+type ReceiptCount = { count: number; lastReceivedAt: Date | null };
+let receiptCache: { key: string; expiresAt: number; value: Promise<Map<string, ReceiptCount>> } | null = null;
+
+async function receiptCounts(configurationIds: string[]) {
+  const key = [...configurationIds].sort().join(',');
+  if (receiptCache?.key === key && receiptCache.expiresAt > Date.now()) return receiptCache.value;
+  const value = (async () => {
+    if (!configurationIds.length) return new Map<string, ReceiptCount>();
+    const { prisma } = await import('@/lib/prisma');
+    const rows = await prisma.webhookEvent.groupBy({
+      by: ['webhookConfigurationId'],
+      where: { webhookConfigurationId: { in: configurationIds } },
+      _count: { _all: true }, _max: { receivedAt: true },
+    });
+    return new Map(rows.filter(row => row.webhookConfigurationId).map(row => [
+      row.webhookConfigurationId!, { count: row._count._all, lastReceivedAt: row._max.receivedAt },
+    ]));
+  })();
+  receiptCache = { key, expiresAt: Date.now() + 60_000, value };
+  value.catch(() => { if (receiptCache?.value === value) receiptCache = null; });
+  return value;
+}
+
 export async function GET() {
   if (!await isAdmin()) return Response.json({ error: 'Administrator access required.' }, { status: 403 });
   const { prisma } = await import('@/lib/prisma');
@@ -20,6 +43,7 @@ export async function GET() {
     include: { configurations: { select: { id: true, displayName: true, eventType: true, endpointSlug: true, description: true, isEnabled: true }, orderBy: { displayName: 'asc' } } },
     orderBy: { name: 'asc' },
   });
+  const counts = await receiptCounts(providers.flatMap(provider => provider.configurations.map(item => item.id)));
   return Response.json({ providers: providers.map(provider => ({
     id: provider.id, name: provider.name, description: provider.description || '', enabled: provider.isEnabled,
     baseUrl: `${base}/${provider.id}`, apiKeyHeaderName: provider.id === 'autocab' ? 'x-api-key' : 'x-api-key',
@@ -27,7 +51,8 @@ export async function GET() {
     webhooks: provider.configurations.filter(item => item.endpointSlug !== 'tracks').map(item => ({
       id: item.id, event: item.displayName, eventType: item.eventType,
       description: item.description || '', slug: provider.id === 'autocab' ? item.endpointSlug : item.endpointSlug.slice(provider.id.length + 2),
-      enabled: item.isEnabled,
+      enabled: item.isEnabled, receivedCount: counts.get(item.id)?.count || 0,
+      lastReceivedAt: counts.get(item.id)?.lastReceivedAt || null,
     })),
   })) }, { headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 }
