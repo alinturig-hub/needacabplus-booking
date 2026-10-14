@@ -91,10 +91,14 @@ try{
    const conflict=item.primaryKey.map(quote).join(',');
    const updated=item.columns.filter(name=>!item.primaryKey.includes(name))
     .map(name=>`${quote(name)}=EXCLUDED.${quote(name)}`).join(',');
+   // A rolling cutover may already have newer rows in the shared database.
+   // In particular, never regress a confirmed booking attempt to "sending".
+   const freshness=item.columns.includes('updated_at')
+    ?` WHERE EXCLUDED.updated_at>=${target}.updated_at`:'';
    const where=item.timestamp?` WHERE ${quote(item.timestamp)}>=$1`:'';
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
     ${item.name==='driver_positions'?'ON CONFLICT DO NOTHING':
-     `ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}`:'DO NOTHING'}`}`;
+     `ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}${freshness}`:'DO NOTHING'}`}`;
    try{
     const result=await db.query(sql,item.timestamp?[cutoff]:[]);
     const outcome={table:item.name,matchedRows:result.rowCount,
