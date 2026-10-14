@@ -94,7 +94,7 @@ try{
    // A rolling cutover may already have newer rows in the shared database.
    // In particular, never regress a confirmed booking attempt to "sending".
    const freshness=item.columns.includes('updated_at')
-    ?` WHERE EXCLUDED.updated_at>=${target}.updated_at`:'';
+    ?` WHERE EXCLUDED.updated_at>=${quote(item.name)}.updated_at`:'';
    const where=item.timestamp?` WHERE ${quote(item.timestamp)}>=$1`:'';
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
     ${item.name==='driver_positions'?'ON CONFLICT DO NOTHING':

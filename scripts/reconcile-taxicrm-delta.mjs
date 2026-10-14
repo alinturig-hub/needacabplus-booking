@@ -95,7 +95,9 @@ try{
     !item.primaryKey.includes(name)&&!(item.name==='WebhookEvent'&&name==='idempotencyKey'))
     .map(name=>`${quote(name)}=EXCLUDED.${quote(name)}`).join(',');
    const where=item.timestamp?` WHERE ${quote(item.timestamp)}>=$1`:'';
-   const freshness=item.name==='WebhookEvent'
+   // During the rolling switch, new instances may have already advanced a row
+   // in the shared database. Do not replace that state with an older source.
+   const freshness=item.columns.includes('updatedAt')
     ?` WHERE EXCLUDED."updatedAt">=${quote(item.name)}."updatedAt"`:'';
    const sql=`INSERT INTO ${target} (${columns}) SELECT ${columns} FROM ${foreign}${where}
     ON CONFLICT (${conflict}) ${updated?`DO UPDATE SET ${updated}${freshness}`:'DO NOTHING'}`;
