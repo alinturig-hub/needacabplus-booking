@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@/generated/prisma/client';
 import { bookingExternalId, webhookIdempotencyKey } from '@/lib/autocab/webhook-processing';
 import { decryptWebhookSecret, webhookSecretsMatch } from '@/lib/autocab/webhook-secret';
+import { autocabWebhookUrlToken } from '@/lib/autocab/webhook-url-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,18 +45,23 @@ export async function POST(request: Request, context: { params: Promise<{ event:
   });
   if (!configuration?.isEnabled || !configuration.webhookProvider.isEnabled) return response({ error: 'EVENT_DISABLED' }, 404);
   const provider = configuration.webhookProvider;
-  let expected: string;
+  const urlExpected = provider.id === 'autocab' ? autocabWebhookUrlToken(eventSlug) : null;
+  let headerExpected = '';
   const secretHeader = provider.apiKeyEncrypted ? provider.apiKeyHeader : 'x-api-key';
   try {
     // The historical TaxiCRM source has no stored key. Reuse the already
     // configured direct-tracking token for those Autocab callbacks.
-    expected = provider.apiKeyEncrypted
+    headerExpected = provider.apiKeyEncrypted
       ? decryptWebhookSecret(provider.apiKeyEncrypted)
       : provider.id === 'autocab' ? process.env.TRACKING_WEBHOOK_TOKEN || '' : '';
-    if (expected.length < (provider.apiKeyEncrypted ? 16 : 32)) throw new Error('Webhook source key is missing.');
   }
-  catch { return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503); }
-  if (!webhookSecretsMatch(request.headers.get(secretHeader), expected)) return response({ error: 'UNAUTHORIZED' }, 401);
+  catch { if (!urlExpected) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503); }
+  if (headerExpected.length < (provider.apiKeyEncrypted ? 16 : 32)) headerExpected = '';
+  if (!headerExpected && !urlExpected) return response({ error: 'SOURCE_AUTH_UNAVAILABLE' }, 503);
+  const urlTokens = new URL(request.url).searchParams.getAll('token');
+  const headerAuthorized = !!headerExpected && webhookSecretsMatch(request.headers.get(secretHeader), headerExpected);
+  const urlAuthorized = !!urlExpected && urlTokens.length === 1 && webhookSecretsMatch(urlTokens[0], urlExpected);
+  if (!headerAuthorized && !urlAuthorized) return response({ error: 'UNAUTHORIZED' }, 401);
 
   const length = Number(request.headers.get('content-length') || 0);
   if (length > maxBodyBytes) return response({ error: 'PAYLOAD_TOO_LARGE' }, 413);
