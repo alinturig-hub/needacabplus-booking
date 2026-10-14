@@ -3,6 +3,8 @@ import pg from 'pg';
 const targetUrl=process.env.RESTORE_URL;
 const expectedHost=process.env.MIGRATION_TARGET_HOST;
 const apply=process.argv.includes('--apply');
+const sequenceFloor=process.env.MIGRATION_SEQUENCE_FLOOR
+ ?BigInt(process.env.MIGRATION_SEQUENCE_FLOOR):null;
 const driverPositionFloor=process.env.MIGRATION_DRIVER_POSITION_FLOOR
  ?BigInt(process.env.MIGRATION_DRIVER_POSITION_FLOOR):null;
 if(!targetUrl||!expectedHost||new URL(targetUrl).hostname!==expectedHost){
@@ -32,6 +34,12 @@ try{
   const maxValue=max===null?null:BigInt(max);
   const lastValue=BigInt(state.last_value);
   let needed=maxValue===null?lastValue:maxValue>lastValue?maxValue:lastValue;
+  if(sequenceFloor!==null){
+   if(sequenceFloor<=0n||sequenceFloor>9223372036854775807n){
+    throw new Error('MIGRATION_SEQUENCE_FLOOR must be a positive bigint');
+   }
+   if(sequenceFloor>needed)needed=sequenceFloor;
+  }
   if(row.table_name==='driver_positions'&&driverPositionFloor!==null){
    if(driverPositionFloor<=0n||driverPositionFloor>9223372036854775807n){
     throw new Error('MIGRATION_DRIVER_POSITION_FLOOR must be a positive bigint');
