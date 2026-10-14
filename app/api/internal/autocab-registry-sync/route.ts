@@ -13,8 +13,9 @@ function authorized(request: Request) {
 
 export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-  const { prisma } = await import('@/lib/prisma');
-  const [configurations, jobs, recentEvents] = await Promise.all([
+  const [{ prisma }, { database }] = await Promise.all([import('@/lib/prisma'), import('@/lib/database')]);
+  const cutoverAt = new Date(process.env.AUTOCAB_OPERATIONAL_CUTOVER_AT || '');
+  const [configurations, jobs, recentEvents, tracking, operationalPending] = await Promise.all([
     prisma.autocabWebhookConfiguration.findMany({
       select: { eventType: true, endpointSlug: true, isEnabled: true, webhookProvider: { select: { isEnabled: true, apiKeyEncrypted: true } } },
       orderBy: { eventType: 'asc' },
@@ -27,6 +28,15 @@ export async function GET(request: Request) {
       where: { provider: 'AUTOCAB', receivedAt: { gte: new Date(Date.now() - 30 * 60_000) } },
       orderBy: { receivedAt: 'desc' }, take: 1000,
       select: { headers: true, receivedAt: true, eventType: true, status: true },
+    }),
+    database().query<{ vehicles: number; latest_position_at: Date | null; local_webhook_last_at: Date | null }>(`
+      SELECT
+        (SELECT count(DISTINCT COALESCE(vehicle_id, driver_id))::int FROM driver_positions WHERE recorded_at >= now() - interval '2 minutes') AS vehicles,
+        (SELECT max(recorded_at) FROM driver_positions) AS latest_position_at,
+        (SELECT max(last_received_at) FROM provider_webhooks WHERE event_url_suffix = '/tracks_change') AS local_webhook_last_at
+    `),
+    Number.isNaN(cutoverAt.getTime()) ? Promise.resolve(0) : prisma.webhookEvent.count({
+      where: { provider: 'AUTOCAB', receivedAt: { gte: cutoverAt }, eventType: { in: ['VehicleTracksChanged', 'DriverShiftStartedEnded', 'DriverShiftStarted', 'DriverShiftEnded'] }, status: { in: ['RECEIVED', 'FAILED', 'PROCESSING'] } },
     }),
   ]);
   const ingress = {
@@ -54,6 +64,7 @@ export async function GET(request: Request) {
     recentJobs: jobs,
     recentIngress: { windowMinutes: 30, sampledEvents: recentEvents.length, ...ingress },
     recentEventStatuses,
+    tracking: { liveVehicles: tracking.rows[0]?.vehicles || 0, latestPositionAt: tracking.rows[0]?.latest_position_at || null, localWebhookLastAt: tracking.rows[0]?.local_webhook_last_at || null, operationalPending },
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
