@@ -75,11 +75,11 @@ CREATE TABLE IF NOT EXISTS local_car_types (
  seats integer NOT NULL CHECK (seats BETWEEN 1 AND 100),
  hand_luggage integer NOT NULL DEFAULT 0 CHECK (hand_luggage BETWEEN 0 AND 100),
  checkin_luggage integer NOT NULL DEFAULT 0 CHECK (checkin_luggage BETWEEN 0 AND 100),
- rank integer NOT NULL DEFAULT 0,
  active boolean NOT NULL DEFAULT true,
  created_at timestamptz NOT NULL DEFAULT now(),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE local_car_types DROP COLUMN IF EXISTS rank;
 CREATE TABLE IF NOT EXISTS local_vehicles (
  id uuid PRIMARY KEY,
  car_type_id uuid NOT NULL REFERENCES local_car_types(id),
