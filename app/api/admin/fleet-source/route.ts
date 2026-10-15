@@ -1,0 +1,5 @@
+import {database} from '@/lib/database';
+import {isAdmin,sameOrigin} from '@/lib/security';
+export const dynamic='force-dynamic';
+export async function GET(){if(!await isAdmin())return Response.json({error:'Forbidden'},{status:403});try{const result=await database().query<{source:string}>('SELECT source FROM fleet_data_source WHERE id=true');return Response.json({source:result.rows[0]?.source||'autocab'})}catch{return Response.json({source:'autocab',unavailable:true})}}
+export async function PUT(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Forbidden'},{status:403});const {source}=await request.json() as {source?:string};if(source!=='autocab'&&source!=='local')return Response.json({error:'Invalid source'},{status:400});try{await database().query('INSERT INTO fleet_data_source(id,source) VALUES(true,$1) ON CONFLICT(id) DO UPDATE SET source=$1,updated_at=now()',[source]);return Response.json({source})}catch{return Response.json({error:'Unable to save fleet source.'},{status:503})}}

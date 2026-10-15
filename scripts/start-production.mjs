@@ -1,9 +1,13 @@
 import {readFile} from 'node:fs/promises';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import pg from 'pg';
 
 const {Pool}=pg;
 if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required');
+if(process.env.DATABASE_SCHEMA_MANAGED_EXTERNALLY==='true'&&process.env.NAC_GRANT_DATABASE_URL){
+ const migration=spawnSync(process.execPath,['scripts/migrate-local-drivers.mjs'],{stdio:'inherit',env:process.env});
+ if(migration.status!==0)console.error('Local driver management will remain unavailable until the schema migration succeeds.');
+}
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('sslmode=require')?{rejectUnauthorized:false}:undefined});
 function retentionDays(){const value=Number(process.env.DRIVER_POSITION_RETENTION_DAYS||90);return Number.isFinite(value)&&value>0?Math.floor(value):90}
 const externalSchema=process.env.DATABASE_SCHEMA_MANAGED_EXTERNALLY==='true';
