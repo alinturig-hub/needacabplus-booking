@@ -22,21 +22,30 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 });
   }
-  const { bookingLocationId, placeIntelligenceId } = body as Record<string, unknown>;
+  const { bookingLocationId, placeIntelligenceId, expectedLatitude, expectedLongitude } = body as Record<string, unknown>;
   if (typeof bookingLocationId !== 'string' || !bookingLocationId.trim() ||
-      typeof placeIntelligenceId !== 'string' || !placeIntelligenceId.trim()) {
+      typeof placeIntelligenceId !== 'string' || !placeIntelligenceId.trim() ||
+      typeof expectedLatitude !== 'string' || typeof expectedLongitude !== 'string' ||
+      !Number.isFinite(Number(expectedLatitude)) || !Number.isFinite(Number(expectedLongitude)) ||
+      Math.abs(Number(expectedLatitude)) > 90 || Math.abs(Number(expectedLongitude)) > 180) {
     return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 });
   }
   try {
     const { prisma } = await import('@/lib/prisma');
     const place = await prisma.placeIntelligence.findUnique({
-      where: { id: placeIntelligenceId }, select: { latitude: true, longitude: true },
+      where: { id: placeIntelligenceId }, select: { locationKey: true },
     });
     if (!place) return NextResponse.json({ error: 'PLACE_NOT_FOUND' }, { status: 404 });
-    // Coordinate matching prevents a slow enrichment from linking a place to
-    // a location that a later booking webhook has already moved.
+    // Cached places share a five-decimal location key. Their original eight-decimal
+    // coordinates need not match another booking at that same place exactly.
+    const expectedKey = `${Number(expectedLatitude).toFixed(5)}:${Number(expectedLongitude).toFixed(5)}`;
+    if (place.locationKey !== expectedKey) {
+      return NextResponse.json({ error: 'PLACE_COORDINATES_MISMATCH' }, { status: 409 });
+    }
+    // Compare with the exact coordinates TaxiCRM saw before its lookup. A later
+    // booking update must not link an old result to a newly moved location.
     const linked = await prisma.bookingLocation.updateMany({
-      where: { id: bookingLocationId, latitude: place.latitude, longitude: place.longitude },
+      where: { id: bookingLocationId, latitude: expectedLatitude, longitude: expectedLongitude },
       data: { placeIntelligenceId },
     });
     if (!linked.count) return NextResponse.json({ error: 'LOCATION_CHANGED_OR_MISSING' }, { status: 409 });
