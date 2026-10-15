@@ -3,43 +3,10 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState, useSyncExternalStore, type ReactNode} from 'react';
-import {Activity, BookOpen, CarFront, ChevronDown, ChevronRight, CreditCard, Database, LayoutDashboard, LogOut, Menu, Moon, Settings2, ShieldCheck, Sun, X} from 'lucide-react';
+import {Activity, ChevronDown, ChevronRight, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
 import {saveAdminInterface, useAdminInterface} from './admin-interface';
+import {adminMenuGroups} from './admin-menu';
 import './admin-workspace.css';
-
-type MenuItem = {label: string; href: string};
-type MenuGroup = {id: string; label: string; icon: typeof BookOpen; items: MenuItem[]};
-
-const groups: MenuGroup[] = [
-  {id: 'bookings', label: 'Booking', icon: BookOpen, items: [
-    {label: 'Booking rules', href: '/admin/configuration#bookings'},
-    {label: 'Live overview', href: '/admin'},
-    {label: 'Search bookings', href: '/admin/bookings'},
-  ]},
-  {id: 'fleet', label: 'Drivers / Vehicles', icon: CarFront, items: [
-    {label: 'Drivers', href: '/admin/drivers'},
-    {label: 'Vehicles', href: '/admin/vehicles'},
-  ]},
-  {id: 'general-settings', label: 'General Settings', icon: Settings2, items: [
-    {label: 'Companies', href: '/admin/companies'},
-    {label: 'Import & Export', href: '/admin/import-export'},
-    {label: 'Maps & APIs', href: '/admin/maps-apis'},
-    {label: 'User Interface', href: '/admin/interface'},
-    {label: 'Users', href: '/admin/users'},
-    {label: 'Webhooks', href: '/admin/configuration#webhooks'},
-  ]},
-  {id: 'settings', label: 'Other Settings', icon: Database, items: [
-    {label: 'Customer sign-in', href: '/admin/configuration#identity'},
-    {label: 'Dispatch rules', href: '/admin/configuration#dispatch'},
-    {label: 'Security & 2FA', href: '/admin/configuration#general'},
-    {label: 'SMS gateway', href: '/admin/configuration#sms'},
-    {label: 'TaxiCRM database', href: '/admin/configuration#taxicrm'},
-  ]},
-  {id: 'pricing', label: 'Pricing & Payments', icon: CreditCard, items: [
-    {label: 'Fares & promotions', href: '/admin/configuration#pricing'},
-    {label: 'Payments', href: '/admin/configuration#payments'},
-  ]},
-];
 
 function subscribeHash(callback: () => void) {
   window.addEventListener('hashchange', callback);
@@ -53,9 +20,10 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({bookings: true, 'general-settings': true});
   const currentHref = pathname + hash;
-  const currentItem = groups.flatMap(group => group.items).find(item => item.href === currentHref);
-  const currentGroup = groups.find(group => group.items.some(item => item.href === currentHref));
-  const pageTitle = currentItem?.label ?? (pathname === '/admin' ? 'Dashboard' : 'Settings');
+  const currentItem = adminMenuGroups.flatMap(group => group.items).find(item => item.href === currentHref);
+  const categoryGroup = adminMenuGroups.find(group => pathname === `/admin/category/${group.id}`);
+  const currentGroup = categoryGroup ?? adminMenuGroups.find(group => group.items.some(item => item.href === currentHref));
+  const pageTitle = categoryGroup?.label ?? currentItem?.label ?? (pathname === '/admin' ? 'Dashboard' : 'Settings');
   const sectionTitle = currentGroup?.label ?? 'Workspace';
   const close = () => setMobileOpen(false);
 
@@ -75,14 +43,19 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
           <LayoutDashboard size={19}/><span>Dashboard</span>
         </Link>
         <span className="admin-workspace-nav-label admin-workspace-nav-label-spaced">MANAGEMENT</span>
-        {groups.map(group => {
+        {adminMenuGroups.map(group => {
           const Icon = group.icon;
-          const groupActive = group.items.some(item => item.href === currentHref);
+          const groupActive = categoryGroup?.id === group.id || group.items.some(item => item.href === currentHref);
           const open = expanded[group.id] ?? groupActive;
           return <div className="admin-workspace-group" key={group.id}>
-            <button className={groupActive ? 'active' : ''} type="button" aria-expanded={open} onClick={() => setExpanded(current => ({...current, [group.id]: !open}))}>
-              <Icon size={19}/><span>{group.label}</span>{open ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
-            </button>
+            <div className={`admin-workspace-group-heading${groupActive ? ' active' : ''}`}>
+              <Link href={`/admin/category/${group.id}`} onClick={() => {setExpanded(current => ({...current, [group.id]: true})); close();}} aria-current={categoryGroup?.id === group.id ? 'page' : undefined}>
+                <Icon size={19}/><span>{group.label}</span>
+              </Link>
+              <button type="button" aria-label={`${open ? 'Collapse' : 'Expand'} ${group.label}`} aria-expanded={open} onClick={() => setExpanded(current => ({...current, [group.id]: !open}))}>
+                {open ? <ChevronDown size={17}/> : <ChevronRight size={17}/>}
+              </button>
+            </div>
             {open && <div className="admin-workspace-submenu">
               {group.items.map(item => {
                 const current = item.href === currentHref;
