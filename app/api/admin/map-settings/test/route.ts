@@ -4,7 +4,7 @@ import {database} from '@/lib/database';
 import {mapTilerStyleUrl} from '@/lib/map-settings';
 import {isAdmin,sameOrigin} from '@/lib/security';
 
-const schema=z.object({apiKey:z.string().trim().max(500).optional().default(''),style:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).default('streets-v4'),darkStyle:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).default('dark')}).strict();
+const schema=z.object({apiKey:z.string().trim().max(500).optional().default(''),style:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).default('streets-v4'),darkStyle:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).transform(style=>style==='dark'?'streets-v4-dark':style).default('streets-v4-dark')}).strict();
 export async function POST(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  try{

@@ -6,22 +6,33 @@ import {defaultMapSettings, type MapSettings as MapSettingsValue} from '@/lib/ma
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 
-const mapStyles = [
+// MapTiler's published style IDs: https://github.com/maptiler/maptiler-client-js/blob/main/src/mapstyle.ts
+const lightMapStyles = [
   {id: 'streets-v4', label: 'Streets'},
-  {id: 'basic-v2', label: 'Basic'},
+  {id: 'base-v4', label: 'Base'},
   {id: 'bright-v2', label: 'Bright'},
-  {id: 'outdoor-v2', label: 'Outdoor'},
-  {id: 'topo-v2', label: 'Topographic'},
-  {id: 'satellite', label: 'Satellite'},
-  {id: 'hybrid', label: 'Hybrid'},
-  {id: 'dark', label: 'Dark'},
+  {id: 'outdoor-v4', label: 'Outdoor'},
+  {id: 'topo-v4', label: 'Topographic'},
+  {id: 'satellite-v4', label: 'Satellite'},
+  {id: 'hybrid-v4', label: 'Hybrid'},
+] as const;
+const darkMapStyles = [
+  {id: 'streets-v4-dark', label: 'Streets Dark'},
+  {id: 'base-v4-dark', label: 'Base Dark'},
+  {id: 'bright-v2-dark', label: 'Bright Dark'},
+  {id: 'outdoor-v4-dark', label: 'Outdoor Dark'},
+  {id: 'topo-v4-dark', label: 'Topographic Dark'},
+  {id: 'satellite-v4-dark', label: 'Satellite Dark'},
+  {id: 'hybrid-v4-dark', label: 'Hybrid Dark'},
 ] as const;
 
 type StyleField = 'mapTilerLightStyle' | 'mapTilerDarkStyle';
 
-function MapStyleField({label, value, onChange}: {label: string; value: string; onChange: (style: string) => void}) {
+function MapStyleField({theme, value, onChange}: {theme: 'light' | 'dark'; value: string; onChange: (style: string) => void}) {
+  const mapStyles = theme === 'light' ? lightMapStyles : darkMapStyles;
   const custom = !mapStyles.some(style => style.id === value);
-  const fieldId = label === 'Light map style' ? 'map-style-light' : 'map-style-dark';
+  const fieldId = `map-style-${theme}`;
+  const label = theme === 'light' ? 'Light map style' : 'Dark map style';
   return <div className="customer-setting-field">
     <label htmlFor={fieldId}>{label}</label>
     <select id={fieldId} value={custom ? 'custom' : value} onChange={event => onChange(event.target.value === 'custom' ? '' : event.target.value)}>
@@ -91,8 +102,8 @@ export default function MapSettings() {
           <header><span className="map-settings-icon"><Map/></span><div><h4>Map display</h4><p>Controls the basemap. Live cars, route guidance and pickup markers stay in our application.</p></div></header>
           <label className="customer-setting-field"><span>Map provider</span><select value={value.mapProvider} onChange={event => update('mapProvider', event.target.value as MapSettingsValue['mapProvider'])}><option value="openstreetmap">OpenStreetMap</option><option value="maptiler">MapTiler Cloud</option></select></label>
           {value.mapProvider === 'maptiler' && <div className="settings-grid customer-fields-grid">
-            <MapStyleField label="Light map style" value={value.mapTilerLightStyle} onChange={style => updateStyle('mapTilerLightStyle', style)}/>
-            <MapStyleField label="Dark map style" value={value.mapTilerDarkStyle} onChange={style => updateStyle('mapTilerDarkStyle', style)}/>
+            <MapStyleField theme="light" value={value.mapTilerLightStyle} onChange={style => updateStyle('mapTilerLightStyle', style)}/>
+            <MapStyleField theme="dark" value={value.mapTilerDarkStyle} onChange={style => updateStyle('mapTilerDarkStyle', style)}/>
           </div>}
         </section>
         <section className="customer-settings-group">

@@ -4,7 +4,7 @@ export const mapSettingsSchema=z.object({
  mapProvider:z.enum(['openstreetmap','maptiler']).default('openstreetmap'),
  searchProvider:z.enum(['openstreetmap','maptiler']).default('openstreetmap'),
  mapTilerLightStyle:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).default('streets-v4'),
- mapTilerDarkStyle:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).default('dark'),
+ mapTilerDarkStyle:z.string().trim().regex(/^[a-z0-9-]{1,80}$/).transform(style=>style==='dark'?'streets-v4-dark':style).default('streets-v4-dark'),
  country:z.string().trim().toLowerCase().regex(/^[a-z]{2}$/).default('gb'),
  language:z.string().trim().toLowerCase().regex(/^[a-z]{2}$/).default('en'),
  proximityLongitude:z.number().finite().min(-180).max(180).default(-4.143),
