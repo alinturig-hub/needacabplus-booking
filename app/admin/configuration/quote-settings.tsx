@@ -30,7 +30,7 @@ function LabelText({children,tip}:{children:React.ReactNode;tip:string}){return 
 function Switch({checked,onChange,label}:{checked:boolean;onChange:(checked:boolean)=>void;label:string}){return <button type="button" className={`settings-toggle ${checked?'on':''}`} role="switch" aria-checked={checked} aria-label={label} onClick={()=>onChange(!checked)}><span/></button>}
 
 export default function QuoteSettings({embedded=false,mode='autocab'}:{embedded?:boolean;mode?:FareMode}){
- const visibleTabs=fareTabs.filter(item=>mode==='shared'?['details','smart','fares','membership','marketing','demand'].includes(item.id):['details','advanced','test'].includes(item.id));
+ const visibleTabs=fareTabs.filter(item=>mode==='shared'?['details','smart','fares','membership','marketing','demand','test'].includes(item.id):['details','advanced','test'].includes(item.id));
  const [tab,setTab]=useState<FareTab>('details'),[showTest,setShowTest]=useState(false),tabsId=useId();
  const tabId=(id:FareTab)=>`${tabsId}-tab-${id}`,panelId=(id:FareTab)=>`${tabsId}-panel-${id}`;
  const [value,setValue]=useState(defaultQuotePolicy),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState(''),[snapshot,setSnapshot]=useState('');

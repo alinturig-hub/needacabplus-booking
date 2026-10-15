@@ -29,7 +29,8 @@ export const adminMenuGroups: AdminMenuGroup[] = [
     {label: 'TaxiCRM database', href: '/admin/configuration#taxicrm', description: 'Inspect the shared TaxiCRM data connection.'},
   ]},
   {id: 'pricing', label: 'Pricing & Payments', description: 'Configure fares, promotions and payment connections.', icon: CreditCard, items: [
-    {label: 'Fares & promotions', href: '/admin/configuration#pricing', description: 'Work with tariffs, memberships, loyalty and promotions.'},
+    {label: 'Fare sources', href: '/admin/configuration#pricing', description: 'Configure Autocab fares and the Need A Cab Plus base tariff.'},
+    {label: 'Pricing rules & promotions', href: '/admin/configuration#pricing-rules', description: 'Configure shared service additions, membership, marketing and demand.'},
     {label: 'Payments', href: '/admin/configuration#payments', description: 'Configure payment providers and checkout settings.'},
   ]},
 ];
