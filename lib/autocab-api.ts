@@ -16,7 +16,6 @@ function text(source:JsonRecord,...names:string[]){const value=field(source,...n
 function bool(source:JsonRecord,...names:string[]){const value=field(source,...names);if(typeof value==='boolean')return value;if(typeof value==='number')return value!==0;if(typeof value==='string')return ['true','1','yes','suspended','inactive'].includes(value.toLowerCase());return false}
 function integer(source:JsonRecord,...names:string[]){const value=Number(field(source,...names));return Number.isFinite(value)?Math.trunc(value):null}
 function array(source:JsonRecord,...names:string[]){const value=field(source,...names);return Array.isArray(value)?value:[]}
-function managedCompany(value:string|null){const name=(value||'').trim().toLowerCase();return name.startsWith('taxi services (plymouth) ltd')||name.startsWith('plymouth taxi')}
 function taxiCrmRecord(source:JsonRecord){return text(source,'sourceSystem')?.trim().toLowerCase()==='taxicrm'}
 
 function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
@@ -101,11 +100,11 @@ export async function resolveAddressPlaceId(placeId:string){
 export async function syncDrivers(){
  const payload=await call('drivers.list'),items=listFrom(payload,['drivers','driverList']);
  if(!items.length)throw new AutocabApiError('Autocab returned no driver records. Check that drivers.list points to the driver list endpoint.');
- const db=database();let saved=0;const taxiCrmIds:string[]=[];
+ if(items.some(taxiCrmRecord))throw new AutocabConfigurationError('drivers.list returns TaxiCRM data. Configure the direct Autocab driver endpoint. No records were changed.');
+ const db=database();let saved=0;
  for(const item of items){
   const externalId=text(item,'id','driverId','driverID','driverCode','callsign','callSign');if(!externalId)continue;
-  const fromTaxiCrm=taxiCrmRecord(item),company=text(item,'company','companyName');if(!fromTaxiCrm&&!managedCompany(company))continue;
-  if(fromTaxiCrm)taxiCrmIds.push(externalId);
+  const company=text(item,'company','companyName');
   const firstName=text(item,'firstName','forename'),lastName=text(item,'lastName','surname');
   const displayName=text(item,'displayName','fullName','name')||[firstName,lastName].filter(Boolean).join(' ')||externalId;
   const suspended=bool(item,'suspended','isSuspended','disabled','isDisabled'),status=text(item,'status','driverStatus')||(suspended?'Suspended':'Active');
@@ -115,21 +114,17 @@ export async function syncDrivers(){
     externalId,text(item,'callsign','callSign','driverCallsign'),firstName,lastName,displayName,text(item,'mobile','mobileNumber','telephoneNumber','phone'),text(item,'email','emailAddress'),company,status,suspended,JSON.stringify(array(item,'capabilities','driverCapabilities')),JSON.stringify(item)
    ]);saved++;
  }
- // TaxiCRM returns the complete managed fleet. Remove records left behind by
- // earlier direct Autocab imports as well as stale TaxiCRM records.
- if(taxiCrmIds.length)await db.query("DELETE FROM autocab_drivers WHERE NOT (external_id=ANY($1::text[]))",[taxiCrmIds]);
- await db.query("DELETE FROM autocab_drivers WHERE company IS NULL OR NOT (lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%' OR lower(trim(company)) LIKE 'taxicrm%')");
  return {received:items.length,saved};
 }
 
 export async function syncVehicles(){
  const payload=await call('vehicles.list'),items=listFrom(payload,['vehicles','vehicleList','cars']);
  if(!items.length)throw new AutocabApiError('Autocab returned no vehicle records. Check that vehicles.list points to the vehicle list endpoint.');
- const db=database();let saved=0;const taxiCrmIds:string[]=[];
+ if(items.some(taxiCrmRecord))throw new AutocabConfigurationError('vehicles.list returns TaxiCRM data. Configure the direct Autocab vehicle endpoint. No records were changed.');
+ const db=database();let saved=0;
  for(const item of items){
   const externalId=text(item,'id','vehicleId','vehicleID','vehicleCode','callsign','callSign','registration','registrationNumber');if(!externalId)continue;
-  const fromTaxiCrm=taxiCrmRecord(item),company=text(item,'company','companyName');if(!fromTaxiCrm&&!managedCompany(company))continue;
-  if(fromTaxiCrm)taxiCrmIds.push(externalId);
+  const company=text(item,'company','companyName');
   const suspended=bool(item,'suspended','isSuspended','disabled','isDisabled'),status=text(item,'status','vehicleStatus')||(suspended?'Suspended':'Active');
   await db.query(`INSERT INTO autocab_vehicles (external_id,callsign,registration,make,model,colour,passenger_capacity,vehicle_type,plate_number,company,status,suspended,capabilities,raw_payload,synced_at,updated_at)
    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,now(),now())
@@ -137,8 +132,5 @@ export async function syncVehicles(){
     externalId,text(item,'callsign','callSign','vehicleCallsign'),text(item,'registration','registrationNumber','reg'),text(item,'make','manufacturer'),text(item,'model'),text(item,'colour','color'),integer(item,'passengerCapacity','passengers','passengerSize','seats'),text(item,'vehicleType','type'),text(item,'plateNumber','plate'),company,status,suspended,JSON.stringify(array(item,'capabilities','vehicleCapabilities')),JSON.stringify(item)
    ]);saved++;
  }
- // Keep the local fleet identical to TaxiCRM when it is the configured source.
- if(taxiCrmIds.length)await db.query("DELETE FROM autocab_vehicles WHERE NOT (external_id=ANY($1::text[]))",[taxiCrmIds]);
- await db.query("DELETE FROM autocab_vehicles WHERE company IS NULL OR NOT (lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%' OR lower(trim(company)) LIKE 'taxicrm%')");
  return {received:items.length,saved};
 }

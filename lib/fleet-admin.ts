@@ -6,7 +6,9 @@ export async function fleetList(resource:FleetResource,request:Request){
  const url=new URL(request.url),pageSize=Math.min(100,Math.max(10,Number(url.searchParams.get('pageSize'))||20)),requestedPage=Math.max(1,Number(url.searchParams.get('page'))||1),search=(url.searchParams.get('search')||'').trim(),status=(url.searchParams.get('status')||'All').trim(),company=(url.searchParams.get('company')||'All').trim();
  const table=resource==='drivers'?'autocab_drivers':'autocab_vehicles';
  const searchColumns=resource==='drivers'?['external_id','callsign','display_name','mobile','email']:['external_id','callsign','registration','make','model','colour'];
- const fleetScope="(lower(trim(company)) LIKE 'taxi services (plymouth) ltd%' OR lower(trim(company)) LIKE 'plymouth taxi%' OR lower(trim(company)) LIKE 'taxicrm%')";
+ // The fleet view must reflect the Autocab API response, including records
+ // without a company. Older TaxiCRM imports stay stored but out of this view.
+ const fleetScope="lower(coalesce(raw_payload->>'sourceSystem',raw_payload->>'SourceSystem','')) <> 'taxicrm'";
  const values:unknown[]=[],where:string[]=[fleetScope];
  if(search){values.push(`%${search}%`);where.push(`(${searchColumns.map(column=>`${column} ILIKE $${values.length}`).join(' OR ')})`)}
  if(status==='Active')where.push('suspended=false');else if(status==='Suspended')where.push('suspended=true');

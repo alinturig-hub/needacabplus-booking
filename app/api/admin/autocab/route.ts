@@ -23,7 +23,7 @@ export async function GET(){
   const db=database();
   const [connections,endpoints]=await Promise.all([
    db.query('SELECT id,name,provider,base_url,auth_type,api_key_header,created_at,updated_at FROM api_connections WHERE provider=$1 ORDER BY created_at',['autocab']),
-   db.query('SELECT id,connection_id,name,action_key,method,path,description,request_example,enabled,created_at,updated_at FROM api_endpoints ORDER BY name')
+   db.query("SELECT e.id,e.connection_id,e.name,e.action_key,e.method,e.path,e.description,e.request_example,e.enabled,e.created_at,e.updated_at FROM api_endpoints e JOIN api_connections c ON c.id=e.connection_id WHERE c.provider='autocab' ORDER BY e.name")
   ]);
   return Response.json({connections:connections.rows,endpoints:endpoints.rows},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
