@@ -1,11 +1,10 @@
 'use client';
 import {useEffect,useState} from 'react';
 import type {QuotePolicy} from '@/lib/quote-policy';
-import BookingCapabilities from './booking-capabilities';
 import {Input} from '@/components/ui/input';
 
 type Signal={waiting:number|null;clear:number|null;fresh:boolean;quiet:boolean;reason:string};
-export default function SmartFareSettings({value,onChange,disabled}:{value:QuotePolicy;onChange:(next:QuotePolicy)=>void;disabled:boolean}){
+export default function SmartFareSettings({value,onChange}:{value:QuotePolicy;onChange:(next:QuotePolicy)=>void}){
  const [signal,setSignal]=useState<Signal|null>(null);
  useEffect(()=>{
   const controller=new AbortController();
@@ -23,10 +22,6 @@ export default function SmartFareSettings({value,onChange,disabled}:{value:Quote
   </div>
   <p className="customer-settings-hint">Uses current fleet-wide supply and unassigned jobs due within the booking window, including overdue jobs. Both vehicle positions and booking updates must be recent. No postcode, historical-demand or ETA model is applied yet. Missing signals keep the normal fare.</p>
   <p role="status">Saved-rule signal: {signal?`${signal.quiet?'Quiet':'Normal fare'} · ${signal.clear??'—'} CLEAR cars · ${signal.waiting??'—'} waiting · ${signal.reason}`:'Unavailable — normal fare'}.</p>
-  <div className="service-price-grid">
-   <section className="service-price-card"><h5>NOW / ASAP · quiet-time capabilities</h5><p>Added only when the Smart Fare conditions pass. Default: 42 · Discounted Fare.</p><BookingCapabilities value={value.smartFareCapabilities} onChange={smartFareCapabilities=>onChange({...value,smartFareCapabilities})} disabled={disabled}/></section>
-   {(['asap','priority','prebook','guarantee'] as const).map(service=><section key={service} className="service-price-card"><h5>{service==='asap'?'NOW / ASAP · standard capabilities':service==='priority'?'Priority · capabilities':service==='prebook'?'Pre-book · capabilities':'Guarantee · capabilities'}</h5><p>{service==='asap'?'Always applied to NOW. Keep discount-only capabilities in the quiet-time selection above.':'Applied only to this service, before its configured addition.'}</p><BookingCapabilities value={value.serviceCapabilities[service]} onChange={ids=>onChange({...value,serviceCapabilities:{...value.serviceCapabilities,[service]:ids}})} disabled={disabled}/></section>)}
-  </div>
-  <p className="customer-settings-hint">Shared booking capabilities are retained, except 42 and quiet-time capabilities. Priority, Pre-book and Guarantee receive those only if explicitly selected here. Save live fare settings to apply.</p>
+  <p className="customer-settings-hint">Autocab capability selections are configured under Fare sources → Autocab → Advanced. Smart Fare currently obtains its lower quote from Autocab; the local tariff source has not been activated for customer quotes.</p>
  </section>;
 }

@@ -1,12 +1,13 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Webhook} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Sparkles,Webhook} from 'lucide-react';
 import CustomerSettings from './customer-settings';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
 import {DispatchSettings,StripeSettings} from './operations-settings';
 import PricingWorkspace from './pricing-workspace';
+import QuoteSettings from './quote-settings';
 import FleetApp,{type FleetResource} from '../fleet-app';
 import MapSettings from './map-settings';
 import TaxiCrmDatabaseSettings from './taxicrm-database-settings';
@@ -23,7 +24,8 @@ const sections=[
  {id:'payments',group:'Settings',title:'Payments',description:'Stripe test or live mode, payment keys and webhook signing secret.',keywords:'stripe card wallet payment key secret sandbox billing',icon:CreditCard},
  {id:'identity',group:'Settings',title:'Customer sign-in',description:'Google and Apple credentials, callback URLs and SMS verification.',keywords:'google apple oauth client id secret otp login registration verification authentication',icon:KeyRound},
  {id:'bookings',group:'Settings',title:'Bookings Settings',description:'Need A Cab Plus origin marker, account IDs, payments, capabilities and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
- {id:'pricing',group:'Settings',title:'Fares & promotions',description:'Live fares, paid membership, loyalty, promotions and demand pricing.',keywords:'pricing fare quote surcharge demand membership loyalty promotion discount tariff',icon:BadgePoundSterling},
+ {id:'pricing',group:'Settings',title:'Fare sources',description:'Configure Autocab live fares and the Need A Cab Plus base tariff.',keywords:'pricing fare quote autocab local tariff source',icon:BadgePoundSterling},
+ {id:'pricing-rules',group:'Settings',title:'Pricing rules & promotions',description:'Shared service additions, Smart Fare, membership, marketing and demand settings.',keywords:'pricing fare surcharge demand membership loyalty promotion discount smart shared rules',icon:Sparkles},
  {id:'dispatch',group:'Settings',title:'Dispatch rules',description:'Driver search, arrival buffers and the dispatch simulator.',keywords:'dispatch driver time simulation radius arrival',icon:Route},
  {id:'fleet',group:'Settings',title:'Fleet',description:'Drivers, vehicles, synchronization status and Autocab fleet records.',keywords:'fleet drivers vehicles cars callsign registration sync autocab',icon:CarFront},
 ] as const;
@@ -50,6 +52,7 @@ export default function ConfigurationApp(){
  {visited.includes('payments')&&<div hidden={selected!=='payments'}><StripeSettings/></div>}
  {visited.includes('bookings')&&<div hidden={selected!=='bookings'}><CustomerSettings section="bookings"/></div>}
  {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><PricingWorkspace/></div>}
+ {visited.includes('pricing-rules')&&<div hidden={selected!=='pricing-rules'} className="operations-settings pricing-workspace"><QuoteSettings embedded mode="shared"/></div>}
  {visited.includes('dispatch')&&<div hidden={selected!=='dispatch'}><DispatchSettings/></div>}
  {visited.includes('fleet')&&<div hidden={selected!=='fleet'} className="configuration-panel fleet-configuration-panel"><FleetApp key={fleetResource} resource={fleetResource} embedded onResourceChange={setFleetResource}/></div>}
  </div></div></div></main>
