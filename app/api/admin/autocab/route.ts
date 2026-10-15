@@ -21,11 +21,13 @@ export async function GET(){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  try{
   const db=database();
-  const [connections,endpoints]=await Promise.all([
+  const {prisma}=await import('@/lib/prisma');
+  const [connections,endpoints,registry]=await Promise.all([
    db.query('SELECT id,name,provider,base_url,auth_type,api_key_header,created_at,updated_at FROM api_connections WHERE provider=$1 ORDER BY created_at',['autocab']),
-   db.query("SELECT e.id,e.connection_id,e.name,e.action_key,e.method,e.path,e.description,e.request_example,e.enabled,e.created_at,e.updated_at FROM api_endpoints e JOIN api_connections c ON c.id=e.connection_id WHERE c.provider='autocab' ORDER BY e.name")
+   db.query("SELECT e.id,e.connection_id,e.name,e.action_key,e.method,e.path,e.description,e.request_example,e.enabled,e.created_at,e.updated_at FROM api_endpoints e JOIN api_connections c ON c.id=e.connection_id WHERE c.provider='autocab' ORDER BY e.name"),
+   prisma.autocabApiConfiguration.findUnique({where:{provider:'AUTOCAB'},select:{baseUrl:true,isEnabled:true,apiKeyEncrypted:true}})
   ]);
-  return Response.json({connections:connections.rows,endpoints:endpoints.rows},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({connections:connections.rows,endpoints:endpoints.rows,registry:{baseUrl:registry?.baseUrl||null,enabled:registry?.isEnabled===true,keyConfigured:!!registry?.apiKeyEncrypted,writerEnabled:process.env.AUTOCAB_REGISTRY_WRITER_ENABLED==='true'}},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
 }
 

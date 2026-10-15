@@ -39,6 +39,9 @@ async function fetchRegistry(entity: RegistryEntity) {
   // An unexpected empty response must never deactivate a populated registry.
   if (!payload.length) throw new Error(`Autocab ${entity} returned no records.`);
   if (!payload.every(isRecordWithId)) throw new Error(`Autocab ${entity} returned records without IDs.`);
+  if (payload.some(item => typeof item.sourceSystem === 'string' && item.sourceSystem.toLowerCase() === 'taxicrm')) {
+    throw new Error(`Autocab ${entity} endpoint returned TaxiCRM data. No registry records were changed.`);
+  }
   return payload as RecordWithId[];
 }
 
