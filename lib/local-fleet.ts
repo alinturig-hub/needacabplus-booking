@@ -1,0 +1,3 @@
+import {z} from 'zod';
+export const carTypeInput=z.object({name:z.string().trim().min(1).max(100),description:z.string().trim().max(1000).default(''),seats:z.number().int().min(1).max(100),hand_luggage:z.number().int().min(0).max(100),checkin_luggage:z.number().int().min(0).max(100),rank:z.number().int().min(0).max(10000),active:z.boolean()});
+export const vehicleInput=z.object({car_type_id:z.string().uuid(),make:z.string().trim().min(1).max(100),model:z.string().trim().min(1).max(100),color:z.string().trim().min(1).max(60),plate:z.string().trim().min(1).max(30),status:z.enum(['active','inactive','archived']),co2_gkm:z.number().min(0).max(10000).nullable(),owner_name:z.string().trim().max(150),description:z.string().trim().max(1000)});

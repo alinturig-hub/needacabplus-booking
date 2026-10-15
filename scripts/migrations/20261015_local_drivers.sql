@@ -68,3 +68,51 @@ BEGIN
   END LOOP;
  END IF;
 END $$;
+CREATE TABLE IF NOT EXISTS local_car_types (
+ id uuid PRIMARY KEY,
+ name text NOT NULL UNIQUE,
+ description text NOT NULL DEFAULT '',
+ seats integer NOT NULL CHECK (seats BETWEEN 1 AND 100),
+ hand_luggage integer NOT NULL DEFAULT 0 CHECK (hand_luggage BETWEEN 0 AND 100),
+ checkin_luggage integer NOT NULL DEFAULT 0 CHECK (checkin_luggage BETWEEN 0 AND 100),
+ rank integer NOT NULL DEFAULT 0,
+ active boolean NOT NULL DEFAULT true,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS local_vehicles (
+ id uuid PRIMARY KEY,
+ car_type_id uuid NOT NULL REFERENCES local_car_types(id),
+ make text NOT NULL,
+ model text NOT NULL,
+ color text NOT NULL,
+ plate text NOT NULL UNIQUE,
+ status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+ co2_gkm numeric(10,2),
+ owner_name text NOT NULL DEFAULT '',
+ description text NOT NULL DEFAULT '',
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_local_vehicles_type ON local_vehicles(car_type_id);
+CREATE TABLE IF NOT EXISTS local_vehicle_documents (
+ id uuid PRIMARY KEY,
+ vehicle_id uuid NOT NULL REFERENCES local_vehicles(id) ON DELETE CASCADE,
+ kind text NOT NULL,
+ reference_number text NOT NULL DEFAULT '',
+ filename text NOT NULL,
+ mime_type text NOT NULL,
+ encrypted_data bytea NOT NULL,
+ expires_on date,
+ uploaded_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_local_vehicle_documents_vehicle ON local_vehicle_documents(vehicle_id);
+DO $$
+DECLARE table_name text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='needacabplus_shared_app') THEN
+  FOREACH table_name IN ARRAY ARRAY['local_car_types','local_vehicles','local_vehicle_documents'] LOOP
+   EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO needacabplus_shared_app',table_name);
+  END LOOP;
+ END IF;
+END $$;

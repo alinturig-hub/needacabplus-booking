@@ -1,0 +1,6 @@
+import {isAdmin,sameOrigin} from '@/lib/security';
+import {database,failure,randomUUID} from '@/lib/local-drivers';
+import {vehicleInput} from '@/lib/local-fleet';
+export const dynamic='force-dynamic';
+export async function GET(){if(!await isAdmin())return Response.json({error:'Forbidden'},{status:403});try{const result=await database().query(`SELECT v.*,t.name AS car_type_name,t.seats,t.hand_luggage,t.checkin_luggage,(SELECT MIN(d.expires_on)::text FROM local_vehicle_documents d WHERE d.vehicle_id=v.id AND d.expires_on IS NOT NULL) AS next_expiry FROM local_vehicles v JOIN local_car_types t ON t.id=v.car_type_id ORDER BY v.updated_at DESC`);return Response.json({items:result.rows})}catch(e){return failure(e)}}
+export async function POST(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Forbidden'},{status:403});try{const v=vehicleInput.parse(await request.json()),id=randomUUID();const r=await database().query('INSERT INTO local_vehicles(id,car_type_id,make,model,color,plate,status,co2_gkm,owner_name,description) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',[id,v.car_type_id,v.make,v.model,v.color,v.plate.toUpperCase(),v.status,v.co2_gkm,v.owner_name,v.description]);return Response.json({id:r.rows[0].id},{status:201})}catch(e){return failure(e)}}
