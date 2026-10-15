@@ -1,14 +1,13 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,CarFront,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Sparkles,Webhook} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Sparkles,Webhook} from 'lucide-react';
 import CustomerSettings from './customer-settings';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
 import {DispatchSettings,StripeSettings} from './operations-settings';
 import PricingWorkspace from './pricing-workspace';
 import QuoteSettings from './quote-settings';
-import FleetApp,{type FleetResource} from '../fleet-app';
 import MapSettings from './map-settings';
 import TaxiCrmDatabaseSettings from './taxicrm-database-settings';
 import GeneralSecurity from './general-security';
@@ -27,12 +26,11 @@ const sections=[
  {id:'pricing',group:'Settings',title:'Fare sources',description:'Configure Autocab live fares and the Need A Cab Plus base tariff.',keywords:'pricing fare quote autocab local tariff source',icon:BadgePoundSterling},
  {id:'pricing-rules',group:'Settings',title:'Pricing rules & promotions',description:'Shared service additions, Smart Fare, membership, marketing and demand settings.',keywords:'pricing fare surcharge demand membership loyalty promotion discount smart shared rules',icon:Sparkles},
  {id:'dispatch',group:'Settings',title:'Dispatch rules',description:'Driver search, arrival buffers and the dispatch simulator.',keywords:'dispatch driver time simulation radius arrival',icon:Route},
- {id:'fleet',group:'Settings',title:'Fleet',description:'Drivers, vehicles, synchronization status and Autocab fleet records.',keywords:'fleet drivers vehicles cars callsign registration sync autocab',icon:CarFront},
 ] as const;
 type SectionId='overview'|typeof sections[number]['id'];
 function validSection(value:string):SectionId{return sections.some(item=>item.id===value)?value as SectionId:value==='integrations'?'api':value==='overview'?'overview':'general'}
 export default function ConfigurationApp(){
- const [selected,setSelected]=useState<SectionId>('general'),[visited,setVisited]=useState<SectionId[]>([]),[search,setSearch]=useState(''),[settingsOpen,setSettingsOpen]=useState(true),[fleetResource,setFleetResource]=useState<FleetResource>('drivers');
+ const [selected,setSelected]=useState<SectionId>('general'),[visited,setVisited]=useState<SectionId[]>([]),[search,setSearch]=useState(''),[settingsOpen,setSettingsOpen]=useState(true);
  useEffect(()=>{const sync=()=>{const id=validSection(window.location.hash.slice(1).split('#').at(-1)||'');setSelected(id);setVisited(items=>items.includes(id)?items:[...items,id]);if(sections.some(item=>item.id===id))setSettingsOpen(true)};sync();window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync)},[]);
  function open(id:SectionId){setSelected(id);setVisited(items=>items.includes(id)?items:[...items,id]);window.location.hash=id;window.scrollTo({top:0,behavior:'smooth'})}
  const current=sections.find(item=>item.id===selected),query=search.trim().toLowerCase(),filtered=sections.filter(item=>(item.title+' '+item.description+' '+item.keywords).toLowerCase().includes(query)),settingsItems=filtered.filter(item=>item.group==='Settings');
@@ -54,6 +52,5 @@ export default function ConfigurationApp(){
  {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><PricingWorkspace/></div>}
  {visited.includes('pricing-rules')&&<div hidden={selected!=='pricing-rules'} className="operations-settings pricing-workspace"><QuoteSettings embedded mode="shared"/></div>}
  {visited.includes('dispatch')&&<div hidden={selected!=='dispatch'}><DispatchSettings/></div>}
- {visited.includes('fleet')&&<div hidden={selected!=='fleet'} className="configuration-panel fleet-configuration-panel"><FleetApp key={fleetResource} resource={fleetResource} embedded onResourceChange={setFleetResource}/></div>}
  </div></div></div></main>
 }

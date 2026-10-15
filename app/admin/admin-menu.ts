@@ -1,6 +1,6 @@
 import {BookOpen, CarFront, CreditCard, Database, Settings2, type LucideIcon} from 'lucide-react';
 
-export type AdminMenuItem = {label: string; href: string; description: string};
+export type AdminMenuItem = {label: string; href: string; description: string; categoryOnly?: boolean};
 export type AdminMenuGroup = {id: string; label: string; description: string; icon: LucideIcon; items: AdminMenuItem[]};
 
 export const adminMenuGroups: AdminMenuGroup[] = [
@@ -11,7 +11,7 @@ export const adminMenuGroups: AdminMenuGroup[] = [
   ]},
   {id: 'fleet', label: 'Drivers / Vehicles', description: 'Review drivers and the vehicles in your fleet.', icon: CarFront, items: [
     {label: 'Drivers', href: '/admin/drivers', description: 'Browse driver records and synchronization status.'},
-    {label: 'Vehicles', href: '/admin/vehicles', description: 'Browse cars and their fleet details.'},
+    {label: 'Fleet Management', href: '/admin/vehicles', description: 'Manage car types, vehicles and document expiry.', categoryOnly: true},
   ]},
   {id: 'general-settings', label: 'General Settings', description: 'Manage people, integrations and the Admin workspace.', icon: Settings2, items: [
     {label: 'Companies', href: '/admin/companies', description: 'Manage company records and access.'},

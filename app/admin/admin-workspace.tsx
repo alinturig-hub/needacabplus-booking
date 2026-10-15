@@ -57,7 +57,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
               </button>
             </div>
             {open && <div className="admin-workspace-submenu">
-              {group.items.map(item => {
+              {group.items.filter(item => !item.categoryOnly).map(item => {
                 const current = item.href === currentHref;
                 return item.href.includes('#')
                   ? <a key={item.href} href={item.href} onClick={close} aria-current={current ? 'page' : undefined}>{item.label}</a>
