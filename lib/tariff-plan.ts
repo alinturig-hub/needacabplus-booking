@@ -8,7 +8,7 @@ const isoDate=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const tariffRuleSchema=z.object({
  id:z.string().uuid(),name:z.string().trim().min(2).max(80),enabled:z.boolean(),
  category:z.enum(['vehicle','distance','zone','schedule','date','waiting','custom']),
- vehicle:z.enum(['any','saloon','estate','xl']),
+ vehicle:z.union([z.enum(['any','saloon','estate','xl']),z.string().uuid()]),
  pickupZone:optionalText,destinationZone:optionalText,eitherZone:optionalText,
  minMiles:z.number().min(0).max(1000).nullable(),maxMiles:z.number().min(0).max(1000).nullable(),
  startDate:isoDate.or(z.literal('')),endDate:isoDate.or(z.literal('')),
@@ -44,6 +44,7 @@ export const tariffPlanSchema=z.object({
 export type TariffPlan=z.infer<typeof tariffPlanSchema>;
 export type TariffRule=z.infer<typeof tariffRuleSchema>;
 export type TariffVehicle=TariffRule['vehicle'];
+export type TariffCarType={id:string;name:string;active:boolean};
 export const defaultTariffPlan:TariffPlan={version:2,name:'Standard',base:{startPence:300,minimumPence:600},waiting:{freeMinutes:0,perMinutePence:0},distanceBands:[{id:'00000000-0000-4000-8000-000000000001',toMiles:null,perMilePence:180}],rules:[]};
 
 export function newTariffRule(category:TariffRule['category']):TariffRule{

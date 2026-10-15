@@ -10,10 +10,11 @@ export const dynamic='force-dynamic';
 export async function GET(){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  try{
-  const [saved,tariffs,zones]=await Promise.all([
+  const [saved,tariffs,zones,carTypes]=await Promise.all([
    database().query<{plan:unknown;legacy:unknown;updated_at:string}>("SELECT settings->'tariffPlanV2' plan,settings->'localTariffRules' legacy,updated_at FROM operations_settings WHERE id='pricing'"),
    database().query<{id:string;base_pence:number;per_mile_pence:number;minimum_pence:number}>('SELECT id,base_pence,per_mile_pence,minimum_pence FROM tariffs ORDER BY id'),
    taxiCrmDatabaseConfigured()?taxiCrmZones().catch(()=>[]):Promise.resolve([]),
+   database().query<{id:string;name:string;active:boolean}>('SELECT id,name,active FROM local_car_types ORDER BY name'),
   ]);
   const parsed=tariffPlanSchema.safeParse(saved.rows[0]?.plan);
   const legacy=localTariffRulesSchema.safeParse(saved.rows[0]?.legacy);
@@ -28,7 +29,7 @@ export async function GET(){
   }
   const imported={...defaultTariffPlan,base,waiting:legacy.success?legacy.data.waiting:defaultTariffPlan.waiting,distanceBands:[{...defaultTariffPlan.distanceBands[0],perMilePence:saloon?.per_mile_pence??defaultTariffPlan.distanceBands[0].perMilePence}],rules:importedRules};
   const plan=parsed.success?{...parsed.data,waiting:savedPlanHasWaiting?parsed.data.waiting:legacy.success?legacy.data.waiting:parsed.data.waiting}:imported;
-  return Response.json({plan,zones:zones.map(zone=>zone.name),updatedAt:parsed.success?saved.rows[0]?.updated_at:null,imported:!parsed.success},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({plan,zones:zones.map(zone=>zone.name),carTypes:carTypes.rows,updatedAt:parsed.success?saved.rows[0]?.updated_at:null,imported:!parsed.success},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return unavailable(error)}
 }
 
@@ -37,6 +38,8 @@ export async function PUT(request:Request){
  const parsed=tariffPlanSchema.safeParse(await request.json().catch(()=>null));
  if(!parsed.success)return Response.json({error:parsed.error.issues[0]?.message||'Invalid tariff plan.'},{status:400});
  try{
+  const selected=[...new Set(parsed.data.rules.map(rule=>rule.vehicle).filter(value=>!['any','saloon','estate','xl'].includes(value)))];
+  if(selected.length){const found=await database().query<{id:string}>('SELECT id FROM local_car_types WHERE id=ANY($1::uuid[])',[selected]);if(found.rows.length!==selected.length)return Response.json({error:'A car type in this tariff no longer exists. Update the rule before saving.'},{status:409})}
   await database().query("INSERT INTO operations_settings(id,settings,updated_at) VALUES ('pricing',jsonb_build_object('tariffPlanV2',$1::jsonb),now()) ON CONFLICT(id) DO UPDATE SET settings=jsonb_set(operations_settings.settings,'{tariffPlanV2}',$1::jsonb),updated_at=now()",[JSON.stringify(parsed.data)]);
   return Response.json({ok:true});
  }catch(error){return unavailable(error)}
