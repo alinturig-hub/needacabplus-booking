@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {calculateTariffPlan,defaultTariffPlan,newTariffRule,tariffPlanSchema} from '../lib/tariff-plan';
 
-const trip={vehicle:'saloon' as const,miles:5,pickupZone:'Plymouth',destinationZone:'Exeter',pickupLocal:'2026-10-15T12:00'};
+const trip={vehicle:'saloon' as const,miles:5,waitingMinutes:0,pickupZone:'Plymouth',destinationZone:'Exeter',pickupLocal:'2026-10-15T12:00'};
 
 test('distance bands charge only miles within each band',()=>{
  const plan={...defaultTariffPlan,distanceBands:[{id:crypto.randomUUID(),toMiles:2,perMilePence:100},{id:crypto.randomUUID(),toMiles:null,perMilePence:200}]};
@@ -55,6 +55,31 @@ test('weekday selection works without a time range',()=>{
  const plan={...defaultTariffPlan,rules:[weekday]};
  assert.equal(calculateTariffPlan(plan,{...trip,pickupLocal:'2026-10-16T12:00'}).lines.length,1);
  assert.equal(calculateTariffPlan(plan,{...trip,pickupLocal:'2026-10-17T12:00'}).lines.length,0);
+});
+
+test('waiting charges each started minute after the free allowance, on top of the minimum fare',()=>{
+ const plan={...defaultTariffPlan,waiting:{freeMinutes:2,perMinutePence:50}};
+ assert.equal(calculateTariffPlan(plan,{...trip,miles:0,waitingMinutes:2}).totalPence,600);
+ const result=calculateTariffPlan(plan,{...trip,miles:0,waitingMinutes:3.2});
+ assert.equal(result.chargeableMinutes,2);
+ assert.equal(result.waitingPence,100);
+ assert.equal(result.totalPence,700);
+});
+
+test('waiting rules can change the charge for one vehicle',()=>{
+ const rule={...newTariffRule('waiting'),name:'XL waiting',vehicle:'xl' as const,value:25};
+ const plan={...defaultTariffPlan,waiting:{freeMinutes:1,perMinutePence:50},rules:[rule]};
+ assert.equal(calculateTariffPlan(plan,{...trip,waitingMinutes:3}).totalPence,1300);
+ const xl=calculateTariffPlan(plan,{...trip,vehicle:'xl',waitingMinutes:3});
+ assert.equal(xl.waitingPence,100);
+ assert.equal(xl.waitingTotalPence,150);
+ assert.equal(xl.totalPence,1350);
+});
+
+test('plans saved before waiting was added receive a zero waiting default',()=>{
+ const previous={...defaultTariffPlan,waiting:undefined};
+ const parsed=tariffPlanSchema.parse(previous);
+ assert.deepEqual(parsed.waiting,{freeMinutes:0,perMinutePence:0});
 });
 
 test('bad thresholds and inverted date ranges cannot be saved',()=>{
