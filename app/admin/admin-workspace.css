@@ -141,3 +141,98 @@
   .admin-workspace-location { gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .admin-workspace-sidebar { transition: none; } }
+
+.admin-workspace-topbar-actions { display: flex; align-items: center; gap: 9px; }
+.admin-workspace-theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 36px; padding: 0 12px; border: 1px solid #4a5559; border-radius: 9px;
+  background: transparent; color: #e5d3aa; font: inherit; font-size: 11px; font-weight: 650;
+}
+.admin-workspace-theme-toggle:hover { border-color: var(--workspace-gold); background: #e2c27c16; }
+@media (max-width: 560px) { .admin-workspace-theme-toggle { width: 38px; padding: 0; } .admin-workspace-theme-toggle span { display: none; } }
+
+/* Admin appearance is scoped here, independently of the customer theme. */
+.admin-workspace-shell.theme-light {
+  --workspace-gold: #85662c;
+  --workspace-line: #d6dedf;
+  color-scheme: light;
+  background: #f3f6f5;
+  color: #1c2930;
+}
+.theme-light .admin-workspace-sidebar {
+  background: radial-gradient(circle at 0 100%, #b9dedb70, transparent 50%), linear-gradient(165deg, #e8f0ef, #dae8e7 60%, #d5e4e1);
+  border-color: #c1d3d3; box-shadow: 12px 0 38px #243a3b12;
+}
+.theme-light .admin-workspace-brand, .theme-light .admin-workspace-sidebar-footer { border-color: #bfcecf; }
+.theme-light .admin-workspace-brand-copy, .theme-light .admin-workspace-sidebar nav > a, .theme-light .admin-workspace-group > button { color: #20363d; }
+.theme-light .admin-workspace-brand-copy b { color: #795920; }
+.theme-light .admin-workspace-brand-copy small, .theme-light .admin-workspace-nav-label, .theme-light .admin-workspace-sidebar-footer > span { color: #516b72; }
+.theme-light .admin-workspace-sidebar nav > a > svg:first-child, .theme-light .admin-workspace-group > button > svg:first-child { color: #4a6970; }
+.theme-light .admin-workspace-sidebar nav > a:hover, .theme-light .admin-workspace-group > button:hover { background: #ffffffa6; color: #182e34; }
+.theme-light .admin-workspace-sidebar nav > a.active, .theme-light .admin-workspace-group > button.active { border-color: #b99d63; background: #fff9e9; color: #604719; }
+.theme-light .admin-workspace-submenu { border-color: #a4babc; }
+.theme-light .admin-workspace-submenu a { color: #345057; }
+.theme-light .admin-workspace-submenu a:hover, .theme-light .admin-workspace-submenu a[aria-current=page] { background: #fff8e6; color: #62491d; }
+.theme-light .admin-workspace-sidebar-footer > a { color: #684e20; }
+.theme-light .admin-workspace-topbar { background: #fff; }
+.theme-light .admin-workspace-location-icon { border-color: #e5d3a7; background: #fff6e3; }
+.theme-light .admin-workspace-location-copy small { color: #586a71; }
+.theme-light .admin-workspace-location-copy strong { color: #213039; }
+.theme-light .admin-workspace-topbar-action, .theme-light .admin-workspace-theme-toggle { border-color: #cbd4d5; color: #33464b; }
+.theme-light .admin-workspace-topbar-action:hover, .theme-light .admin-workspace-theme-toggle:hover { border-color: #ac874a; background: #fff8e9; }
+.theme-light .admin-workspace-mobile-toggle { background: #fff; border-color: #b99d63; color: #604719; }
+.theme-light .admin-workspace-close { background: #ffffffaa; border-color: #adbfbe; color: #20363d; }
+
+.theme-light .admin-workspace-content :is(.premium-admin, .configuration-hub, .admin-shell, .general-settings-page, .admin-users-page) {
+  --admin-gold: #88692f; --admin-gold-soft: #b9914b1c; --admin-panel: #fff; --admin-panel-raised: #f6f8f8;
+  --admin-line: #d8e0e1; --admin-text: #1c2930; --admin-muted: #5d6d75;
+  background: #f3f6f5; color: #1c2930;
+}
+.theme-light .admin-workspace-content :is(.admin-title h1, .configuration-title h1, .general-settings-page h1, .admin-users-page h1, .configuration-intro h2, .configuration-cards strong, .general-settings-panel h2, .admin-users-panel h2) { color: #223039; }
+.theme-light .admin-workspace-content :is(.muted, .admin-title p, .configuration-title p, .general-settings-page p, .admin-users-page p, .configuration-intro p, .configuration-cards p) { color: #596a72; }
+.theme-light .admin-workspace-content :is(.eyebrow, .configuration-kicker, .configuration-card-link, .general-settings-panel h2 svg, .general-settings-links svg) { color: #85662c; }
+.theme-light .admin-workspace-content :is(.configuration-intro, .configuration-panel, .configuration-cards > button, .general-settings-panel, .general-settings-links a, .admin-users-panel, .admin-users-dialog) {
+  border-color: #d6dedf; background: #fff; color: #24323a; box-shadow: 0 8px 24px #1830360a;
+}
+.theme-light .admin-workspace-content .configuration-intro { background: linear-gradient(120deg, #fffaf0, #eaf3f2); }
+.theme-light .admin-workspace-content :is(.configuration-card-top > span, .general-settings-choice button[aria-pressed=true]) { background: #fff6e3; border-color: #b99d63; color: #684f20; }
+.theme-light .admin-workspace-content :is(.general-settings-choice button, .general-settings-form input:not([type=checkbox]), .admin-users-edit) { background: #f8faf9; border-color: #cbd5d7; color: #223039; }
+.theme-light .admin-workspace-content :is(.general-settings-choice small, .general-settings-links span, .admin-users-identity span, .admin-users-identity small, .admin-users-panel-heading p) { color: #5c6f76; }
+.theme-light .admin-workspace-content :is(input:not([type=checkbox]), textarea, select) { color-scheme: light; }
+
+.theme-light .admin-workspace-content .control-bar, .theme-light .admin-workspace-content .kpi-ribbon, .theme-light .admin-workspace-content .booking-grid,
+.theme-light .admin-workspace-content .fleet-summary article, .theme-light .admin-workspace-content .fleet-toolbar, .theme-light .admin-workspace-content .fleet-table {
+  border-color: #d4dddf; background: #fff; color: #223039; box-shadow: 0 6px 20px #203a4208;
+}
+.theme-light .admin-workspace-content .executive-grid article, .theme-light .admin-workspace-content .executive-grid .executive-total { border-color: #d4dddf; background: linear-gradient(145deg, #fff, #f6f8f8); }
+.theme-light .admin-workspace-content .executive-grid .executive-total { border-color: #d7c299; background: linear-gradient(145deg, #fffaf0, #fff); }
+.theme-light .admin-workspace-content :is(.metric-heading, .executive-grid article > p, .metric-foot, .mini-breakdown span, .kpi-ribbon small, .control-context) { color: #5a6d75; }
+.theme-light .admin-workspace-content :is(.mini-breakdown b, .status-strip > div button strong, .executive-grid article > strong, .kpi-ribbon strong) { color: #223039; }
+.theme-light .admin-workspace-content .control-bar .booking-period-buttons { background: #edf2f1; }
+.theme-light .admin-workspace-content .control-bar .booking-period-buttons button { color: #4e6269; }
+.theme-light .admin-workspace-content .control-bar .booking-period-buttons button[aria-pressed=true] { background: #fff; color: #684f20; box-shadow: inset 0 0 0 1px #d3b982; }
+.theme-light .admin-workspace-content :is(.icon-action, .control-bar > button, .status-strip > div button, .premium-admin .booking-card-customize summary, .premium-admin .column-picker > button, .fleet-toolbar button, .fleet-live-map-link) { border-color: #cbd5d7; background: #fff; color: #32464d; }
+.theme-light .admin-workspace-content :is(.booking-toolbar, .premium-admin .booking-toolbar > label, .premium-admin .booking-toolbar > select, .premium-admin .booking-toolbar > button, .premium-admin .booking-status-picker summary, .premium-admin .booking-grid, .premium-admin .booking-grid > header, .premium-admin .booking-table-wrap th, .premium-admin .booking-pagination, .premium-admin .fleet-table th) {
+  border-color: #d2dcdd !important; background: #fff !important; color: #32464d;
+}
+.theme-light .admin-workspace-content :is(.booking-table-wrap td, .fleet-table td, .admin-users-row) { border-color: #e1e7e7; color: #26353b; }
+.theme-light .admin-workspace-content :is(.booking-table-wrap tbody tr:hover, .fleet-table tbody tr:hover) { background: #eef5f3; }
+.theme-light .admin-workspace-content :is(.booking-toolbar input, .fleet-toolbar input, .fleet-toolbar select, .control-bar input, .booking-pagination select, .general-settings-form input, .configuration-panel input, .configuration-panel select, .configuration-panel textarea) {
+  border-color: #cbd5d7; background: #fff; color: #223039;
+}
+.theme-light .admin-workspace-content :is(.booking-status-picker > div, .premium-admin .booking-card-customize > div, .column-picker > div, .fleet-modal, .fleet-modal > header) { border-color: #cbd5d7; background: #fff; color: #223039; }
+.theme-light .admin-workspace-content :is(.configuration-card-group > h3, .configuration-section-heading, .configuration-nav-group h2, .general-settings-check) { color: #394e55; }
+.theme-light .admin-workspace-content :is(.kpi-icon, .admin-users-avatar) { background: #fff5e2; color: #85662c; }
+.theme-light .admin-workspace-content .kpi-icon.live { background: #e1f4e9; color: #227246; }
+.theme-light .admin-workspace-content .live-chip { border-color: #b8dfc6; background: #eaf8ef; color: #246d43; }
+.theme-light .admin-workspace-content :is(.operations-settings, .customer-settings-group, .api-form, .api-connection, .customer-settings-preset, .endpoint-box, .pricing-workspace-section, .service-price-card, .demand-assistant, .scheduled-pricing, .dynamic-schedule-editor, .booking-reference-audit, .fleet-configuration-panel, .fare-overview, .fare-test-panel, .local-tariff-notice, .local-tariff-preview, .local-tariff-results, .local-rule-section, .membership-intro, .membership-billing, .membership-tier-card, .growth-rule-card, .capability-quote-test, .capability-test-result, .capability-test-route, .admin-users-dialog-head, .admin-users-dialog-actions) {
+  background: #fff; border-color: #d6dedf; color: #24323a;
+}
+.theme-light .admin-workspace-content :is(.customer-settings-heading p, .customer-settings-group header p, .customer-setting-toggle small, .customer-settings-hint, .pricing-workspace-heading p, .service-price-card p, .membership-intro p, .growth-rule-card header p, .admin-users-panel-heading small) { color: #5d6f75; }
+.theme-light .admin-workspace-content :is(.configuration-panel, .configuration-intro, .operations-settings, .customer-settings-group, .api-form, .api-connection, .pricing-workspace, .smart-fare-settings, .membership-settings) :is(input:not([type=checkbox]), select, textarea) {
+  border-color: #c7d3d5; background: #f9fbfa; color: #223039;
+}
+.theme-light .admin-workspace-content :is(.general-settings-choice button, .admin-users-edit, .configuration-cards > button):hover { border-color: #a78951; background: #fffaf0; }
+.theme-light .admin-workspace-content .admin-users-dialog { color: #223039; }
+.theme-light .admin-workspace-content .admin-users-dialog-head { border-bottom: 1px solid #d6dedf; }
+.theme-light .admin-workspace-content .admin-users-dialog-actions { border-top: 1px solid #d6dedf; }

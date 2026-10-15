@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState, useSyncExternalStore, type ReactNode} from 'react';
-import {Activity, BookOpen, CarFront, ChevronDown, ChevronRight, CreditCard, Database, LayoutDashboard, LogOut, Menu, Settings2, ShieldCheck, X} from 'lucide-react';
-import {useAdminInterface} from './admin-interface';
+import {Activity, BookOpen, CarFront, ChevronDown, ChevronRight, CreditCard, Database, LayoutDashboard, LogOut, Menu, Moon, Settings2, ShieldCheck, Sun, X} from 'lucide-react';
+import {saveAdminInterface, useAdminInterface} from './admin-interface';
 import './admin-workspace.css';
 
 type MenuItem = {label: string; href: string};
@@ -59,7 +59,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
   const sectionTitle = currentGroup?.label ?? 'Workspace';
   const close = () => setMobileOpen(false);
 
-  return <div className={`admin-workspace-shell${interfaceSettings.density === 'compact' ? ' density-compact' : ''}${interfaceSettings.reduceMotion ? ' reduce-motion' : ''}`}>
+  return <div className={`admin-workspace-shell theme-${interfaceSettings.theme}${interfaceSettings.density === 'compact' ? ' density-compact' : ''}${interfaceSettings.reduceMotion ? ' reduce-motion' : ''}`}>
     {mobileOpen && <button className="admin-workspace-backdrop" type="button" aria-label="Close Admin menu" onClick={close}/>}
     <aside className={`admin-workspace-sidebar${mobileOpen ? ' is-open' : ''}`} aria-label="Admin menu">
       <div className="admin-workspace-brand">
@@ -110,7 +110,12 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
           <span className="admin-workspace-location-icon"><LayoutDashboard size={17}/></span>
           <span className="admin-workspace-location-copy"><small>ADMIN / {sectionTitle.toUpperCase()}</small><strong>{pageTitle}</strong></span>
         </div>
-        <Link className="admin-workspace-topbar-action" href="/dispatch" prefetch={false}><Activity size={16}/>Open Dispatch<ChevronRight size={15}/></Link>
+        <div className="admin-workspace-topbar-actions">
+          <button className="admin-workspace-theme-toggle" type="button" onClick={() => saveAdminInterface({...interfaceSettings, theme: interfaceSettings.theme === 'dark' ? 'light' : 'dark'})} aria-label={`Switch to ${interfaceSettings.theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${interfaceSettings.theme === 'dark' ? 'Light' : 'Dark'} theme`}>
+            {interfaceSettings.theme === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}<span>{interfaceSettings.theme === 'dark' ? 'Light' : 'Dark'} mode</span>
+          </button>
+          <Link className="admin-workspace-topbar-action" href="/dispatch" prefetch={false}><Activity size={16}/>Open Dispatch<ChevronRight size={15}/></Link>
+        </div>
       </header>
       {children}
     </div>
