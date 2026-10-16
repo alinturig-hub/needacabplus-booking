@@ -7,6 +7,7 @@ try{
  await db.connect();
  await db.query('BEGIN');
  await db.query(await readFile(new URL('./migrations/20261015_local_drivers.sql',import.meta.url),'utf8'));
+ await db.query(await readFile(new URL('./migrations/20261016_paid_member_loyalty.sql',import.meta.url),'utf8'));
  await db.query('COMMIT');
  console.log('Local driver schema migration applied.');
 }catch(error){await db.query('ROLLBACK').catch(()=>undefined);console.error('Local driver schema migration failed:',error instanceof Error?error.message:'Unknown error');process.exitCode=1}

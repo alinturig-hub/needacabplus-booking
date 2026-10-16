@@ -1,6 +1,7 @@
 import {selectPaymentMethod} from './booking-payments';
 import {loadBookingPolicy} from './app-configuration';
 import type {BookingPolicy} from './booking-policy';
+import {bookingServiceAccess} from './booking-policy';
 import {autocabTime} from '@/lib/autocab-time.mjs';
 import {buildAutocabQuoteRequest} from './autocab-quote-request';
 import {publicFareQuote} from './quote-presentation';
@@ -21,13 +22,13 @@ const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.obje
 export const quoteRequestSchema=z.object({pickup:address,destination:address,vias:z.array(address).max(3),vehicle:z.enum(['saloon','estate','xl']),service:z.enum(['asap','priority','prebook','guarantee']),paymentMethod:z.enum(['cash','card']).optional(),scheduledAt:z.string().datetime().nullable()}).strict();
 export type FareQuote={id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;fixedPence?:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';liveBooking?:boolean;bookingRules?:BookingPolicy;paymentMethod?:'card'|'cash';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number};smartFare?:{applied:boolean;reason:string;normalPence:number;candidatePence?:number;signal:SmartSignal};membership?:ActiveMembership&{standardTotalPence:number;savingPence:number}};
 type ActiveMembership={tierId:MembershipTierId;tierName:string};
-async function activeMembership(customerId:string|null,policy:QuotePolicy):Promise<ActiveMembership|null>{
+export async function activePaidMembership(customerId:string|null,policy:QuotePolicy):Promise<ActiveMembership|null>{
  if(!customerId||!policy.membership.enabled)return null;
  const result=await database().query<{tier_id:string}>(`SELECT tier_id FROM customer_memberships
-  WHERE customer_id=$1 AND (status IN ('active','trialing') OR (status='grace_period' AND $2::boolean=true AND grace_ends_at>now())) AND starts_at<=now()
+  WHERE customer_id=$1 AND (status='active' OR (status='grace_period' AND $2::boolean=true AND grace_ends_at>now())) AND starts_at<=now()
   AND (ends_at IS NULL OR ends_at>now()) ORDER BY updated_at DESC LIMIT 1`,[customerId,policy.membership.dunning.keepBenefitsDuringGrace]);
  const tierId=result.rows[0]?.tier_id as MembershipTierId|undefined;
- if(!tierId||!Object.hasOwn(policy.membership.tiers,tierId)||!policy.membership.tiers[tierId].enabled)return null;
+ if(!tierId||!Object.hasOwn(policy.membership.tiers,tierId)||!policy.membership.tiers[tierId].enabled||policy.membership.tiers[tierId].monthlyPrice<=0)return null;
  return {tierId,tierName:policy.membership.tiers[tierId].name};
 }
 export async function loadQuotePolicy(){const result=await database().query("SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");const rules=await loadBookingPolicy();return quotePolicySchema.parse({...result.rows[0]?.policy,minPrebookMinutes:rules.minPrebookMinutes})}
@@ -86,10 +87,12 @@ export async function calculateQuote(input:z.infer<typeof quoteRequestSchema>,cu
  const stops=[input.pickup,...input.vias,input.destination];if(new Set(stops.map(stop=>stop.text.toLowerCase())).size!==stops.length)throw new QuoteError('Choose a different address for each stop.');
  if(input.vehicle!=='saloon')throw new QuoteError('This vehicle category is not available for quoting yet. Choose Plus Saloon.');
  const savedRules=await loadBookingPolicy();let paymentMethod:'cash'|'card';try{paymentMethod=selectPaymentMethod(savedRules,input.paymentMethod)}catch(e){throw new QuoteError(e instanceof Error?e.message:'Payment is unavailable.')}
+ const member=await activePaidMembership(customerId,policy),access=bookingServiceAccess(savedRules,Boolean(member));
+ if(!access[input.service])throw new QuoteError(`${input.service==='priority'?'Priority':'Guarantee'} is available with an active paid membership. Sign in or choose a standard ride.`);
  let bookingRules={...savedRules,paymentMethod,bookingCapabilities:serviceCapabilities(policy,savedRules.bookingCapabilities,input.service),...(input.service==='asap'?{priorityDelayMinutes:0}:{})};
  const quoteTime=new Date();
  let autocabRequest=buildAutocabQuoteRequest(input,bookingRules.bookingCapabilities,quoteTime,bookingRules);
- const signal=input.service==='asap'?await smartFareSnapshot(policy):null;
+ const signal=input.service==='asap'&&access.quietAsap?await smartFareSnapshot(policy):null;
  const decision=signal?smartFareDecision(policy,signal):null;
  const discountedRules=decision?.quiet?{...bookingRules,bookingCapabilities:serviceCapabilities(policy,savedRules.bookingCapabilities,'asap',true)}:null;
  const discountedRequest=discountedRules?buildAutocabQuoteRequest(input,discountedRules.bookingCapabilities,quoteTime,discountedRules):null;
@@ -115,7 +118,7 @@ export async function calculateQuote(input:z.infer<typeof quoteRequestSchema>,cu
  }
  const snapshot=input.service==='priority'&&policy.priorityUpliftMode==='percentage'&&policy.dynamicPricingEnabled?await demandSnapshot(policy):{waiting:null,clear:null};
  const standardAdjustment=fareAdjustment(policy,input.service,snapshot.waiting,snapshot.clear);
- const member=await activeMembership(customerId,policy),memberPercent=membershipAddonPercent(policy,member?.tierId||null,input.service);
+ const memberPercent=membershipAddonPercent(policy,member?.tierId||null,input.service);
  const standardFare=fareBreakdown(basePence,standardAdjustment.percent,standardAdjustment.fixedPence);
  const memberFare=memberPercent===null?standardFare:fareBreakdown(basePence,memberPercent,0);
  const membership=member&&memberFare.totalPence<standardFare.totalPence?{...member,standardTotalPence:standardFare.totalPence,savingPence:standardFare.totalPence-memberFare.totalPence}:undefined;

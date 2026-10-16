@@ -8,7 +8,8 @@ import {bookingPeriod,bookingCsv} from '@/lib/booking-period';
 import {z} from 'zod';
 import {bookingAttemptDatabase,database} from '@/lib/database';
 import {isAdmin,isDispatchUser,sameOrigin,unavailable} from '@/lib/security';
-import {verifyQuote,loadQuotePolicy} from '@/lib/quotes';
+import {verifyQuote,loadQuotePolicy,activePaidMembership} from '@/lib/quotes';
+import {bookingServiceAccess} from '@/lib/booking-policy';
 import {validateSchedule} from '@/lib/quote-policy';
 import {getCustomer} from '@/lib/customer-auth';
 import {getGuestSession} from '@/lib/customer-guest';
@@ -26,7 +27,7 @@ export async function POST(request:Request){
  const customer=await getCustomer(),guest=customer?null:await getGuestSession(),userId=customer?.id||guest?.id;if(!userId)return Response.json({error:'Sign in or continue as guest before confirming your booking.'},{status:401});
  const attemptsDb=bookingAttemptDatabase();
  const existingLive=await readLiveAttempt(attemptsDb,body.id,userId);if(existingLive)return Response.json(existingLive,{status:existingLive.rejected?422:existingLive.pending?202:200});
- let quote;try{quote=verifyQuote(body.quoteToken);const policy=await loadQuotePolicy();if(!policy.enabled)throw new Error('Live quotes are currently unavailable.');validateSchedule(quote.service,quote.scheduledAt,policy.minPrebookMinutes);validateBookingPayment(await loadBookingPolicy(),quote.paymentMethod||'card',Boolean(quote.liveBooking))}catch(error){return Response.json({error:error instanceof Error?error.message:'Request a new fare.'},{status:409})}
+ let quote;try{quote=verifyQuote(body.quoteToken);const [policy,rules]=await Promise.all([loadQuotePolicy(),loadBookingPolicy()]);if(!policy.enabled)throw new Error('Live quotes are currently unavailable.');const paidMember=Boolean(await activePaidMembership(customer?.id||null,policy)),access=bookingServiceAccess(rules,paidMember);if(!access[quote.service]||(quote.smartFare?.applied&&!access.quietAsap)||quote.membership&&!paidMember)throw new Error('Your membership benefits changed. Request a new fare.');validateSchedule(quote.service,quote.scheduledAt,policy.minPrebookMinutes);validateBookingPayment(rules,quote.paymentMethod||'card',Boolean(quote.liveBooking))}catch(error){return Response.json({error:error instanceof Error?error.message:'Request a new fare.'},{status:409})}
  if(body.id!==quote.id||body.vehicle!==quote.vehicle||body.pickup!==quote.pickup||body.destination!==quote.destination||JSON.stringify(body.viaPoints)!==JSON.stringify(quote.vias))return Response.json({error:'The journey changed. Request a new quote.'},{status:409});
  const db=database();const existing=await db.query<{id:string;status:string}>('SELECT id,status FROM bookings WHERE id=$1 AND user_id=$2',[body.id,userId]);if(existing.rows[0])return Response.json(existing.rows[0]);
  if(quote.liveBooking){

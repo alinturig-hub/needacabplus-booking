@@ -10,7 +10,7 @@ import {firstPrebookTime,isPrebookInterval,PREBOOK_INTERVAL_MINUTES} from '@/lib
 import {vehicles,money} from '@/lib/vehicles';
 import type {PublicFareQuote} from '@/lib/quote-presentation';
 export type QuoteSelection={quote:PublicFareQuote;token:string};
-type Config={enabled:boolean;minPrebookMinutes:number;vehicles:string[];paymentMethods:('cash'|'card')[];defaultPaymentMethod?:'cash'|'card';liveBookingsEnabled:boolean};
+type Config={enabled:boolean;minPrebookMinutes:number;vehicles:string[];paymentMethods:('cash'|'card')[];defaultPaymentMethod?:'cash'|'card';liveBookingsEnabled:boolean;paidMember:boolean;serviceAccess:{asap:boolean;prebook:boolean;priority:boolean;guarantee:boolean;quietAsap:boolean}};
 const keyOf=(service:string,vehicle:string)=>`${service}:${vehicle}`;
 const localDate=(iso:string)=>{const date=new Date(iso);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};
 export default function QuoteChooser({pickup,destination,vias,initial,initialService='asap',customer,paymentLabel,onChoose}:{pickup:Record<string,unknown>|null;destination:Record<string,unknown>|null;vias:(Record<string,unknown>|null)[];initial:QuoteSelection|null;initialService?:'asap'|'prebook'|'guarantee';customer:boolean;paymentLabel:string;onChoose:(value:QuoteSelection)=>void}){
@@ -19,20 +19,22 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
  const cached=useRef(offers);
  const scheduleInput=useRef<HTMLInputElement>(null);
  const routeKey=JSON.stringify({pickup,destination,vias});
- const displayedServices=[initialService,'priority'] as const;
+ const baseService=initialService==='guarantee'&&config&&!config.serviceAccess.guarantee?'prebook':initialService;
+ const displayedServices=([baseService,...(config?.serviceAccess.priority?['priority' as const]:[])]) as ('asap'|'priority'|'prebook'|'guarantee')[];
  const scheduledService=selected.startsWith('prebook:')||selected.startsWith('guarantee:');
  const scheduledAt=scheduled&&Number.isFinite(new Date(scheduled).getTime())?new Date(scheduled).toISOString():null;
  const dateValid=Boolean(scheduledAt&&Date.parse(scheduledAt)>=now+(config?.minPrebookMinutes??30)*60000&&isPrebookInterval(Date.parse(scheduledAt)));
  useEffect(()=>{const controller=new AbortController();fetch('/api/quotes',{cache:'no-store',signal:controller.signal}).then(async r=>{const data=await r.json() as Config&{error?:string};if(!r.ok)throw new Error(data.error);setConfig(data);setPaymentMethod(current=>data.paymentMethods.includes(current)?current:data.defaultPaymentMethod||'cash')}).catch(e=>{if(!controller.signal.aborted)setConfigError(e.message)});return()=>controller.abort()},[revision]);
+ useEffect(()=>{if(config&&initialService==='guarantee'&&!config.serviceAccess.guarantee&&selected.startsWith('guarantee:'))setSelected('prebook:saloon');if(config&&!config.serviceAccess.priority&&selected.startsWith('priority:'))setSelected(`${baseService}:saloon`)},[config,initialService,selected,baseService]);
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
  useEffect(()=>{
   if(!config?.enabled||!config.paymentMethods.includes(paymentMethod))return;let active=true;const controller=new AbortController();
   const timer=setTimeout(async()=>{
    const route=JSON.parse(routeKey);const allowed=config.vehicles;
-   const baseScheduled=initialService==='prebook'||initialService==='guarantee';
+   const baseScheduled=baseService==='prebook'||baseService==='guarantee';
    const jobs=allowed.flatMap(vehicle=>[
-    {vehicle,service:'priority' as const,scheduledAt:null as string|null},
-    ...(!baseScheduled?[{vehicle,service:'asap' as const,scheduledAt:null as string|null}]:scheduledAt&&Date.parse(scheduledAt)>=Date.now()+config.minPrebookMinutes*60000&&isPrebookInterval(Date.parse(scheduledAt))?[{vehicle,service:initialService,scheduledAt}]:[]),
+    ...(config.serviceAccess.priority?[{vehicle,service:'priority' as const,scheduledAt:null as string|null}]:[]),
+    ...(!baseScheduled?[{vehicle,service:'asap' as const,scheduledAt:null as string|null}]:scheduledAt&&Date.parse(scheduledAt)>=Date.now()+config.minPrebookMinutes*60000&&isPrebookInterval(Date.parse(scheduledAt))?[{vehicle,service:baseService,scheduledAt}]:[]),
    ]);
    await Promise.all(jobs.map(async job=>{
     const key=keyOf(job.service,job.vehicle),old=cached.current[key];
@@ -44,7 +46,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
    }));clearTimeout(timeout);
   },350);const timeout=setTimeout(()=>{if(active){controller.abort();setLoading({});setConfigError('Some fares took too long. Please retry.')}},25000);
   return()=>{active=false;clearTimeout(timer);clearTimeout(timeout);controller.abort()};
- },[config,routeKey,scheduledAt,revision,paymentMethod,initialService]);
+ },[config,routeKey,scheduledAt,revision,paymentMethod,baseService]);
  const current=offers[selected],valid=Boolean(config?.enabled&&config.paymentMethods.includes(paymentMethod)&&current&&Boolean(current.quote.liveBooking)===config.liveBookingsEnabled&&current.quote.paymentMethod===paymentMethod&&!(config.liveBookingsEnabled&&paymentMethod==='card')&&Date.parse(current.quote.expiresAt)>now&&(!scheduledService||(dateValid&&current.quote.scheduledAt===scheduledAt))&&!loading[selected]);
  function retry(){setConfigError('');cached.current={};setOffers({});setRevision(v=>v+1)}
  function openSchedule(key=selected){
@@ -60,6 +62,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
   {scheduledService&&<label className="ride-schedule">Pick-up date & time<Input ref={scheduleInput} type="datetime-local" step={PREBOOK_INTERVAL_MINUTES*60} min={localDate(new Date(firstPrebookTime(config?.minPrebookMinutes??30,now)).toISOString())} max={localDate(new Date(now+366*86400000).toISOString())} value={scheduled} onChange={e=>{setScheduled(e.target.value);setConfigError('')}}/><small>Available every 5 minutes · your device’s local time</small></label>}
   {configError&&<p className="error-message" role="alert">{configError}</p>}{config&&!config.enabled&&<p role="status">Rides are temporarily unavailable.</p>}
   {!config&&!configError&&<p role="status">Finding your rides…</p>}
+  {config&&!config.paidMember&&<p className="small-note" role="status">Standard ASAP and Pre-book are available. Priority, Guarantee and quiet-time ASAP discounts require an active paid membership. <Link href={customer?'/account':'/customer-login?returnTo=/'}>View membership</Link>.</p>}
   <div className="ride-options" role="group" aria-label="Choose a ride">{displayedServices.flatMap(service=>available.map(v=>{
    const isScheduled=service==='prebook'||service==='guarantee',key=keyOf(service,v.id),offer=offers[key],ready=offer&&offer.quote.paymentMethod===paymentMethod&&Date.parse(offer.quote.expiresAt)>now&&(!isScheduled||(dateValid&&offer.quote.scheduledAt===scheduledAt));
    const title=`${service==='asap'?'NOW':service==='priority'?'Priority':service==='prebook'?'Pre-book':'Guarantee'} ${v.id==='saloon'?'taxi':v.id==='estate'?'Estate':'XL'}`;

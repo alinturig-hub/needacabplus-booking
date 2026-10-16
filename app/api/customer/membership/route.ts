@@ -15,7 +15,7 @@ export async function GET(){
   database().query<{id:string;category:string;title:string;message:string;created_at:string;read_at:string|null}>(`SELECT id,category,title,message,created_at,read_at FROM customer_notifications WHERE customer_id=$1 AND channel='in_app' AND state='sent' ORDER BY created_at DESC LIMIT 10`,[customer.id]),
  ]);
  const row=membership.rows[0],tier=row?.tier_id&&Object.hasOwn(policy.membership.tiers,row.tier_id)?policy.membership.tiers[row.tier_id as keyof typeof policy.membership.tiers]:null;
- const benefitsActive=Boolean(row&&(row.status==='active'||row.status==='trialing'||(row.status==='grace_period'&&policy.membership.dunning.keepBenefitsDuringGrace&&row.grace_ends_at&&new Date(row.grace_ends_at)>new Date())));
+ const benefitsActive=Boolean(policy.membership.enabled&&tier?.enabled&&tier.monthlyPrice>0&&row&&(row.status==='active'||(row.status==='grace_period'&&policy.membership.dunning.keepBenefitsDuringGrace&&row.grace_ends_at&&new Date(row.grace_ends_at)>new Date())));
  return Response.json({membership:{tierId:benefitsActive?row.tier_id:null,tierName:benefitsActive&&tier?tier.name:'Non-member',status:row?.status||'non_member',benefitsActive,renewsAt:row?.renews_at||null,graceEndsAt:row?.grace_ends_at||null,failedPaymentCount:row?.failed_payment_count||0},loyalty:{pointsBalance:Number(loyalty.rows[0]?.points_balance||0),lifetimePoints:Number(loyalty.rows[0]?.lifetime_points||0)},notifications:notifications.rows},{headers:{'Cache-Control':'no-store'}});
 }
 
