@@ -3,6 +3,13 @@ CREATE TABLE IF NOT EXISTS fleet_data_source (
  source text NOT NULL DEFAULT 'autocab' CHECK (source IN ('autocab','local')),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS admin_ai_settings (
+ id boolean PRIMARY KEY DEFAULT true CHECK (id),
+ enabled boolean NOT NULL DEFAULT false,
+ model text NOT NULL DEFAULT 'gpt-4.1-mini',
+ api_key_encrypted text NOT NULL DEFAULT '',
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
 INSERT INTO fleet_data_source(id) VALUES (true) ON CONFLICT (id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS driver_field_definitions (
  id uuid PRIMARY KEY,
@@ -63,7 +70,7 @@ DO $$
 DECLARE table_name text;
 BEGIN
  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='needacabplus_shared_app') THEN
-  FOREACH table_name IN ARRAY ARRAY['fleet_data_source','driver_field_definitions','driver_templates','local_drivers','local_driver_documents','local_driver_audit'] LOOP
+  FOREACH table_name IN ARRAY ARRAY['fleet_data_source','driver_field_definitions','driver_templates','local_drivers','local_driver_documents','local_driver_audit','admin_ai_settings'] LOOP
    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO needacabplus_shared_app',table_name);
   END LOOP;
  END IF;

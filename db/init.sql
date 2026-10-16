@@ -234,6 +234,14 @@ CREATE TABLE IF NOT EXISTS operations_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS admin_ai_settings (
+ id boolean PRIMARY KEY DEFAULT true CHECK (id),
+ enabled boolean NOT NULL DEFAULT false,
+ model text NOT NULL DEFAULT 'gpt-4.1-mini',
+ api_key_encrypted text NOT NULL DEFAULT '',
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS customer_accounts (
   id uuid PRIMARY KEY,
   email text NOT NULL,

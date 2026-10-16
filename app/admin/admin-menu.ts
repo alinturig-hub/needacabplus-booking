@@ -1,9 +1,12 @@
-import {BookOpen, CarFront, CreditCard, Database, Settings2, type LucideIcon} from 'lucide-react';
+import {BookOpen, CarFront, CreditCard, Database, Settings2, Sparkles, type LucideIcon} from 'lucide-react';
 
 export type AdminMenuItem = {label: string; href: string; description: string; categoryOnly?: boolean};
 export type AdminMenuGroup = {id: string; label: string; description: string; icon: LucideIcon; items: AdminMenuItem[]};
 
 export const adminMenuGroups: AdminMenuGroup[] = [
+  {id: 'assistant', label: 'AI Assistant', description: 'Ask questions about bookings, drivers and vehicles.', icon: Sparkles, items: [
+    {label: 'Ask assistant', href: '/admin/assistant', description: 'Search operational records and get concise answers.'},
+  ]},
   {id: 'bookings', label: 'Booking', description: 'Monitor bookings, find trips and manage booking rules.', icon: BookOpen, items: [
     {label: 'Booking rules', href: '/admin/configuration#bookings', description: 'Configure booking sources, payment options and pickup timing.'},
     {label: 'Live overview', href: '/admin', description: 'See current booking activity, statuses and service outcomes.'},
