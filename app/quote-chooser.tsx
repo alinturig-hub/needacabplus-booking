@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
 import {Clock3,CreditCard,ChevronRight,Users,Zap} from 'lucide-react';
 import {Button} from '@/components/ui/button';
@@ -20,7 +20,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
  const scheduleInput=useRef<HTMLInputElement>(null);
  const routeKey=JSON.stringify({pickup,destination,vias});
  const baseService=initialService==='guarantee'&&config&&!config.serviceAccess.guarantee?'prebook':initialService;
- const displayedServices=([baseService,...(config?.serviceAccess.priority?['priority' as const]:[])]) as ('asap'|'priority'|'prebook'|'guarantee')[];
+ const displayedServices=useMemo(():(('asap'|'priority'|'prebook'|'guarantee')[])=>baseService==='asap'?[baseService,...(config?.serviceAccess.priority?['priority' as const]:[])]:[baseService,...(baseService==='prebook'&&config?.serviceAccess.guarantee?['guarantee' as const]:baseService==='guarantee'?['prebook' as const]:[])],[baseService,config?.serviceAccess.priority,config?.serviceAccess.guarantee]);
  const scheduledService=selected.startsWith('prebook:')||selected.startsWith('guarantee:');
  const scheduledAt=scheduled&&Number.isFinite(new Date(scheduled).getTime())?new Date(scheduled).toISOString():null;
  const dateValid=Boolean(scheduledAt&&Date.parse(scheduledAt)>=now+(config?.minPrebookMinutes??30)*60000&&isPrebookInterval(Date.parse(scheduledAt)));
@@ -31,11 +31,11 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
   if(!config?.enabled||!config.paymentMethods.includes(paymentMethod))return;let active=true;const controller=new AbortController();
   const timer=setTimeout(async()=>{
    const route=JSON.parse(routeKey);const allowed=config.vehicles;
-   const baseScheduled=baseService==='prebook'||baseService==='guarantee';
-   const jobs=allowed.flatMap(vehicle=>[
-    ...(config.serviceAccess.priority?[{vehicle,service:'priority' as const,scheduledAt:null as string|null}]:[]),
-    ...(!baseScheduled?[{vehicle,service:'asap' as const,scheduledAt:null as string|null}]:scheduledAt&&Date.parse(scheduledAt)>=Date.now()+config.minPrebookMinutes*60000&&isPrebookInterval(Date.parse(scheduledAt))?[{vehicle,service:baseService,scheduledAt}]:[]),
-   ]);
+   const jobs=allowed.flatMap(vehicle=>displayedServices.flatMap(service=>{
+    const scheduledService=service==='prebook'||service==='guarantee';
+    if(scheduledService&&(!scheduledAt||Date.parse(scheduledAt)<Date.now()+config.minPrebookMinutes*60000||!isPrebookInterval(Date.parse(scheduledAt))))return [];
+    return [{vehicle,service,scheduledAt:scheduledService?scheduledAt:null}];
+   }));
    await Promise.all(jobs.map(async job=>{
     const key=keyOf(job.service,job.vehicle),old=cached.current[key];
     if(old&&Boolean(old.quote.liveBooking)===config.liveBookingsEnabled&&old.quote.paymentMethod===paymentMethod&&old.quote.scheduledAt===job.scheduledAt&&Date.parse(old.quote.expiresAt)>Date.now())return;
@@ -46,7 +46,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
    }));clearTimeout(timeout);
   },350);const timeout=setTimeout(()=>{if(active){controller.abort();setLoading({});setConfigError('Some fares took too long. Please retry.')}},25000);
   return()=>{active=false;clearTimeout(timer);clearTimeout(timeout);controller.abort()};
- },[config,routeKey,scheduledAt,revision,paymentMethod,baseService]);
+ },[config,routeKey,scheduledAt,revision,paymentMethod,displayedServices]);
  const current=offers[selected],valid=Boolean(config?.enabled&&config.paymentMethods.includes(paymentMethod)&&current&&Boolean(current.quote.liveBooking)===config.liveBookingsEnabled&&current.quote.paymentMethod===paymentMethod&&!(config.liveBookingsEnabled&&paymentMethod==='card')&&Date.parse(current.quote.expiresAt)>now&&(!scheduledService||(dateValid&&current.quote.scheduledAt===scheduledAt))&&!loading[selected]);
  function retry(){setConfigError('');cached.current={};setOffers({});setRevision(v=>v+1)}
  function openSchedule(key=selected){
@@ -62,7 +62,7 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
   {scheduledService&&<label className="ride-schedule">Pick-up date & time<Input ref={scheduleInput} type="datetime-local" step={PREBOOK_INTERVAL_MINUTES*60} min={localDate(new Date(firstPrebookTime(config?.minPrebookMinutes??30,now)).toISOString())} max={localDate(new Date(now+366*86400000).toISOString())} value={scheduled} onChange={e=>{setScheduled(e.target.value);setConfigError('')}}/><small>Available every 5 minutes · your device’s local time</small></label>}
   {configError&&<p className="error-message" role="alert">{configError}</p>}{config&&!config.enabled&&<p role="status">Rides are temporarily unavailable.</p>}
   {!config&&!configError&&<p role="status">Finding your rides…</p>}
-  {config&&!config.paidMember&&<p className="small-note" role="status">Standard ASAP and Pre-book are available. Priority, Guarantee and quiet-time ASAP discounts require an active paid membership. <Link href={customer?'/account':'/customer-login?returnTo=/'}>View membership</Link>.</p>}
+  {config&&!config.paidMember&&<p className="small-note" role="status">Standard ASAP and Pre-book are available. Priority, Guarantee and quiet-time ASAP discounts require an active paid membership. <Link href={customer?'/account#membership':'/customer-login?returnTo=/account%23membership'}>{customer?'View membership status':'Sign in'}</Link>.</p>}
   <div className="ride-options" role="group" aria-label="Choose a ride">{displayedServices.flatMap(service=>available.map(v=>{
    const isScheduled=service==='prebook'||service==='guarantee',key=keyOf(service,v.id),offer=offers[key],ready=offer&&offer.quote.paymentMethod===paymentMethod&&Date.parse(offer.quote.expiresAt)>now&&(!isScheduled||(dateValid&&offer.quote.scheduledAt===scheduledAt));
    const title=`${service==='asap'?'NOW':service==='priority'?'Priority':service==='prebook'?'Pre-book':'Guarantee'} ${v.id==='saloon'?'taxi':v.id==='estate'?'Estate':'XL'}`;
