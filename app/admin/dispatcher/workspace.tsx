@@ -6,6 +6,7 @@ import {Activity,CarFront,Clock3,LogOut,MapPin,Plus,RefreshCw,Search,X} from 'lu
 import styles from './workspace.module.css';
 import DispatcherDriverMap,{type MapDriver} from './driver-map';
 import DispatcherAddressInput,{type AddressChoice} from './address-input';
+import DispatchAssistantChat from './assistant-chat';
 import type {FleetMapVehicle} from '@/lib/taxicrm-fleet-map';
 
 type Job={id:string;reference:string;pickup:string;destination:string;pickup_zone?:string|null;status:string;due_at:string|null;vehicle:string|null;assigned:boolean};
@@ -149,5 +150,6 @@ export default function DispatcherWorkspace(){
    <section className={styles.queue} aria-label="Bookings queue"><div className={styles.queueHeading}><div className={styles.tabs}><button type="button" aria-pressed={tab==='waiting'} onClick={()=>setTab('waiting')}>To dispatch <b>{waitingJobs.length}</b></button><button type="button" aria-pressed={tab==='active'} onClick={()=>setTab('active')}>In progress <b>{activeJobs.length}</b></button><button type="button" aria-pressed={tab==='done'} onClick={()=>setTab('done')}>Completed</button></div><label className={styles.search}><Search size={17}/><input aria-label="Search dispatch bookings" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Booking ID, address or status"/></label></div><div className={styles.tableWrap}><table><thead><tr><th>Pickup time</th><th>Zone</th><th>Booking ID</th><th>Pickup</th><th>Destination</th><th>Status</th><th>Vehicle</th></tr></thead><tbody>{visibleJobs.map(job=><tr key={job.id} onClick={()=>setSelectedBooking(job.id)} className={selectedBooking===job.id?styles.activeRow:''}><td>{ukTime(job.due_at)}</td><td>{zoneName(job.pickup_zone)}</td><td><strong>{job.reference}</strong></td><td>{job.pickup}</td><td>{job.destination}</td><td>{job.status}</td><td>{job.vehicle||'—'}</td></tr>)}{visibleJobs.length===0&&<tr><td colSpan={7} className={styles.empty}>{tab==='done'?'Completed bookings are available in Search bookings.':data?'No bookings match these filters.':'Connecting to TaxiCRM…'}</td></tr>}</tbody></table></div><footer>{data?.dataSource==='taxicrm'?'TaxiCRM booking data':'Live dispatch feed'} · {visibleJobs.length} shown of {data?.activeTotal??0} active bookings</footer></section>
    {selected&&<aside className={styles.selection} aria-label="Selected booking"><div><strong>Booking #{selected.reference}</strong><span>{selected.status} · {ukTime(selected.due_at)} · {zoneName(selected.pickup_zone)}</span><p>{selected.pickup} → {selected.destination}</p></div><button type="button" onClick={()=>setSelectedBooking('')}>Close</button></aside>}
   </main>
+  <DispatchAssistantChat bookingId={selectedBooking||undefined} driverId={selectedDriver||undefined}/>
  </div>;
 }
