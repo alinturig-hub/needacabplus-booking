@@ -6,6 +6,7 @@ import {Button} from '@/components/ui/button';
 import BookingCapabilities from './booking-capabilities';
 import BookingReferenceAudit from './booking-reference-audit';
 import SmsTest from './sms-test';
+import BookingRulesSandbox from './booking-rules-sandbox';
 import {Input} from '@/components/ui/input';
 type Values=Record<string,string|number|boolean|number[]|null>;
 const defaults={bookings:defaultBookingPolicy,sms:smsPolicySchema.parse({}),identity:identityPolicySchema.parse({})};
@@ -39,6 +40,7 @@ export default function CustomerSettings({section}:{section:keyof typeof default
  <section className="customer-settings-group"><header><h4>Booking capabilities</h4><p>Choose from the enabled capabilities returned by Autocab. Only your selected capabilities are sent with each booking.</p></header><BookingCapabilities value={value.bookingCapabilities as number[]||[]} disabled={!loaded||busy} onChange={ids=>{update('bookingCapabilities',ids);setLists(current=>({...current,bookingCapabilities:ids.join(',')}))}}/></section>
  <section className="customer-settings-group"><header><h4>Pickup times</h4></header><div className="settings-grid customer-fields-grid">{['priorityDelayMinutes','minPrebookMinutes'].map(field)}</div></section>
  <section className="customer-settings-group"><header><h4>Services and membership access</h4><p>These rules govern Autocab fares now and the Need A Cab Plus local fare source when activated. A paid member has an active subscription to an enabled tier with a price above £0. ASAP and Pre-book remain standard services.</p></header><div className="customer-toggle-list">{['priorityRequiresPaidMembership','guaranteeRequiresPaidMembership','quietAsapRequiresPaidMembership','loyaltyRequiresPaidMembership'].map(field)}</div></section>
+ <BookingRulesSandbox rules={value as typeof defaultBookingPolicy}/>
  </>:<div className="settings-grid customer-fields-grid">{Object.keys(value).filter(key=>key!=='enabled'&&key!=='authHeader').map(field)}</div>}
  {section==='sms'&&<details className="customer-sms-advanced"><summary>Advanced authentication (optional)</summary><p>Orion uses the signature in your saved endpoint URL. Leave the header value blank unless your SMS provider specifically requires it.</p><div className="settings-grid customer-fields-grid">{field('authHeader')}{secretField('token','Authentication header value')}</div></details>}{section==='bookings'&&<p className="customer-settings-hint">Saved account IDs and capabilities apply to new quotes and their booking payloads. The live booking switch controls whether cash confirmations are sent to Autocab.</p>}</>}
  <footer className="customer-settings-actions"><Button type="submit">{busy?'Saving…':'Save settings'}</Button><span>Changes apply after saving.</span></footer></fieldset>
