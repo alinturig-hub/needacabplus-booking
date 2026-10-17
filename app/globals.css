@@ -651,3 +651,18 @@ html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;bor
  .booking-shell .ride-sheet .primary-action{min-height:49px}
 }
 @media(max-width:370px){.premium-booking .ride-option,.premium-booking .ride-option.is-selected{grid-template-columns:48px minmax(0,1fr) auto;gap:6px}.premium-booking .ride-car-art{width:48px;height:52px}.premium-booking .ride-option-price{font-size:14px}.premium-booking .ride-option-features{gap:3px}}
+
+.account-membership-details{margin:20px 0;padding:20px;border:1px solid var(--border);border-radius:16px;background:var(--card)}
+.account-membership-details>header{display:flex;align-items:center;gap:12px}
+.account-membership-details>header>svg{width:25px;color:var(--primary)}
+.account-membership-details h2{margin:0;font-size:19px}
+.account-membership-details p{margin:6px 0 12px;color:var(--muted-foreground);font-size:13px}
+.account-membership-current{display:grid;gap:8px;margin-top:16px}
+.account-membership-current>span,.account-membership-details small{color:var(--muted-foreground);font-size:12px}
+.account-membership-current ul{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:4px 0 0;padding:0}
+.account-membership-current li{padding:6px 9px;border-radius:999px;background:var(--booking-soft-gold);font-size:12px}
+.account-membership-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.account-membership-plans article{display:grid;gap:5px;padding:14px;border:1px solid var(--border);border-radius:12px}
+.account-membership-plans span{color:var(--muted-foreground);font-size:12px}
+@media(max-width:600px){.account-membership-details{padding:16px}.account-membership-plans{grid-template-columns:1fr 1fr}}
+@media(max-width:390px){.account-membership-plans{grid-template-columns:1fr}}
