@@ -1,3 +1,4 @@
+import {membershipEntitlement,type MembershipRecord} from './membership-entitlement';
 import {selectPaymentMethod} from './booking-payments';
 import {loadBookingPolicy} from './app-configuration';
 import type {BookingPolicy} from './booking-policy';
@@ -21,15 +22,11 @@ import {QuoteError,quotePolicySchema,dynamicScheduleActive,fareAdjustment,member
 const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
 export const quoteRequestSchema=z.object({pickup:address,destination:address,vias:z.array(address).max(3),vehicle:z.enum(['saloon','estate','xl']),service:z.enum(['asap','priority','prebook','guarantee']),paymentMethod:z.enum(['cash','card']).optional(),scheduledAt:z.string().datetime().nullable()}).strict();
 export type FareQuote={id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;fixedPence?:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';liveBooking?:boolean;bookingRules?:BookingPolicy;paymentMethod?:'card'|'cash';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number};smartFare?:{applied:boolean;reason:string;normalPence:number;candidatePence?:number;signal:SmartSignal};membership?:ActiveMembership&{standardTotalPence:number;savingPence:number}};
-type ActiveMembership={tierId:MembershipTierId;tierName:string};
+type ActiveMembership={tierId:MembershipTierId;tierName:string;testAccessUntil?:string};
 export async function activePaidMembership(customerId:string|null,policy:QuotePolicy):Promise<ActiveMembership|null>{
- if(!customerId||!policy.membership.enabled)return null;
- const result=await database().query<{tier_id:string}>(`SELECT tier_id FROM customer_memberships
-  WHERE customer_id=$1 AND (status='active' OR (status='grace_period' AND $2::boolean=true AND grace_ends_at>now())) AND starts_at<=now()
-  AND (ends_at IS NULL OR ends_at>now()) ORDER BY updated_at DESC LIMIT 1`,[customerId,policy.membership.dunning.keepBenefitsDuringGrace]);
- const tierId=result.rows[0]?.tier_id as MembershipTierId|undefined;
- if(!tierId||!Object.hasOwn(policy.membership.tiers,tierId)||!policy.membership.tiers[tierId].enabled||policy.membership.tiers[tierId].monthlyPrice<=0)return null;
- return {tierId,tierName:policy.membership.tiers[tierId].name};
+ if(!customerId)return null;
+ const result=await database().query<MembershipRecord>(`SELECT tier_id,status,starts_at,ends_at,grace_ends_at,operator_access_until FROM customer_memberships WHERE customer_id=$1`,[customerId]);
+ return membershipEntitlement(result.rows[0],policy);
 }
 export async function loadQuotePolicy(){const result=await database().query("SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");const rules=await loadBookingPolicy();return quotePolicySchema.parse({...result.rows[0]?.policy,minPrebookMinutes:rules.minPrebookMinutes})}
 export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuotePolicy>>){

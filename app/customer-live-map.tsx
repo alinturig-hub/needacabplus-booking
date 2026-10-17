@@ -1,7 +1,9 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource,type StyleSpecification} from 'maplibre-gl';
-import {customerRoadRoute} from '@/lib/customer-road-route';
+import {useJourneyTiming} from './use-journey-timing';
+import type {JourneyTiming} from '@/lib/journey-timing';
+import {customerRoadRouteDetails} from '@/lib/customer-road-route';
 
 type Coordinate={latitude:number;longitude:number};
 type Vehicle=Coordinate&{id:string;recordedAt:string};
@@ -24,8 +26,10 @@ function applyMapTheme(map:MapLibreMap){
 function fitRoute(map:MapLibreMap,coordinates:number[][],duration=0,mobileBottomRatio=.62,mobileTopPadding=125){
  const first=coordinates[0] as [number,number];
  const bounds=coordinates.reduce((value,point)=>value.extend(point as [number,number]),new LngLatBounds(first,first));
- const mobile=window.matchMedia('(max-width:700px)').matches,bottom=mobile?Math.max(50,Math.round(map.getContainer().clientHeight*mobileBottomRatio)):50;
- map.fitBounds(bounds,{padding:{top:mobile?mobileTopPadding:125,bottom,left:55,right:55},maxZoom:15,duration});
+ const mobile=window.matchMedia('(max-width:700px)').matches,height=map.getContainer().clientHeight;
+ const top=mobile?Math.min(mobileTopPadding,Math.round(height*.24)):Math.min(125,Math.round(height*.24));
+ const bottom=mobile?Math.min(Math.max(50,Math.round(height*mobileBottomRatio)),Math.max(0,height-top-100)):50;
+ map.fitBounds(bounds,{padding:{top,bottom,left:40,right:40},maxZoom:15,duration});
 }
 function drawRoute(map:MapLibreMap,coordinates:number[][]){
  const route={type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates}},source=map.getSource('customer-route') as GeoJSONSource|undefined;
@@ -33,11 +37,17 @@ function drawRoute(map:MapLibreMap,coordinates:number[][]){
  applyMapTheme(map);
 }
 
-export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=false,showRoute=false,routeBottomRatio=.62,routeTopPadding=125,cameraTarget,userLocation,onPickerMove,onPickerStart}:{pickup:Coordinate|null;destination?:Coordinate|null;waypoints?:Coordinate[];picker?:boolean;showRoute?:boolean;routeBottomRatio?:number;routeTopPadding?:number;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void}){
+export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=false,showRoute=false,routeBottomRatio=.62,routeTopPadding=125,cameraTarget,userLocation,onPickerMove,onPickerStart,scheduled=false,scheduledAt,onTimingChange}:{pickup:Coordinate|null;destination?:Coordinate|null;waypoints?:Coordinate[];picker?:boolean;showRoute?:boolean;routeBottomRatio?:number;routeTopPadding?:number;cameraTarget?:Coordinate|null;userLocation?:Coordinate|null;onPickerMove?:(point:Coordinate)=>void;onPickerStart?:()=>void;scheduled?:boolean;scheduledAt?:string|null;onTimingChange?:(timing:JourneyTiming)=>void}){
  const container=useRef<HTMLDivElement>(null),mapRef=useRef<MapLibreMap|null>(null),markers=useRef(new Map<string,LiveMarker>()),routeCoordinates=useRef<number[][]|null>(null),routeBottomRatioRef=useRef(routeBottomRatio),routeTopPaddingRef=useRef(routeTopPadding),waypointsRef=useRef(waypoints);
  const callbacks=useRef({picker,onPickerMove,onPickerStart});
+ const timingCallback=useRef(onTimingChange);
+ const [trip,setTrip]=useState<{key:string;seconds:number}|null>(null);
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
  const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null,waypointKey=waypoints.map(point=>`${point.latitude},${point.longitude}`).join(';');
+ const timingRouteKey=JSON.stringify([pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey]);
+ const timing=useJourneyTiming({pickup,vehicles,tripSeconds:trip?.key===timingRouteKey?trip.seconds:null,enabled:showRoute&&!picker,scheduled,scheduledAt});
+ useEffect(()=>{timingCallback.current=onTimingChange},[onTimingChange]);
+ useEffect(()=>{timingCallback.current?.({pickupMinutes:timing.pickupMinutes,pickupTime:timing.pickupTime,arrivalTime:timing.arrivalTime,tripMinutes:timing.tripMinutes})},[timing.pickupMinutes,timing.pickupTime,timing.arrivalTime,timing.tripMinutes]);
  useEffect(()=>{waypointsRef.current=waypoints},[waypoints]);
  useEffect(()=>{routeBottomRatioRef.current=routeBottomRatio;routeTopPaddingRef.current=routeTopPadding},[routeBottomRatio,routeTopPadding]);
  useEffect(()=>{callbacks.current={picker,onPickerMove,onPickerStart}},[picker,onPickerMove,onPickerStart]);
@@ -97,23 +107,23 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   const controller=new AbortController();let active=true;
   const draw=async()=>{
    const routePickup={latitude:pickupLatitude,longitude:pickupLongitude},routeDestination={latitude:destinationLatitude,longitude:destinationLongitude};
-   let coordinates:number[][];try{coordinates=await customerRoadRoute([routePickup,...waypointsRef.current,routeDestination],controller.signal)}catch{return}if(!active)return;
+   let coordinates:number[][];try{const details=await customerRoadRouteDetails([routePickup,...waypointsRef.current,routeDestination],controller.signal);if(!active)return;coordinates=details.coordinates;setTrip({key:timingRouteKey,seconds:details.durationSeconds})}catch{return}if(!active)return;
    routeCoordinates.current=coordinates;
-   if(!map.isStyleLoaded()){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current);
+   if(!map.getStyle()?.layers?.length){map.once('style.load',()=>{if(active){drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current)}});return}drawRoute(map,coordinates);fitRoute(map,coordinates,500,routeBottomRatioRef.current,routeTopPaddingRef.current);
   };
   // `loaded()` also becomes false while new tiles are being fetched after a
   // camera move. The one-time `load` event has already fired by then, so a
   // changed stop could otherwise remove the old route and never draw the new
   // one. Route drawing only needs the style to be ready.
-  if(map.isStyleLoaded())void draw();else map.once('style.load',draw);
+  if(map.getStyle()?.layers?.length)void draw();else map.once('style.load',draw);
   return()=>{
-   active=false;controller.abort();routeCoordinates.current=null;map.off('load',draw);
+   active=false;controller.abort();routeCoordinates.current=null;if(mapRef.current!==map)return;map.off('load',draw);
    map.off('style.load',draw);
    if(map.getLayer('customer-route-line'))map.removeLayer('customer-route-line');
    if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
    if(map.getSource('customer-route'))map.removeSource('customer-route');
   };
- },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,showRoute]);
+ },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,showRoute,timingRouteKey]);
  useEffect(()=>{
   const map=mapRef.current,coordinates=routeCoordinates.current;if(!map||!showRoute||!coordinates)return;
   const timer=window.setTimeout(()=>{map.resize();fitRoute(map,coordinates,420,routeBottomRatio,routeTopPadding)},260);
@@ -122,10 +132,12 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;const stops:Marker[]=[];
   const pickupPoint=pickupLatitude===null||pickupLongitude===null?null:{latitude:pickupLatitude,longitude:pickupLongitude},destinationPoint=destinationLatitude===null||destinationLongitude===null?null:{latitude:destinationLatitude,longitude:destinationLongitude};
-  const routeStops:[Coordinate|null,string,string][]=[[pickupPoint,'Pick-up','pickup'],...waypointsRef.current.map((point,index)=>[point,`Stop ${index+1}`,'via'] as [Coordinate,string,string]),[destinationPoint,'Drop-off','destination']];
+  const pickupLabel=timing.pickupTime?`Pick-up · ${timing.pickupTime}`:timing.pickupMinutes!==null?`Est. pick-up · ~${timing.pickupMinutes} min`:'Pick-up';
+  const dropoffLabel=timing.arrivalTime?`Est. drop-off · ${timing.arrivalTime}`:'Drop-off';
+  const routeStops:[Coordinate|null,string,string][]=[[pickupPoint,pickupLabel,'pickup'],...waypointsRef.current.map((point,index)=>[point,`Stop ${index+1}`,'via'] as [Coordinate,string,string]),[destinationPoint,dropoffLabel,'destination']];
   if(!picker)for(const [point,label,kind] of routeStops){if(!point)continue;const el=document.createElement('div');el.className=`customer-stop-marker ${kind}${showRoute?' route-stop':''}`;el.setAttribute('aria-label',label);if(showRoute){const text=document.createElement('span');text.textContent=label;el.appendChild(text)}stops.push(new Marker({element:el,anchor:'center'}).setLngLat([point.longitude,point.latitude]).addTo(map))}
   if(userLocation){const el=document.createElement('div');el.className='customer-gps-marker';el.setAttribute('aria-label','Your location');stops.push(new Marker({element:el}).setLngLat([userLocation.longitude,userLocation.latitude]).addTo(map))}
   return()=>stops.forEach(marker=>marker.remove());
- },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,picker,userLocation,showRoute]);
+ },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,picker,userLocation,showRoute,timing.pickupTime,timing.pickupMinutes,timing.arrivalTime]);
  return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }
