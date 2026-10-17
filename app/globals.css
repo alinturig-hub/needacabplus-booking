@@ -666,3 +666,11 @@ html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;bor
 .account-membership-plans span{color:var(--muted-foreground);font-size:12px}
 @media(max-width:600px){.account-membership-details{padding:16px}.account-membership-plans{grid-template-columns:1fr 1fr}}
 @media(max-width:390px){.account-membership-plans{grid-template-columns:1fr}}
+
+/* Keep Priority visible even when membership limits access. */
+.booking-home-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ride-service-locked{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--secondary);color:var(--muted-foreground);font-size:12px}
+.ride-service-locked>svg{flex:0 0 auto;color:var(--primary)}
+.ride-service-locked>span{flex:1}
+.ride-service-locked>a{color:var(--primary);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+@media(max-width:600px){.booking-home-actions>button{min-width:0}.ride-service-locked{align-items:flex-start;flex-wrap:wrap}.ride-service-locked>a{width:100%;padding-left:28px}}
