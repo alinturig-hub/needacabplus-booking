@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
-import {Clock3,CreditCard,ChevronRight,Users,Zap} from 'lucide-react';
+import {BriefcaseBusiness,Clock3,CreditCard,ChevronRight,Users,Zap} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {firstPrebookTime,isPrebookInterval,PREBOOK_INTERVAL_MINUTES} from '@/lib/prebook-time';
@@ -12,6 +12,8 @@ import type {PublicFareQuote} from '@/lib/quote-presentation';
 export type QuoteSelection={quote:PublicFareQuote;token:string};
 type Config={enabled:boolean;minPrebookMinutes:number;vehicles:string[];paymentMethods:('cash'|'card')[];defaultPaymentMethod?:'cash'|'card';liveBookingsEnabled:boolean;paidMember:boolean;serviceAccess:{asap:boolean;prebook:boolean;priority:boolean;guarantee:boolean;quietAsap:boolean}};
 const keyOf=(service:string,vehicle:string)=>`${service}:${vehicle}`;
+const serviceName={asap:'Ride now',priority:'Priority',prebook:'Pre-book',guarantee:'Guarantee'} as const;
+const serviceDescription={asap:'A straightforward ride when you need it',priority:'Priority access for members',prebook:'Plan your pick-up in advance',guarantee:'Extra certainty for your scheduled trip'} as const;
 const localDate=(iso:string)=>{const date=new Date(iso);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};
 export default function QuoteChooser({pickup,destination,vias,initial,initialService='asap',customer,paymentLabel,onChoose}:{pickup:Record<string,unknown>|null;destination:Record<string,unknown>|null;vias:(Record<string,unknown>|null)[];initial:QuoteSelection|null;initialService?:'asap'|'prebook'|'guarantee';customer:boolean;paymentLabel:string;onChoose:(value:QuoteSelection)=>void}){
  const [selected,setSelected]=useState(initial?keyOf(initial.quote.service,initial.quote.vehicle):`${initialService}:saloon`),[scheduled,setScheduled]=useState(initial?.quote.scheduledAt?localDate(initial.quote.scheduledAt):''),[config,setConfig]=useState<Config|null>(null),[offers,setOffers]=useState<Record<string,QuoteSelection>>(initial?{[keyOf(initial.quote.service,initial.quote.vehicle)]:initial}:{}),[errors,setErrors]=useState<Record<string,string>>({}),[loading,setLoading]=useState<Record<string,boolean>>({}),[configError,setConfigError]=useState(''),[revision,setRevision]=useState(0),[now,setNow]=useState(Date.now);
@@ -57,25 +59,27 @@ export default function QuoteChooser({pickup,destination,vias,initial,initialSer
   try{scheduleInput.current?.showPicker()}catch{scheduleInput.current?.focus()}
  }
  const available=vehicles.filter(v=>config?.vehicles.includes(v.id));
+ const selectedVehicle=vehicles.find(v=>v.id===selected.split(':')[1]);
  return <div className="ride-picker">
-  <div className="ride-time"><Clock3 size={17}/><span>{scheduledService?'Schedule your pick-up':'Ride now'}</span>{scheduledService&&<small>At least {config?.minPrebookMinutes??30} min ahead</small>}</div>
+  <div className="ride-time"><span className="ride-time-icon"><Clock3 size={18}/></span><span><strong>{scheduledService?'Scheduled pick-up':'Pick-up as soon as possible'}</strong><small>{scheduledService?`Book at least ${config?.minPrebookMinutes??30} minutes ahead`:'Choose the ride that suits your journey'}</small></span></div>
   {scheduledService&&<label className="ride-schedule">Pick-up date & time<Input ref={scheduleInput} type="datetime-local" step={PREBOOK_INTERVAL_MINUTES*60} min={localDate(new Date(firstPrebookTime(config?.minPrebookMinutes??30,now)).toISOString())} max={localDate(new Date(now+366*86400000).toISOString())} value={scheduled} onChange={e=>{setScheduled(e.target.value);setConfigError('')}}/><small>Available every 5 minutes · your device’s local time</small></label>}
   {configError&&<p className="error-message" role="alert">{configError}</p>}{config&&!config.enabled&&<p role="status">Rides are temporarily unavailable.</p>}
   {!config&&!configError&&<p role="status">Finding your rides…</p>}
   {config&&!config.paidMember&&<p className="small-note" role="status">Standard ASAP and Pre-book are available. Priority, Guarantee and quiet-time ASAP discounts require an active paid membership. <Link href={customer?'/account#membership':'/customer-login?returnTo=/account%23membership'}>{customer?'View membership status':'Sign in'}</Link>.</p>}
-  <div className="ride-options" role="group" aria-label="Choose a ride">{displayedServices.flatMap(service=>available.map(v=>{
+  <div className="ride-service-list">{displayedServices.map(service=><section className="ride-service-group" key={service} aria-label={serviceName[service]}><div className="ride-service-heading"><div><span>{serviceName[service]}</span><small>{serviceDescription[service]}</small></div>{service==='priority'&&<Zap size={18} aria-hidden="true"/>}</div><div className="ride-options" role="group" aria-label={`Choose a ${serviceName[service].toLowerCase()} vehicle`}>{available.map(v=>{
    const isScheduled=service==='prebook'||service==='guarantee',key=keyOf(service,v.id),offer=offers[key],ready=offer&&offer.quote.paymentMethod===paymentMethod&&Date.parse(offer.quote.expiresAt)>now&&(!isScheduled||(dateValid&&offer.quote.scheduledAt===scheduledAt));
-   const title=`${service==='asap'?'NOW':service==='priority'?'Priority':service==='prebook'?'Pre-book':'Guarantee'} ${v.id==='saloon'?'taxi':v.id==='estate'?'Estate':'XL'}`;
+   const title=v.name;
    return <button type="button" key={key} className={`ride-option ${selected===key?'is-selected':''}`} aria-pressed={selected===key} onClick={()=>isScheduled?openSchedule(key):setSelected(key)}>
-    <span className="ride-car-art" aria-hidden="true"><Image src="/car-marker-live.png" width={35} height={63} unoptimized alt=""/></span><span className="ride-option-copy"><strong>{title} <span><Users size={13}/>{v.passengers}</span></strong><small>{!isScheduled?'As soon as possible':scheduledAt?new Date(scheduledAt).toLocaleString([], {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Reserve for later'}</small>{service==='priority'&&<span className="ride-option-badge"><Zap size={12}/>Priority</span>}{service==='asap'&&ready&&offer.quote.smartFareApplied&&<span className="ride-option-badge">Smart Fare</span>}{ready&&offer.quote.membershipTier&&<span className="ride-option-badge member-fare">{offer.quote.membershipTier} fare</span>}</span>
+    <span className={`ride-car-art ride-car-${v.id}`} aria-hidden="true"><Image src="/car-marker-live.png" width={35} height={63} unoptimized alt=""/></span><span className="ride-option-copy"><strong>{title}</strong><small>{v.description}</small><span className="ride-option-features"><span><Users size={13}/>{v.passengers}</span><span><BriefcaseBusiness size={13}/>{v.bags}</span>{service==='asap'&&ready&&offer.quote.smartFareApplied&&<span className="ride-option-badge">Smart Fare</span>}{ready&&offer.quote.membershipTier&&<span className="ride-option-badge member-fare">{offer.quote.membershipTier} fare</span>}</span></span>
     <span className="ride-option-price">{loading[key]?'…':ready?<>{offer.quote.standardTotalPence&&<del>{money(offer.quote.standardTotalPence)}</del>}<b>{money(offer.quote.totalPence)}</b></>:isScheduled&&!dateValid?'Set time':errors[key]?'Unavailable':'—'}</span>
    </button>
-  }))}</div>
+  })}</div></section>)}</div>
   {errors[selected]&&<p className="error-message" role="alert">{errors[selected]}</p>}
   {scheduledService&&scheduled&&!dateValid&&<p role="alert" className="small-note">Choose a pick-up at least {config?.minPrebookMinutes??30} minutes from now, in 5-minute intervals.</p>}
   <div className="ride-bottom-bar"><div className="ride-payment-methods" role="group" aria-label="Payment method">{config?.paymentMethods.map(method=><button type="button" key={method} aria-pressed={paymentMethod===method} onClick={()=>setPaymentMethod(method)}>{method==='cash'?'Cash to driver':'Card'}</button>)}</div>{config?.liveBookingsEnabled&&paymentMethod==='card'&&<p role="status" className="small-note">Live card bookings are not available yet. Choose cash to book.</p>}
-  <div className="ride-checkout">{paymentMethod==='cash'?<div className="ride-payment">Cash to driver</div>:<Link className="ride-payment" href={customer?'/account':'/customer-login?returnTo=/'}><CreditCard size={22}/><span>{offers[selected]?.quote.paymentMethod==='cash'?'Cash to driver':paymentLabel}</span><ChevronRight size={19}/></Link>}
-   {configError||errors[selected]||(current&&!valid&&!loading[selected]&&(!scheduledService||dateValid))?<Button type="button" className="primary-action" onClick={retry}>Refresh fares</Button>:<Button type="button" className="primary-action" disabled={!valid} onClick={()=>{if(current&&Date.parse(current.quote.expiresAt)>Date.now())onChoose(current)}}>{loading[selected]?'Finding your fare…':scheduledService&&!dateValid?'Choose pick-up time':`Choose ${selected.startsWith('guarantee:')?'Guarantee':selected.startsWith('prebook:')?'Pre-book':selected.startsWith('asap:')?'NOW':'Priority'}`}</Button>}
+  <div className="ride-checkout">{paymentMethod==='cash'?<div className="ride-payment"><CreditCard size={20}/><span>Cash to driver</span><span className="ride-payment-note">Pay after your trip</span></div>:<Link className="ride-payment" href={customer?'/account':'/customer-login?returnTo=/'}><CreditCard size={22}/><span>{offers[selected]?.quote.paymentMethod==='cash'?'Cash to driver':paymentLabel}</span><ChevronRight size={19}/></Link>}
+   <div className="ride-selected-summary" aria-live="polite"><span><small>Your choice</small><strong>{serviceName[selected.split(':')[0] as keyof typeof serviceName]} · {selectedVehicle?.name||'Vehicle'}</strong></span><strong>{valid&&current?money(current.quote.totalPence):'—'}</strong></div>
+   {configError||errors[selected]||(current&&!valid&&!loading[selected]&&(!scheduledService||dateValid))?<Button type="button" className="primary-action" onClick={retry}>Refresh fares</Button>:<Button type="button" className="primary-action" disabled={!valid} onClick={()=>{if(current&&Date.parse(current.quote.expiresAt)>Date.now())onChoose(current)}}>{loading[selected]?'Finding your fare…':scheduledService&&!dateValid?'Choose pick-up time':`Continue with ${selectedVehicle?.name||'ride'}`}</Button>}
    <span className="ride-test-label">{config?.liveBookingsEnabled?'Cash paid to driver':'Booking preview · no charge'}</span>
   </div></div>
  </div>
