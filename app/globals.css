@@ -739,3 +739,10 @@ html[data-theme=light] .premium-booking .primary-action{background:var(--booking
 .premium-booking .pickup-confirmation>div>span{color:var(--muted-foreground)}
 .premium-booking .pickup-confirmation-actions button{border-radius:10px;min-height:44px}
 .premium-booking .pickup-confirmation-actions button:last-child{background:var(--booking-surface);color:var(--foreground);border-color:var(--border)}
+
+/* Keep the complete N+ monogram inside its tile, including preflight sup resets. */
+.ride-option-copy strong>.ride-service-brand{position:relative;gap:0;padding-right:7px;overflow:hidden}
+.ride-option-copy .ride-service-brand sup{position:absolute;top:3px;right:3px;bottom:auto;margin:0;align-self:auto;font-size:11px;line-height:1;vertical-align:baseline}
+html[data-theme=dark] .ride-option-copy strong>.ride-service-brand{background:#293c38;color:#f5f8f7;box-shadow:inset 0 0 0 1px #526d64}
+html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
+.customer-stop-marker.route-stop span{max-width:min(190px,calc(100vw - 24px));white-space:normal;text-align:center;line-height:1.25;width:max-content}
