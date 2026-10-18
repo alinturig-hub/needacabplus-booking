@@ -11,6 +11,7 @@ import {
   webhookOccurredAt,
   normaliseEventType,
 } from "@/lib/autocab/webhook-processing";
+import { projectBookingJson } from "@/lib/autocab/booking-json-projection";
 import { isObject } from "@/lib/autocab/booking-mappers";
 
 type BookingEventOptions = {
@@ -91,6 +92,12 @@ export async function persistBookingEvent(
       data: { [field]: occurredAt },
     });
   }
+  await projectBookingJson(tx,{
+    bookingId,externalId,event,occurredAt,
+    preserveExisting:stale||regressive||options.status==='REJECTED',
+    ignoreDriverAssignment:options.status==='REJECTED',
+    previousBooking:current,previousEvents:previous,operationalStatus:applied.status,
+  });
   await tx.webhookEvent.update({
     where: { id: event.id },
     data: { externalBookingId: externalId, bookingId },

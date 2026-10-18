@@ -29,6 +29,7 @@ async function apply(eventType:string,payload:Prisma.InputJsonObject){
 }
 
 try{
+ async function document(id:string){return (await prisma.$queryRaw<{raw_payload:Record<string,unknown>;raw_webhook_payload:unknown;operational_status:string;webhook_event_count:bigint;pickup_due_utc:Date|null}[]>`SELECT raw_payload,raw_webhook_payload,operational_status,webhook_event_count,pickup_due_utc FROM autocab_bookings WHERE autocab_id=${id}`)[0]}
  const externalId=`writer-test-${randomUUID()}`;
  await prisma.webhookProvider.upsert({where:{id:'autocab'},create:{id:'autocab',name:'Autocab',baseUrl:'https://example.invalid',isEnabled:true},update:{}});
  const modifiedConfig=await prisma.autocabWebhookConfiguration.upsert({where:{eventType:'BookingModified'},create:{eventType:'BookingModified',displayName:'BookingModified',endpointSlug:'bookingmodified'},update:{isEnabled:true}});
@@ -60,6 +61,12 @@ try{
  const createdSnapshotCount=booking.snapshots.length;
  await processCanonicalBookingEvent(created.id);
  assert.equal(await prisma.bookingSnapshot.count({where:{bookingId:booking.id}}),createdSnapshotCount);
+ const doc=await document(externalId);
+ assert.equal(doc.operational_status,'COMPLETED');
+ assert.equal(doc.raw_payload.name,'Updated Passenger');
+ assert.equal(Number(doc.webhook_event_count),5,'Replayed event cannot duplicate JSON projection');
+ assert.equal((doc.raw_payload.pickup as {address:{text:string}}).address.text,'1 Test Street');
+ assert.equal((await prisma.$queryRaw<{n:bigint}[]>`SELECT count(*) AS n FROM autocab_booking_document_events WHERE autocab_id=${externalId}`)[0].n,BigInt(5));
 
  const concurrentId=`writer-concurrent-${randomUUID()}`;
  const concurrent=await prepare('BookingCreated',{BookingId:concurrentId});
@@ -81,6 +88,44 @@ try{
  assert.equal(late.driverBadgeNumber,'NEW');
  assert.equal(Number(late.fare),20);
  assert.equal(late.cancelledAt,null);
+ const lateDoc=await document(lateId);
+ assert.equal((lateDoc.raw_payload.pricing as {fare:number}).fare,20);
+ assert.equal(lateDoc.operational_status,'COMPLETED');
+
+ const jsonId=`writer-json-${randomUUID()}`;
+ const jsonCreated=await apply('BookingCreated',{BookingId:jsonId,EventTimestamp:'2026-10-18T10:00:00Z',TypeOfBooking:'ASAP',BookingType:'Active',PickupDueTime:'2026-10-18T12:00:00',Pricing:{Price:15,Cost:9,FutureFee:{amount:1}},Vias:[{Address:'Via'}],FutureExtension:{all:'retained'}});
+ await apply('BookingModified',{BookingId:jsonId,EventTimestamp:'2026-10-18T11:00:00Z',Pricing:{Price:0}});
+ let jsonDoc=await document(jsonId);
+ assert.deepEqual(jsonDoc.raw_payload.pricing,{price:0,cost:9,FutureFee:{amount:1}});
+ assert.deepEqual(jsonDoc.raw_payload.FutureExtension,{all:'retained'});
+ assert.equal(jsonDoc.raw_payload.bookingType,'ASAP');
+ assert.equal(jsonDoc.pickup_due_utc?.toISOString(),'2026-10-18T11:00:00.000Z');
+ await apply('BookingModified',{BookingId:jsonId,EventTimestamp:'2026-10-18T12:00:00Z',Pricing:null,Vias:[]});
+ await apply('BookingModified',{BookingId:jsonId,EventTimestamp:'2026-10-18T09:00:00Z',Pricing:{Price:100},Vias:[{Address:'Too old'}]});
+ jsonDoc=await document(jsonId);
+ assert.equal(jsonDoc.raw_payload.pricing,null);assert.deepEqual(jsonDoc.raw_payload.vias,[]);
+ assert.equal((jsonDoc.raw_webhook_payload as {Pricing:{Price:number}}).Pricing.Price,100,'Exact delayed payload remains available separately');
+ await processCanonicalBookingEvent(jsonCreated.id);
+ assert.equal(Number((await document(jsonId)).webhook_event_count),4);
+
+ const rejectedId=`writer-json-rejected-${randomUUID()}`;
+ await apply('BookingCreated',{BookingId:rejectedId,EventTimestamp:'2026-10-18T10:00:00Z'});
+ await apply('BookingRejected',{BookingId:rejectedId,EventTimestamp:'2026-10-18T11:00:00Z',Driver:{Id:'not-assigned'}});
+ const rejectedDoc=await document(rejectedId);
+ assert.equal(rejectedDoc.raw_payload.driver,undefined);
+ assert.equal(rejectedDoc.operational_status,'REJECTED');
+
+ const blockedId=`writer-json-atomic-${randomUUID()}`;
+ // Simulate a read-model storage failure: all canonical effects must roll back.
+ await prisma.$executeRawUnsafe(`ALTER TABLE autocab_bookings ADD CONSTRAINT projection_failure_fixture CHECK(autocab_id <> '${blockedId}')`);
+ try{
+  const blocked=await prepare('BookingCreated',{BookingId:blockedId});
+  await assert.rejects(processCanonicalBookingEvent(blocked.id));
+  assert.equal(await prisma.booking.count({where:{externalId:blockedId}}),0);
+  assert.equal(await prisma.bookingSnapshot.count({where:{webhookEventId:blocked.id}}),0);
+  assert.equal((await prisma.webhookEvent.findUniqueOrThrow({where:{id:blocked.id}})).status,'FAILED');
+ }finally{await prisma.$executeRawUnsafe('ALTER TABLE autocab_bookings DROP CONSTRAINT projection_failure_fixture')}
+
 
  const lifecycleId=`writer-lifecycle-${randomUUID()}`;
  for(const [eventType,status] of [
