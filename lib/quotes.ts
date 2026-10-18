@@ -82,7 +82,7 @@ export async function calculateQuote(input:z.infer<typeof quoteRequestSchema>,cu
  const policy=await loadQuotePolicy();if(!policy.enabled)throw new QuoteError('Live quotes are currently unavailable.');
  validateSchedule(input.service,input.scheduledAt,policy.minPrebookMinutes);
  const stops=[input.pickup,...input.vias,input.destination];if(new Set(stops.map(stop=>stop.text.toLowerCase())).size!==stops.length)throw new QuoteError('Choose a different address for each stop.');
- if(input.vehicle!=='saloon')throw new QuoteError('This vehicle category is not available for quoting yet. Choose Plus Saloon.');
+ if(input.vehicle!=='saloon')throw new QuoteError('This vehicle category is not available for quoting yet. Choose Saloon.');
  const savedRules=await loadBookingPolicy();let paymentMethod:'cash'|'card';try{paymentMethod=selectPaymentMethod(savedRules,input.paymentMethod)}catch(e){throw new QuoteError(e instanceof Error?e.message:'Payment is unavailable.')}
  const member=await activePaidMembership(customerId,policy),access=bookingServiceAccess(savedRules,Boolean(member));
  if(!access[input.service])throw new QuoteError(`${input.service==='priority'?'Priority':'Guarantee'} is available with an active paid membership. Sign in or choose a standard ride.`);

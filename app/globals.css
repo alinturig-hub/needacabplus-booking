@@ -720,3 +720,8 @@ html[data-theme=light] .mobile-login-button{background:#171a1d;color:#fffdf8;bor
  .booking-shell.stage-1 .ride-sheet.sheet-compact .ride-picker-content{display:block;padding-bottom:0;overflow:hidden}.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-picker-content>*:not(.ride-service-list){display:none}.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-service-heading,.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-service-locked,.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-option:not(.is-selected){display:none}.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-service-list{gap:0;margin-top:0}.booking-shell.stage-1 .ride-sheet.sheet-compact .ride-service-group{gap:0}.booking-shell.stage-1 .booking-panel.ride-sheet.sheet-compact{height:clamp(280px,calc(var(--booking-viewport-height,100dvh)*.36 - var(--sheet-drag,0px)),calc(100% - 150px))!important}
 }
 .ride-overlay-footer>.text-link,.ride-overlay-body>.text-link{color:var(--foreground);font-weight:600;text-decoration:underline;text-underline-offset:4px}
+
+/* Service identity stays distinct from the vehicle class. */
+.ride-option-copy .ride-service-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ride-option-copy strong>.ride-service-brand{display:inline-flex;align-items:center;justify-content:center;flex:0 0 25px;width:25px;height:25px;border-radius:6px;background:linear-gradient(135deg,#f0dfa2,#b4984e);color:#18201f;font-size:17px;font-weight:800;line-height:1;box-shadow:inset 0 0 0 1px #ae914844}
+.ride-service-brand sup{font-size:11px;align-self:flex-start;margin-top:3px}
