@@ -26,7 +26,7 @@ Offset-free dates are retained raw but not silently interpreted as server time.
 
 - `AUTOCAB_HISTORY_DATABASE_URL`: private new archive database URL, never the live URL.
 - `AUTOCAB_HISTORY_API_KEY`: optional separate subscription key. If unset, reuse the
-  encrypted direct Autocab connection from the existing `DATABASE_URL`, reading
+  explicitly selected encrypted direct Autocab connection (`AUTOCAB_HISTORY_CONNECTION_ID`) from the existing `DATABASE_URL`, reading
   only `api_connections` using `CREDENTIALS_ENCRYPTION_KEY`. No production writes.
 - `AUTOCAB_HISTORY_INTERVAL_MS`: default/minimum 10000; maximum 300000.
 - `AUTOCAB_HISTORY_MAX_REQUESTS`: default/maximum 100; set 1 for the initial canary.
@@ -67,3 +67,14 @@ records including repeats, not unique bookings. Exhausting all tokens proves
 only that this Search request is exhausted, not that Autocab has retained every
 booking ever created. Reconcile date/status/company counts against an independent
 Autocab export before claiming completeness.
+
+## Source validation
+
+Run `node scripts/autocab-history-source-check.mjs` manually before enabling the
+importer. It compares distinct configured subscription keys, at least eleven
+seconds apart, using the provided example search; raw responses stay in private
+`source_validation_probes`, and logs show only counts, ID ranges and whether the
+known supplied reference 10017549 was returned. Stop on 429/5xx. Never combine data
+from keys identifying different source systems. The importer requires an explicit
+connection ID when reusing stored credentials; it will not choose the newest
+address/quote connection automatically.

@@ -63,10 +63,11 @@ export function assertArchiveTarget(url){
 async function apiKey(env){
  if(env.AUTOCAB_HISTORY_API_KEY)return env.AUTOCAB_HISTORY_API_KEY;
  if(!env.DATABASE_URL)throw new Error('Configure AUTOCAB_HISTORY_API_KEY or the existing encrypted Autocab connection');
+ if(!env.AUTOCAB_HISTORY_CONNECTION_ID)throw new Error('AUTOCAB_HISTORY_CONNECTION_ID is required: validate the source before import');
  const source=new pg.Client({connectionString:env.DATABASE_URL,connectionTimeoutMillis:10000});
  try{
   await source.connect();await source.query('BEGIN READ ONLY');
-  const {rows}=await source.query(`SELECT auth_type,api_key_header,credentials_encrypted FROM api_connections WHERE provider='autocab' AND base_url LIKE 'https://autocab-api.azure-api.net%' ORDER BY created_at DESC LIMIT 1`);
+  const {rows}=await source.query(`SELECT auth_type,api_key_header,credentials_encrypted FROM api_connections WHERE provider='autocab' AND base_url LIKE 'https://autocab-api.azure-api.net%' AND id=$1::uuid LIMIT 1`,[env.AUTOCAB_HISTORY_CONNECTION_ID]);
   await source.query('ROLLBACK');const r=rows[0];
   if(r?.auth_type!=='api_key'||r.api_key_header?.toLowerCase()!=='ocp-apim-subscription-key')throw new Error('A direct Autocab subscription-key connection is required');
   const secret=env.CREDENTIALS_ENCRYPTION_KEY||env.ADMIN_SESSION_SECRET;
