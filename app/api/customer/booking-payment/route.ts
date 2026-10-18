@@ -1,3 +1,4 @@
+import {checkoutErrorMessage} from '@/lib/passenger-payment';
 import {z} from 'zod';
 import {getCustomer} from '@/lib/customer-auth';
 import {customerStripeProfile} from '@/lib/customer-stripe';
@@ -25,5 +26,5 @@ export async function POST(request:Request){
   if(!Number.isSafeInteger(quote.totalPence)||quote.totalPence<30)throw new Error('The fare cannot be paid by card. Request another fare.');
   const intent=await stripe.paymentIntents.create({amount:quote.totalPence,currency:'gbp',customer:stripeCustomerId,payment_method_types:['card'],capture_method:'automatic',metadata:{purpose:'booking_sandbox',quoteId:quote.id,customerId:customer.id}},{idempotencyKey:`booking-sandbox:${customer.id}:${quote.id}`});
   return Response.json({clientSecret:intent.client_secret,intentId:intent.id,publishableKey:settings.publishableKey,mode:'test'},{headers:{'Cache-Control':'no-store'}});
- }catch(error){return Response.json({error:error instanceof z.ZodError?'Invalid payment request.':error instanceof Error?error.message:'Unable to prepare payment.'},{status:409})}
+ }catch(error){return Response.json({error:error instanceof z.ZodError?'Invalid payment request.':checkoutErrorMessage(error)},{status:409})}
 }

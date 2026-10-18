@@ -1,5 +1,5 @@
 import {customerStripeProfile} from '@/lib/customer-stripe';
-import {assertSandboxPayment} from '@/lib/passenger-payment';
+import {assertSandboxPayment,checkoutErrorMessage} from '@/lib/passenger-payment';
 import {loadBookingPolicy} from '@/lib/app-configuration';
 import {validateBookingPayment} from '@/lib/booking-payments';
 import {buildLiveCashBookingRequest} from '@/lib/autocab-booking-request';
@@ -46,7 +46,7 @@ export async function POST(request:Request){
   try{const {stripe,settings,stripeCustomerId}=await customerStripeProfile();if((settings.mode||'test')!=='test')throw new Error('Real online payments are not enabled.');
    const intent=await stripe.paymentIntents.retrieve(body.paymentIntentId);
    paymentIntentId=assertSandboxPayment(intent,{quoteId:quote.id,customerId:customer.id,stripeCustomerId,amount:quote.totalPence});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:'Payment could not be verified.'},{status:409})}
+  }catch(error){return Response.json({error:checkoutErrorMessage(error)},{status:409})}
  }
  const saved=await db.query(`INSERT INTO web_booking_previews(quote_id,user_id,payment_intent_id,request_data) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(quote_id) DO NOTHING RETURNING quote_id`,[body.id,userId,paymentIntentId,JSON.stringify({...body,quoteToken:undefined,quote:{...quote,autocabRequest:undefined,autocabCosts:undefined,bookingRules:undefined},sandbox:true})]);
  if(!saved.rowCount){const previous=await db.query('SELECT user_id FROM web_booking_previews WHERE quote_id=$1',[body.id]);if(previous.rows[0]?.user_id!==userId)return Response.json({error:'This quote has already been used.'},{status:409})}

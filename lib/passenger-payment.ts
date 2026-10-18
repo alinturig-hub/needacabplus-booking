@@ -13,3 +13,8 @@ export function assertSandboxPayment(intent:{id:string;status:string;livemode:bo
  if(intent.livemode||intent.status!=='succeeded'||intent.amount!==expected.amount||intent.currency!=='gbp'||(typeof intent.customer==='string'?intent.customer:intent.customer?.id)!==expected.stripeCustomerId||intent.metadata.quoteId!==expected.quoteId||intent.metadata.customerId!==expected.customerId||intent.metadata.purpose!=='booking_sandbox')throw new Error('The sandbox payment does not match this customer and fare.');
  return intent.id;
 }
+
+export function checkoutErrorMessage(error:unknown){
+ if(error&&typeof error==='object'&&'type' in error&&typeof error.type==='string'&&error.type.startsWith('Stripe'))return 'Secure checkout is temporarily unavailable. Please try again or choose cash.';
+ return error instanceof Error?error.message:'Unable to complete secure checkout.';
+}

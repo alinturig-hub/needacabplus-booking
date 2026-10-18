@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {assertSandboxPayment,passengerPaymentSchema,passengerPaymentLabel} from '../lib/passenger-payment';
+import {assertSandboxPayment,checkoutErrorMessage,passengerPaymentSchema,passengerPaymentLabel} from '../lib/passenger-payment';
 import {londonPickupIso,defaultPickupFields} from '../lib/pickup-schedule';
 const expected={quoteId:'quote',customerId:'customer',stripeCustomerId:'cus_own',amount:1250};
 const intent={id:'pi_test',status:'succeeded',livemode:false,amount:1250,currency:'gbp',customer:'cus_own',metadata:{quoteId:'quote',customerId:'customer',purpose:'booking_sandbox'}};
@@ -28,4 +28,10 @@ test('calendar enforces operator notice, five-minute slots and 90-day horizon',(
  assert.throws(()=>londonPickupIso('2026-10-18','10:30',45,now));
  assert.throws(()=>londonPickupIso('2026-10-18','10:46',45,now));
  assert.throws(()=>londonPickupIso('2027-02-01','12:00',45,now));
+});
+
+test('provider errors never echo Stripe credential diagnostics to passengers',()=>{
+ const error=Object.assign(new Error('Invalid API Key provided: secret-value'),{type:'StripeAuthenticationError'});
+ assert.doesNotMatch(checkoutErrorMessage(error),/secret-value/);
+ assert.equal(checkoutErrorMessage(new Error('Choose a saved card.')),'Choose a saved card.');
 });

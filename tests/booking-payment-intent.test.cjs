@@ -4,7 +4,7 @@ const policy=load('lib/booking-policy.ts'),payments=load('lib/booking-payments.t
 function setup(overrides={}){
  let sent=[];const quote={id:'quote',paymentMethod:'card',liveBooking:false,totalPence:1290,service:'asap',scheduledAt:null,...overrides.quote};
  const route=load('app/api/customer/booking-payment/route.ts',{
-  '@/lib/customer-auth':{getCustomer:async()=>overrides.guest?null:{id:'customer'}},'@/lib/security':{sameOrigin:()=>!overrides.badOrigin},
+  '@/lib/passenger-payment':load('lib/passenger-payment.ts'),'@/lib/customer-auth':{getCustomer:async()=>overrides.guest?null:{id:'customer'}},'@/lib/security':{sameOrigin:()=>!overrides.badOrigin},
   '@/lib/customer-stripe':{customerStripeProfile:async()=>({stripeCustomerId:'cus_own',settings:{mode:overrides.mode||'test',publishableKey:'pk_test_fixture'},stripe:{paymentMethods:{retrieve:async()=>({customer:overrides.foreignCard?'cus_other':'cus_own'})},paymentIntents:{create:async(params,options)=>{sent.push({params,options});return {id:'pi_test',client_secret:'secret_test'}}}}})},
   '@/lib/quotes':{verifyQuote:()=>quote,loadQuotePolicy:async()=>({enabled:true,minPrebookMinutes:30}),activePaidMembership:async()=>null},'@/lib/app-configuration':{loadBookingPolicy:async()=>policy.bookingPolicySchema.parse({liveBookingsEnabled:Boolean(overrides.live)})},'@/lib/booking-policy':policy,'@/lib/booking-payments':payments,'@/lib/quote-policy':{validateSchedule:()=>{}}
  });
