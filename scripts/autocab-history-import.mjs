@@ -7,6 +7,8 @@ export const TYPES=['Active','Advanced','Mobile','Dispatched','Completed','Cance
 export const FROM='2022-09-29T23:00:00.000Z'; // 30 September, 00:00 Europe/London
 export const TO='2026-10-18T21:00:00.000Z'; // 18 October, 22:00 Europe/London (inclusive)
 export const ARCHIVE_DB='needacabplus_archive_20261018';
+export const MIN_INTERVAL_MS=7500;
+export const MAX_REQUESTS_PER_RUN=200;
 const WINDOW_MS=86400000;
 export const JOB='autocab-history-20220930-20261018';
 export const SCHEMA=`
@@ -16,6 +18,7 @@ CREATE TABLE IF NOT EXISTS import_progress (
  requests bigint NOT NULL DEFAULT 0, last_request_at timestamptz, not_before timestamptz,
  done boolean NOT NULL DEFAULT false, updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS throttle_floor_ms integer NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS autocab_bookings (
  autocab_id text PRIMARY KEY, company_id text, booking_type text, archive_reason text,
  pickup_due_utc timestamptz, booked_at_utc timestamptz,
@@ -37,6 +40,14 @@ export function retryAfterMs(value,now=Date.now()){
  if(!value)return 0;
  const seconds=Number(value);if(Number.isFinite(seconds)&&seconds>=0)return Math.ceil(seconds*1000);
  const time=Date.parse(value);return Number.isFinite(time)?Math.max(0,time-now):0;
+}
+export function nextRequestAt(state,interval){
+ return Math.max(state.last_request_at?new Date(state.last_request_at).getTime()+Math.max(interval,state.throttle_floor_ms??0):0,state.not_before?new Date(state.not_before).getTime():0);
+}
+export async function persistApiBackoff(db,status,retryAfter,failures){
+ const delay=Math.max(retryAfterMs(retryAfter),Math.min(900000,30000*2**failures));
+ await db.query("UPDATE import_progress SET not_before=GREATEST(not_before,now()+($2*interval '1 millisecond')),throttle_floor_ms=GREATEST(throttle_floor_ms,$3) WHERE job=$1",[JOB,delay,status===429?10000:0]);
+ return delay;
 }
 export function validatePage(body,previous){
  if(!body||!Array.isArray(body.bookings))throw new Error('Invalid Search response: bookings must be an array');
@@ -107,8 +118,8 @@ export async function savePage(db,state,body){
 export async function run(env=process.env){
  if(!env.AUTOCAB_HISTORY_DATABASE_URL)throw new Error('AUTOCAB_HISTORY_DATABASE_URL is required');
  assertArchiveTarget(env.AUTOCAB_HISTORY_DATABASE_URL);
- const interval=numberSetting(env,'AUTOCAB_HISTORY_INTERVAL_MS',10000,10000,300000);
- const maxRequests=numberSetting(env,'AUTOCAB_HISTORY_MAX_REQUESTS',100,1,100);
+ const interval=numberSetting(env,'AUTOCAB_HISTORY_INTERVAL_MS',10000,MIN_INTERVAL_MS,300000);
+ const maxRequests=numberSetting(env,'AUTOCAB_HISTORY_MAX_REQUESTS',100,1,MAX_REQUESTS_PER_RUN);
  const maxMinutes=numberSetting(env,'AUTOCAB_HISTORY_MAX_MINUTES',25,1,120);
  const db=new pg.Client({connectionString:env.AUTOCAB_HISTORY_DATABASE_URL,connectionTimeoutMillis:10000});
  let stop=false,requests=0,failures=0;
@@ -131,7 +142,7 @@ export async function run(env=process.env){
    if(state.done){console.log('Archive complete');break}
    // Wait for the requested historical cutoff; never mark a future window complete.
    if(Date.parse(nextWindow(state.window_from).to)>Date.now()){console.log('Waiting for final cutoff; resume later');break}
-   const nextAllowed=Math.max(state.last_request_at?new Date(state.last_request_at).getTime()+interval:0,state.not_before?new Date(state.not_before).getTime():0);
+   const nextAllowed=nextRequestAt(state,interval);
    await pause(Math.max(0,nextAllowed-Date.now())+Math.floor(Math.random()*1000));
    if(stop||Date.now()>=deadline)break;
    await db.query('UPDATE import_progress SET requests=requests+1,last_request_at=now() WHERE job=$1',[JOB]);requests++;
@@ -144,8 +155,7 @@ export async function run(env=process.env){
     console.log(JSON.stringify({event:'network_retry',failures}));if(failures>=5)throw new Error('Repeated network errors; import paused');continue;
    }
    if(response.status===429||response.status>=500){
-    failures++;const delay=Math.max(retryAfterMs(response.headers.get('retry-after')),Math.min(900000,30000*2**failures));
-    await db.query("UPDATE import_progress SET not_before=now()+($2*interval '1 millisecond') WHERE job=$1",[JOB,delay]);
+    failures++;const delay=await persistApiBackoff(db,response.status,response.headers.get('retry-after'),failures);
     await response.body?.cancel();console.log(JSON.stringify({event:'api_backoff',status:response.status,delayMs:delay,failures}));
     if(failures>=5)throw new Error('Repeated Autocab errors; import paused');continue;
    }

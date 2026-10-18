@@ -28,8 +28,8 @@ Offset-free dates are retained raw but not silently interpreted as server time.
 - `AUTOCAB_HISTORY_API_KEY`: optional separate subscription key. If unset, reuse the
   explicitly selected encrypted direct Autocab connection (`AUTOCAB_HISTORY_CONNECTION_ID`) from the existing `DATABASE_URL`, reading
   only `api_connections` using `CREDENTIALS_ENCRYPTION_KEY`. No production writes.
-- `AUTOCAB_HISTORY_INTERVAL_MS`: default/minimum 10000; maximum 300000.
-- `AUTOCAB_HISTORY_MAX_REQUESTS`: default/maximum 100; set 1 for the initial canary.
+- `AUTOCAB_HISTORY_INTERVAL_MS`: default 10000; minimum 7500; maximum 300000.
+- `AUTOCAB_HISTORY_MAX_REQUESTS`: default 100, maximum 200; set 1 for the initial canary.
 - `AUTOCAB_HISTORY_MAX_MINUTES`: default 25; maximum 120.
 - `AUTOCAB_HISTORY_STATUS_ONLY=true`: aggregate checkpoint/count report, no API calls.
 
@@ -40,9 +40,9 @@ be rotated by the account owner.
 ## Scheduling and controls
 
 One active importer per archive via a session advisory lock. At most one request
-in flight, minimum ten seconds between request starts plus 0–999ms jitter, even
+in flight, minimum 7.5 seconds between request starts plus 0–999ms jitter, even
 across process restarts. Recommended schedule after a successful one-page canary:
-every 30 minutes (`*/30 * * * *`), timeout 1800 seconds, 100 requests per invocation.
+every 30 minutes (`*/30 * * * *`), timeout 1800 seconds, up to 200 requests per invocation (28-minute run budget for the faster profile).
 Pause by disabling the scheduled task. SIGTERM/SIGINT stop after the current page;
 the database transaction keeps bookings, page journal and checkpoint together.
 
@@ -51,7 +51,7 @@ backoff (exponential component capped at 15 minutes; Retry-After never shortened
 Stop after five consecutive retriable errors. Other HTTP failures stop immediately.
 Requests time out after 30 seconds. Malformed responses and repeated/cyclic tokens
 stop without skipping the page. Request budget includes failed attempts.
-No quota for the Autocab subscription has been assumed or discovered: six requests
+No quota for the Autocab subscription has been assumed or discovered: eight requests
 per minute is a conservative client ceiling, not a promise from the vendor.
 
 Logs contain counts, page numbers and HTTP status, never passenger payloads,
@@ -78,3 +78,14 @@ known supplied reference 10017549 was returned. Stop on 429/5xx. Never combine d
 from keys identifying different source systems. The importer requires an explicit
 connection ID when reusing stored credentials; it will not choose the newest
 address/quote connection automatically.
+
+## Faster bounded profile
+
+After a successful 20-request canary, the operator-authorized faster profile uses
+7500ms plus jitter, 200 requests per run, 28 minutes per run, every 30 minutes.
+This improves throughput by increasing the request rate moderately and reducing
+idle time between batches. The default settings stay 10000ms / 100 requests.
+A 429 raises persisted `import_progress.throttle_floor_ms` to at least 10000ms,
+so subsequent calls/runs fall back to no more than six requests/minute, in addition
+to respecting Retry-After. That fallback does not reset automatically on restart.
+No additional subscription keys or parallel requests are used to increase quota.

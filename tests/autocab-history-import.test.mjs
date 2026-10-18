@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
-import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,assertArchiveTarget,nextWindow,numberSetting,retryAfterMs,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
+import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
 
 test('UK boundaries are exact; daily windows neither overlap nor skip milliseconds',()=>{
  assert.equal(FROM,'2022-09-29T23:00:00.000Z');assert.equal(TO,'2026-10-18T21:00:00.000Z');
@@ -9,11 +9,13 @@ test('UK boundaries are exact; daily windows neither overlap nor skip millisecon
  while(w.to!==TO){const last=Date.parse(w.to);w=nextWindow(new Date(last+1));assert.equal(Date.parse(w.from),last+1);windows++;assert.ok(windows<1600)}
  assert.equal(w.to,TO);
 });
-test('production targets and request rates above six per minute are rejected',()=>{
+test('production targets and request rates above eight per minute are rejected',()=>{
  assert.throws(()=>assertArchiveTarget('postgres://user@db/postgres'));
  assertArchiveTarget('postgres://user@db/'+ARCHIVE_DB);
- assert.throws(()=>numberSetting({INTERVAL:'9999'},'INTERVAL',10000,10000,300000));
- assert.throws(()=>numberSetting({LIMIT:'101'},'LIMIT',100,1,100));
+ assert.throws(()=>numberSetting({INTERVAL:'7499'},'INTERVAL',10000,MIN_INTERVAL_MS,300000));
+ assert.throws(()=>numberSetting({LIMIT:'201'},'LIMIT',100,1,MAX_REQUESTS_PER_RUN));
+ assert.equal(numberSetting({INTERVAL:'7500'},'INTERVAL',10000,MIN_INTERVAL_MS,300000),7500);
+ assert.equal(numberSetting({LIMIT:'200'},'LIMIT',100,1,MAX_REQUESTS_PER_RUN),200);
 });
 test('Retry-After accepts seconds and HTTP dates without shortening cooldown',()=>{
  assert.equal(retryAfterMs('120'),120000);assert.equal(retryAfterMs('Sun, 18 Oct 2026 21:10:00 GMT',Date.parse('2026-10-18T21:00:00Z')),600000);
@@ -51,5 +53,21 @@ test('DB failure rolls back bookings, page journal and checkpoint together',asyn
  assert.equal((await db.query('SELECT count(*) AS n FROM autocab_bookings')).rows[0].n,0);
  assert.equal(Number((await state(db)).pages),0);
  assert.equal((await db.query('SELECT count(*) AS n FROM import_pages')).rows[0].n,0);
+ }finally{await db.close()}
+});
+
+test('429 persists the slower rate across runs and never shortens Retry-After',async()=>{
+ const db=await database();try{
+ const before=Date.now();
+ assert.equal(await persistApiBackoff(db,429,'1800',1),1800000);
+ let progress=await state(db);
+ assert.equal(progress.throttle_floor_ms,10000);
+ assert.ok(new Date(progress.not_before).getTime()>=before+1799000);
+ assert.equal(Number(progress.pages),0,'Backoff must not skip a page');
+ await persistApiBackoff(db,503,null,1);
+ progress=await state(db);assert.equal(progress.throttle_floor_ms,10000,'A server retry must not clear the lower-rate fallback');
+ assert.ok(new Date(progress.not_before).getTime()>=before+1799000,'A later retry must not shorten an existing Retry-After cooldown');
+ const prior='2026-10-18T22:00:00Z';
+ assert.equal(nextRequestAt({...progress,last_request_at:prior,not_before:null},7500),Date.parse(prior)+10000);
  }finally{await db.close()}
 });
