@@ -66,7 +66,7 @@ export function validateSchedule(service:Service,scheduledAt:string|null,minimum
  const when=scheduledAt?Date.parse(scheduledAt):NaN;
  if(!Number.isFinite(when)||when<now+minimum*60000)throw new QuoteError(`Prebook at least ${minimum} minutes in advance.`);
  if(!isPrebookInterval(when))throw new QuoteError(`Choose a pickup time in ${PREBOOK_INTERVAL_MINUTES}-minute intervals.`);
- if(when>now+366*86400000)throw new QuoteError('Choose a date within the next year.');
+ if(when>now+90*86400000)throw new QuoteError('Choose a date within the next 90 days.');
 }
 export function dynamicScheduleActive(policy:QuotePolicy,now=new Date()){
  if(!policy.dynamicPricingEnabled)return false;

@@ -1,3 +1,5 @@
+import {customerStripeProfile} from '@/lib/customer-stripe';
+import {assertSandboxPayment} from '@/lib/passenger-payment';
 import {loadBookingPolicy} from '@/lib/app-configuration';
 import {validateBookingPayment} from '@/lib/booking-payments';
 import {buildLiveCashBookingRequest} from '@/lib/autocab-booking-request';
@@ -17,7 +19,7 @@ import {taxiCrmBookingReadEnabled,taxiCrmDatabaseConfigured,taxiCrmNoBookingCopy
 import {readTaxiCrmBookings,TaxiCrmBookingExportLimitError,TaxiCrmBookingSchemaError} from '@/lib/taxicrm-bookings';
 
 export const dynamic='force-dynamic';
-const payload=z.object({id:z.string().uuid(),quoteToken:z.string().max(64000),name:z.string().trim().min(2).max(100),phone:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),pickup:z.string().trim().min(5).max(250),destination:z.string().trim().min(5).max(250),viaPoints:z.array(z.string().trim().min(5).max(250)).max(3),pickupNote:z.string().trim().max(300),vehicle:z.enum(['saloon','estate','xl']),passengers:z.number().int().min(1).max(6).default(1),luggage:z.number().int().min(0).max(20).default(0),acknowledged:z.literal(true)}).strict();
+const payload=z.object({id:z.string().uuid(),quoteToken:z.string().max(64000),name:z.string().trim().min(2).max(100),phone:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),pickup:z.string().trim().min(5).max(250),destination:z.string().trim().min(5).max(250),viaPoints:z.array(z.string().trim().min(5).max(250)).max(3),pickupNote:z.string().trim().max(300),vehicle:z.enum(['saloon','estate','xl']),passengers:z.number().int().min(1).max(6).default(1),luggage:z.number().int().min(0).max(20).default(0),acknowledged:z.literal(true),paymentIntentId:z.string().regex(/^pi_[a-zA-Z0-9]+$/).optional()}).strict();
 
 export async function POST(request:Request){
  if(!sameOrigin(request))return Response.json({error:'Invalid request origin.'},{status:403});
@@ -25,6 +27,8 @@ export async function POST(request:Request){
  const stops=[body.pickup,...body.viaPoints,body.destination].map(stop=>stop.toLowerCase());if(new Set(stops).size!==stops.length)return Response.json({error:'Each stop must use a different address.'},{status:400});
  try{
  const customer=await getCustomer(),guest=customer?null:await getGuestSession(),userId=customer?.id||guest?.id;if(!userId)return Response.json({error:'Sign in or continue as guest before confirming your booking.'},{status:401});
+ const preview=await database().query<{user_id:string}>('SELECT user_id FROM web_booking_previews WHERE quote_id=$1',[body.id]);
+ if(preview.rows[0])return preview.rows[0].user_id===userId?Response.json({id:body.id,status:'Sandbox preview',sandbox:true,pending:false}):Response.json({error:'This quote has already been used.'},{status:409});
  const attemptsDb=bookingAttemptDatabase();
  const existingLive=await readLiveAttempt(attemptsDb,body.id,userId);if(existingLive)return Response.json(existingLive,{status:existingLive.rejected?422:existingLive.pending?202:200});
  let quote;try{quote=verifyQuote(body.quoteToken);const [policy,rules]=await Promise.all([loadQuotePolicy(),loadBookingPolicy()]);if(!policy.enabled)throw new Error('Live quotes are currently unavailable.');const paidMember=Boolean(await activePaidMembership(customer?.id||null,policy)),access=bookingServiceAccess(rules,paidMember);if(!access[quote.service]||(quote.smartFare?.applied&&!access.quietAsap)||quote.membership&&!paidMember)throw new Error('Your membership benefits changed. Request a new fare.');validateSchedule(quote.service,quote.scheduledAt,policy.minPrebookMinutes);validateBookingPayment(rules,quote.paymentMethod||'card',Boolean(quote.liveBooking))}catch(error){return Response.json({error:error instanceof Error?error.message:'Request a new fare.'},{status:409})}
@@ -36,11 +40,17 @@ export async function POST(request:Request){
  let requestBody;try{requestBody=buildLiveCashBookingRequest(quote,{name:body.name,telephoneNumber:body.phone,customerEmail:customer?.email||'',passengers:body.passengers,luggage:body.luggage,driverNote:body.pickupNote})}catch(e){return Response.json({error:e instanceof Error?e.message:'Request a new quote.'},{status:409})}
  const result=await submitLiveCashBooking(attemptsDb,quote,userId,requestBody,createCashBooking);return Response.json(result,{status:result.rejected?422:result.pending?202:201});
  }
- if(taxiCrmNoBookingCopyEnabled())return Response.json({error:'Bookings are unavailable while the operator connection is in test mode.'},{status:409});
- const inserted=await db.query(`INSERT INTO bookings (id,user_id,name,phone,pickup,destination,via_points,pickup_note,vehicle,fare_pence,status,created_at,source,payment_type,passengers,updated_at,pricing_data,timeline_data,booking_type,pickup_data,destination_data,vias_data)
- VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Booked',now(),'WebApp',$18,$17,now(),$11::jsonb,$12::jsonb,$13,$14::jsonb,$15::jsonb,$16::jsonb) ON CONFLICT(id) DO NOTHING RETURNING id`,[body.id,userId,body.name,body.phone,quote.pickup,quote.destination,JSON.stringify(quote.vias),body.pickupNote,quote.vehicle,quote.totalPence,JSON.stringify({...quote,price:quote.totalPence/100,pricingSource:quote.service==='asap'?'Autocab NOW':quote.service==='priority'?'Autocab + Priority':quote.service==='prebook'?'Autocab + Pre-book':'Autocab + Guarantee',testBooking:true}),JSON.stringify({bookedAt:new Date().toISOString(),scheduledAt:quote.scheduledAt||new Date(Date.now()+(quote.bookingRules?.priorityDelayMinutes||0)*60000).toISOString()}),quote.service==='asap'?'ASAP':quote.service==='priority'?'ASAP Priority':quote.service==='prebook'?'Prebook':'Guarantee Prebook',JSON.stringify(quote.autocabRequest?.pickup.address||{}),JSON.stringify(quote.autocabRequest?.destination.address||{}),JSON.stringify(quote.autocabRequest?.vias||[]),Number(quote.autocabRequest?.passengers||1),quote.paymentMethod==='cash'?'Cash':'Card']);
- if(!inserted.rowCount){const same=await db.query('SELECT id,status FROM bookings WHERE id=$1 AND user_id=$2',[body.id,userId]);if(same.rows[0])return Response.json(same.rows[0]);return Response.json({error:'This quote has already been used. Request another quote.'},{status:409})}
- return Response.json({id:body.id,status:'Booked'},{status:201});}catch(error){return unavailable(error)}
+ let paymentIntentId:string|null=null;
+ if(quote.paymentMethod==='card'){
+  if(!customer||!body.paymentIntentId)return Response.json({error:'Complete the sandbox payment before confirming.'},{status:409});
+  try{const {stripe,settings,stripeCustomerId}=await customerStripeProfile();if((settings.mode||'test')!=='test')throw new Error('Real online payments are not enabled.');
+   const intent=await stripe.paymentIntents.retrieve(body.paymentIntentId);
+   paymentIntentId=assertSandboxPayment(intent,{quoteId:quote.id,customerId:customer.id,stripeCustomerId,amount:quote.totalPence});
+  }catch(error){return Response.json({error:error instanceof Error?error.message:'Payment could not be verified.'},{status:409})}
+ }
+ const saved=await db.query(`INSERT INTO web_booking_previews(quote_id,user_id,payment_intent_id,request_data) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(quote_id) DO NOTHING RETURNING quote_id`,[body.id,userId,paymentIntentId,JSON.stringify({...body,quoteToken:undefined,quote:{...quote,autocabRequest:undefined,autocabCosts:undefined,bookingRules:undefined},sandbox:true})]);
+ if(!saved.rowCount){const previous=await db.query('SELECT user_id FROM web_booking_previews WHERE quote_id=$1',[body.id]);if(previous.rows[0]?.user_id!==userId)return Response.json({error:'This quote has already been used.'},{status:409})}
+ return Response.json({id:body.id,status:'Sandbox preview',sandbox:true,pending:false},{status:201});}catch(error){return unavailable(error)}
 }
 
 export async function GET(request:Request){

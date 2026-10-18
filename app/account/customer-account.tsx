@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
-import {FormEvent,useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Elements,PaymentElement,useElements,useStripe} from '@stripe/react-stripe-js';
+import {Elements} from '@stripe/react-stripe-js';
 import {loadStripe} from '@stripe/stripe-js';
 import {ArrowLeft,Bell,CalendarClock,CreditCard,Crown,LogOut,MapPin,Plus,ShieldCheck,Trash2,X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
+import CardSetup from '../saved-card-setup';
 import type {Customer} from '@/lib/customer-auth';
 
 type Card={id:string;brand:string;last4:string;expMonth:number;expYear:number};
@@ -29,8 +30,6 @@ export default function CustomerAccount({customer}:{customer:Customer}){
 }
 
 function formatTripDate(value:string){const date=new Date(value);return Number.isNaN(date.getTime())?'Date pending':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(date)}
-
-function CardSetup({onDone}:{onDone:()=>Promise<void>}){const stripe=useStripe(),elements=useElements(),[busy,setBusy]=useState(false),[error,setError]=useState('');async function submit(event:FormEvent){event.preventDefault();if(!stripe||!elements)return;setBusy(true);setError('');const result=await stripe.confirmSetup({elements,confirmParams:{return_url:`${window.location.origin}/account`},redirect:'if_required'});if(result.error)setError(result.error.message||'Unable to save card.');else await onDone();setBusy(false)}return <form className="stripe-card-form" onSubmit={submit}><PaymentElement options={{layout:'tabs'}}/>{error&&<p className="error-message">{error}</p>}<Button className="primary-action" disabled={!stripe||busy}>{busy?'Saving card…':'Save card'}<ShieldCheck/></Button></form>}
 
 function MembershipDetails({data}:{data:Membership|null}){
  if(!data)return null;
