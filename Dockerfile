@@ -39,6 +39,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/lib/autocab-time.mjs ./lib/autoca
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-bookings.mjs ./scripts/reconcile-bookings.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-booking-status.mjs ./scripts/reconcile-booking-status.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-taxicrm-delta.mjs /app/scripts/reconcile-needacabplus-delta.mjs /app/scripts/reconcile-taxicrm-no-key.mjs /app/scripts/verify-migration-data.mjs /app/scripts/verify-migration-booking-links.mjs /app/scripts/verify-shared-database-roles.mjs /app/scripts/align-migration-sequences.mjs /app/scripts/provision-shared-database-roles.mjs ./scripts/
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-history-import.mjs ./scripts/autocab-history-import.mjs
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
