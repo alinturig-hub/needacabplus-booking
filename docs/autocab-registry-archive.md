@@ -59,3 +59,34 @@ both identifiers and validating coverage before merging. Do not count several
 Dispatched/Recover/Completed archive entries as separate completed trips.
 
 Verification: `node --test tests/autocab-history-registry.test.mjs`.
+
+## Active roster and Hackney read models
+
+Apply `scripts/migrations/20261019_archive_driver_booking_classification.sql`
+**only to the archive database**, after both the registry and booking tables exist.
+It adds views, changes no original rows and makes no Autocab API requests.
+
+- `autocab_driver_classification`: preserves all profiles, with explicit activity,
+  suspension, archive and driver-category fields.
+- `autocab_active_drivers`: operational roster: `active=true`, `suspended=false`,
+  no nonempty `archivedDate`. Missing flags are not assumed eligible. This is
+  registry eligibility, not live online/free availability.
+- `autocab_booking_classification`: one row per archive entry (not unique ride).
+  Exposes `original_booking_id` and keeps historical driver callsign separate from
+  booking source. Use the original reference plus phase/status when merging.
+
+Tenant rule confirmed by the operator: trimmed callsigns beginning with `9` are
+`HACKNEY`; other nonempty callsigns are `PRIVATE_HIRE`; missing is `UNKNOWN`.
+Booking driver category uses **the archived booking's driver snapshot**, never
+joins to today's callsign or activity state. Inactive drivers' past trips remain.
+
+`bookingSource = 'FlaggedBooking'` is the actual Autocab flag-source marker.
+`service_category` separates `FLAGGED_BOOKING`, `HACKNEY_BOOKING`,
+`PRIVATE_HIRE_BOOKING`, and `UNKNOWN`. A Hackney driver's ordinary booking is
+not automatically a flagged/street-hail job. A flagged job with a missing or
+non-Hackney callsign remains flagged; its independent driver category is kept
+for reconciliation. Missing source or snapshot does not become private hire.
+No totals should combine these categories without an explicit reporting choice.
+
+These database read models do not change the existing live Admin driver screen.
+Verification: `node --test tests/autocab-archive-classification.test.mjs`.
