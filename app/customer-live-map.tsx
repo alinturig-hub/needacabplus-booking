@@ -1,8 +1,8 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource,type StyleSpecification} from 'maplibre-gl';
 import {useJourneyTiming} from './use-journey-timing';
-import type {JourneyTiming} from '@/lib/journey-timing';
+import {visibleNearbyCars,type JourneyTiming} from '@/lib/journey-timing';
 import {customerRoadRouteDetails} from '@/lib/customer-road-route';
 
 type Coordinate={latitude:number;longitude:number};
@@ -46,7 +46,10 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
  const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null,waypointKey=waypoints.map(point=>`${point.latitude},${point.longitude}`).join(';');
  const timingRouteKey=JSON.stringify([pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey]);
- const timing=useJourneyTiming({pickup,vehicles,tripSeconds:trip?.key===timingRouteKey?trip.seconds:null,enabled:showRoute&&!picker,scheduled,scheduledAt});
+ const [vehicleClock,setVehicleClock]=useState(Date.now);
+ const nearbyVehicles=useMemo(()=>visibleNearbyCars(vehicles,pickupLatitude===null||pickupLongitude===null?null:{latitude:pickupLatitude,longitude:pickupLongitude},vehicleClock),[vehicles,pickupLatitude,pickupLongitude,vehicleClock]);
+ useEffect(()=>{const timer=setInterval(()=>setVehicleClock(Date.now()),15000);return()=>clearInterval(timer)},[]);
+ const timing=useJourneyTiming({pickup,vehicles:nearbyVehicles,tripSeconds:trip?.key===timingRouteKey?trip.seconds:null,enabled:showRoute&&!picker,scheduled,scheduledAt});
  useEffect(()=>{timingCallback.current=onTimingChange},[onTimingChange]);
  useEffect(()=>{timingCallback.current?.({pickupMinutes:timing.pickupMinutes,pickupTime:timing.pickupTime,arrivalTime:timing.arrivalTime,tripMinutes:timing.tripMinutes})},[timing.pickupMinutes,timing.pickupTime,timing.arrivalTime,timing.tripMinutes]);
  useEffect(()=>{waypointsRef.current=waypoints},[waypoints]);
@@ -88,7 +91,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  },[]);
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;const cars=markers.current;
-  const valid=new Map(vehicles.filter(v=>Number.isFinite(v.latitude)&&Number.isFinite(v.longitude)&&Math.abs(v.latitude)<=90&&Math.abs(v.longitude)<=180).map(v=>[v.id,v]));
+  const valid=new Map(nearbyVehicles.filter(v=>Number.isFinite(v.latitude)&&Number.isFinite(v.longitude)&&Math.abs(v.latitude)<=90&&Math.abs(v.longitude)<=180).map(v=>[v.id,v]));
   for(const [id,car] of cars)if(!valid.has(id)){if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove();cars.delete(id)}
   for(const vehicle of valid.values()){
    const target:[number,number]=[vehicle.longitude,vehicle.latitude],time=Date.parse(vehicle.recordedAt),car=cars.get(vehicle.id);
@@ -101,7 +104,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    const animate=(now:number)=>{const progress=Math.min(1,(now-start)/duration),eased=progress*progress*(3-2*progress);car.position=[from[0]+(target[0]-from[0])*eased,from[1]+(target[1]-from[1])*eased];car.marker.setLngLat(car.position);car.heading=fromHeading+(toHeading-fromHeading)*eased;if(image)image.style.transform=`rotate(${car.heading}deg)`;car.frame=progress<1?requestAnimationFrame(animate):null};
    car.frame=requestAnimationFrame(animate);
   }
- },[vehicles]);
+ },[nearbyVehicles]);
  useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.jumpTo({center:[cameraTarget.longitude,cameraTarget.latitude]})},[cameraTarget]);
  useEffect(()=>{
   const map=mapRef.current;if(!map||!showRoute||pickupLatitude===null||pickupLongitude===null||destinationLatitude===null||destinationLongitude===null)return;
@@ -151,5 +154,5 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   map.on('move',positionLabels);map.on('resize',positionLabels);positionLabels();
   return()=>{map.off('move',positionLabels);map.off('resize',positionLabels);stops.forEach(marker=>marker.remove())};
  },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,picker,userLocation,showRoute,timing.pickupTime,timing.pickupMinutes,timing.arrivalTime]);
- return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{vehicles.length} free car{vehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
+ return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{nearbyVehicles.length} nearby free car{nearbyVehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }
