@@ -99,7 +99,7 @@ export function nextRequestAt(state,interval,now=Date.now()){
 }
 export async function persistApiBackoff(db,status,retryAfter,failures){
  const delay=Math.max(retryAfterMs(retryAfter),Math.min(900000,30000*2**failures));
- await db.query("UPDATE import_progress SET not_before=GREATEST(not_before,now()+($2*interval '1 millisecond')),throttle_floor_ms=GREATEST(throttle_floor_ms,$3),rate_multiplier=GREATEST(0.01,rate_multiplier*0.9) WHERE job=$1",[JOB,delay,status===429?10000:0]);
+ await db.query("UPDATE import_progress SET not_before=GREATEST(not_before,now()+($2*interval '1 millisecond')),throttle_floor_ms=GREATEST(throttle_floor_ms,$3),rate_multiplier=rate_multiplier*0.9 WHERE job=$1",[JOB,delay,status===429?10000:0]);
  return delay;
 }
 export function validatePage(body,previous){

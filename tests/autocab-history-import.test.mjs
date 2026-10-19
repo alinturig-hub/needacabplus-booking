@@ -176,3 +176,15 @@ test('explicit two-hour 25/min trial expires, respects new reductions and cannot
  assert.equal(requestInterval(trial,7500,false,trialStart+7800000),18750);
  assert.throws(()=>requestInterval({...trial,trial_interval_ms:2399},7500,false,trialStart),/Invalid temporary request/);
 });
+
+test('new nightly errors still reduce speed when the prior global multiplier is already one percent',async()=>{
+ const db=await database();try{
+ await db.query('UPDATE import_progress SET rate_multiplier=0.01 WHERE job=$1',[JOB]);
+ const now=Date.parse('2026-10-19T20:00:00Z');
+ await ensureNightReference(db,await state(db),now);
+ await persistApiBackoff(db,503,null,1);
+ const reduced=await state(db);
+ assert.equal(Number(reduced.rate_multiplier),0.009);
+ assert.equal(requestInterval(reduced,7500,true,now),2667);
+ }finally{await db.close()}
+});
