@@ -124,7 +124,7 @@ test('temporary 20/min ceiling expires after 60 minutes, pauses 10, and restores
  assert.equal(trialPhase(trialFixture,trialStart+4200000),'normal');
  assert.equal(requestInterval(trialFixture,7500,false,trialStart+4200000),18750);
  assert.equal(requestInterval(trialFixture,7500,true,trialStart+4200000),11719);
- assert.throws(()=>trialPhase({...trialFixture,trial_until:new Date(trialStart+7200000).toISOString()},trialStart),/Invalid temporary/);
+ assert.throws(()=>trialPhase({...trialFixture,trial_until:new Date(trialStart+7200001).toISOString()},trialStart),/Invalid temporary/);
  assert.throws(()=>trialPhase({...trialFixture,trial_pause_until:new Date(trialStart+4800000).toISOString()},trialStart),/Invalid temporary/);
 });
 test('trial never clears an API cooldown, 429 floor or new ten-percent error reductions',async()=>{
@@ -143,4 +143,16 @@ test('trial never clears an API cooldown, 429 floor or new ten-percent error red
  assert.equal(Number(after.trial_reference_multiplier),0.4);
  assert.equal(Number(after.pages),0);
  }finally{await db.close()}
+});
+
+test('explicit two-hour 25/min trial expires, respects new reductions and cannot exceed its ceiling',()=>{
+ const trial={...trialFixture,trial_interval_ms:2400,trial_until:new Date(trialStart+7200000).toISOString(),trial_pause_until:new Date(trialStart+7800000).toISOString()};
+ assert.equal(trialPhase(trial,trialStart+7199999),'active');
+ assert.equal(requestInterval(trial,7500,false,trialStart),2400);
+ assert.equal(requestInterval({...trial,rate_multiplier:0.36},7500,false,trialStart),2667);
+ assert.equal(trialPhase(trial,trialStart+7200000),'pause');
+ assert.equal(nextRequestAt(trial,2400,trialStart+7200000),trialStart+7800000);
+ assert.equal(trialPhase(trial,trialStart+7800000),'normal');
+ assert.equal(requestInterval(trial,7500,false,trialStart+7800000),18750);
+ assert.throws(()=>requestInterval({...trial,trial_interval_ms:2399},7500,false,trialStart),/Invalid temporary request/);
 });

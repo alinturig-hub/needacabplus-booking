@@ -24,6 +24,7 @@ ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_started_at timestampt
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_until timestamptz;
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_pause_until timestamptz;
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_reference_multiplier numeric;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_interval_ms integer NOT NULL DEFAULT 3000 CHECK(trial_interval_ms BETWEEN 2400 AND 300000);
 CREATE TABLE IF NOT EXISTS autocab_bookings (
  autocab_id text PRIMARY KEY, company_id text, booking_type text, archive_reason text,
  pickup_due_utc timestamptz, booked_at_utc timestamptz,
@@ -55,15 +56,17 @@ export function nightBoostActive(enabled,now=Date.now()){
 export function trialPhase(state,now=Date.now()){
  const start=Date.parse(state.trial_started_at),end=Date.parse(state.trial_until),pauseEnd=Date.parse(state.trial_pause_until);
  if(!Number.isFinite(start)||!Number.isFinite(end)||!Number.isFinite(pauseEnd))return 'normal';
- if(end<=start||end-start>3600000||pauseEnd<end||pauseEnd-end>600000)throw new Error('Invalid temporary rate window');
+ if(end<=start||end-start>7200000||pauseEnd<end||pauseEnd-end>600000)throw new Error('Invalid temporary rate window');
  return now<start||now>=pauseEnd?'normal':now<end?'active':'pause';
 }
 export function requestInterval(state,dayInterval,night,now=Date.now()){
  if(trialPhase(state,now)==='active'){
   const reference=Number(state.trial_reference_multiplier),current=Number(state.rate_multiplier??1);
   if(!Number.isFinite(reference)||reference<=0||reference>1||!Number.isFinite(current)||current<=0||current>1)throw new Error('Invalid temporary rate reference');
+  const trialInterval=Number(state.trial_interval_ms??3000);
+  if(!Number.isInteger(trialInterval)||trialInterval<2400||trialInterval>300000)throw new Error('Invalid temporary request interval');
   // Retain the pre-trial multiplier; only new errors reduce this trial ceiling.
-  return Math.ceil(Math.max(3000,state.throttle_floor_ms??0)/Math.min(1,current/reference));
+  return Math.ceil(Math.max(trialInterval,state.throttle_floor_ms??0)/Math.min(1,current/reference));
  }
  const multiplier=Number(state.rate_multiplier??1);
  if(!Number.isFinite(multiplier)||multiplier<=0||multiplier>1)throw new Error('Invalid persisted request rate');

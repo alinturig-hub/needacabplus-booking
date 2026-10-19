@@ -145,3 +145,14 @@ retriable errors can stop a run early; expiry still cannot extend past the armed
 hour. All original records and checkpoints remain transactional and unchanged.
 To stop a trial early, shorten its expiry and set an appropriate pause end; never
 extend a trial without a new explicit instruction. Missing dates mean no trial.
+
+
+### Two-hour 25/minute trial
+
+Explicitly authorised trials may now run up to two hours, using
+`trial_interval_ms=2400` (maximum 25/minute plus existing jitter), with the same
+ten-minute pause and automatic restoration. The default remains 3000ms for
+older 20/minute trials. Schema and code reject intervals below 2400ms and windows
+longer than two hours. A new trial must not overwrite an active/pause window.
+The saved reference multiplier, subsequent ten-percent error reductions, 429
+floor, Retry-After, shared lock and transactional checkpoints still apply.
