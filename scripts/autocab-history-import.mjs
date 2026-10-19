@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS import_progress (
  done boolean NOT NULL DEFAULT false, updated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS throttle_floor_ms integer NOT NULL DEFAULT 0;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS rate_multiplier numeric NOT NULL DEFAULT 1 CHECK(rate_multiplier > 0 AND rate_multiplier <= 1);
 CREATE TABLE IF NOT EXISTS autocab_bookings (
  autocab_id text PRIMARY KEY, company_id text, booking_type text, archive_reason text,
  pickup_due_utc timestamptz, booked_at_utc timestamptz,
@@ -41,12 +42,26 @@ export function retryAfterMs(value,now=Date.now()){
  const seconds=Number(value);if(Number.isFinite(seconds)&&seconds>=0)return Math.ceil(seconds*1000);
  const time=Date.parse(value);return Number.isFinite(time)?Math.max(0,time-now):0;
 }
+// UK wall-clock boundaries, including BST/GMT and the repeated autumn hour.
+export function nightBoostActive(enabled,now=Date.now()){
+ if(!enabled)return false;
+ const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',hourCycle:'h23'}).format(new Date(now)));
+ return hour>=0&&hour<4;
+}
+export function requestInterval(state,dayInterval,night){
+ const multiplier=Number(state.rate_multiplier??1);
+ if(!Number.isFinite(multiplier)||multiplier<=0||multiplier>1)throw new Error('Invalid persisted request rate');
+ return Math.ceil(Math.max(night?dayInterval/1.6:dayInterval,state.throttle_floor_ms??0)/multiplier);
+}
+export function runBudgetAvailable({night,requests,maxRequests,now,deadline}){
+ return night||(requests<maxRequests&&now<deadline);
+}
 export function nextRequestAt(state,interval){
  return Math.max(state.last_request_at?new Date(state.last_request_at).getTime()+Math.max(interval,state.throttle_floor_ms??0):0,state.not_before?new Date(state.not_before).getTime():0);
 }
 export async function persistApiBackoff(db,status,retryAfter,failures){
  const delay=Math.max(retryAfterMs(retryAfter),Math.min(900000,30000*2**failures));
- await db.query("UPDATE import_progress SET not_before=GREATEST(not_before,now()+($2*interval '1 millisecond')),throttle_floor_ms=GREATEST(throttle_floor_ms,$3) WHERE job=$1",[JOB,delay,status===429?10000:0]);
+ await db.query("UPDATE import_progress SET not_before=GREATEST(not_before,now()+($2*interval '1 millisecond')),throttle_floor_ms=GREATEST(throttle_floor_ms,$3),rate_multiplier=GREATEST(0.01,rate_multiplier*0.9) WHERE job=$1",[JOB,delay,status===429?10000:0]);
  return delay;
 }
 export function validatePage(body,previous){
@@ -119,13 +134,15 @@ export async function run(env=process.env){
  if(!env.AUTOCAB_HISTORY_DATABASE_URL)throw new Error('AUTOCAB_HISTORY_DATABASE_URL is required');
  assertArchiveTarget(env.AUTOCAB_HISTORY_DATABASE_URL);
  const interval=numberSetting(env,'AUTOCAB_HISTORY_INTERVAL_MS',10000,MIN_INTERVAL_MS,300000);
+ const nightEnabled=env.AUTOCAB_HISTORY_NIGHT_BOOST==='true';
+ const boosted=()=>nightBoostActive(nightEnabled);
  const maxRequests=numberSetting(env,'AUTOCAB_HISTORY_MAX_REQUESTS',100,1,MAX_REQUESTS_PER_RUN);
  const maxMinutes=numberSetting(env,'AUTOCAB_HISTORY_MAX_MINUTES',25,1,120);
  const db=new pg.Client({connectionString:env.AUTOCAB_HISTORY_DATABASE_URL,connectionTimeoutMillis:10000});
  let stop=false,requests=0,failures=0;
  const deadline=Date.now()+maxMinutes*60000;
  const onStop=()=>{stop=true};process.on('SIGTERM',onStop);process.on('SIGINT',onStop);
- const pause=async ms=>{const until=Date.now()+ms;while(!stop&&Date.now()<until&&Date.now()<deadline)await new Promise(r=>setTimeout(r,Math.min(1000,until-Date.now())))};
+ const pause=async ms=>{const until=Date.now()+ms;while(!stop&&Date.now()<until&&(Date.now()<deadline||boosted()))await new Promise(r=>setTimeout(r,Math.min(1000,until-Date.now())))};
  try{
   await db.connect();
   const lock=await db.query("SELECT pg_try_advisory_lock(hashtext('autocab-history-import')) AS acquired");
@@ -137,21 +154,26 @@ export async function run(env=process.env){
    const {rows}=await db.query('SELECT job,window_from,window_to,pages,records_seen,requests,last_request_at,not_before,done,updated_at,(SELECT count(*) FROM autocab_bookings) AS unique_bookings FROM import_progress WHERE job=$1',[JOB]);console.log(JSON.stringify(rows[0]));return;
   }
   const key=await apiKey(env);
-  while(!stop&&requests<maxRequests&&Date.now()<deadline){
+  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightBoostPercent:60,timeZone:'Europe/London',errorReductionPercent:10}));
+  while(!stop&&runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline})){
    const {rows:[state]}=await db.query('SELECT * FROM import_progress WHERE job=$1',[JOB]);
    if(state.done){console.log('Archive complete');break}
    // Wait for the requested historical cutoff; never mark a future window complete.
    if(Date.parse(nextWindow(state.window_from).to)>Date.now()){console.log('Waiting for final cutoff; resume later');break}
-   const nextAllowed=nextRequestAt(state,interval);
+   const night=boosted();
+   const effectiveInterval=requestInterval(state,interval,night);
+   const nextAllowed=nextRequestAt(state,effectiveInterval);
    await pause(Math.max(0,nextAllowed-Date.now())+Math.floor(Math.random()*1000));
-   if(stop||Date.now()>=deadline)break;
+   if(stop||!runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline}))break;
+   // Re-evaluate after sleep: 04:00 must restore day pacing before any next call.
+   if(requestInterval(state,interval,boosted())>effectiveInterval)continue;
    await db.query('UPDATE import_progress SET requests=requests+1,last_request_at=now() WHERE job=$1',[JOB]);requests++;
    let response;
    try{
     const window=nextWindow(state.window_from);
     response=await fetch(ENDPOINT,{method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),headers:{'Content-Type':'application/json','Accept':'application/json','Ocp-Apim-Subscription-Key':key},body:JSON.stringify({from:window.from,to:window.to,telephoneNumber:'',companyIds:[],capabilities:[],capabilityMatchType:'Any',exactMatch:false,ignorePostcode:true,ignoreTown:true,types:TYPES,...(state.continuation_token?{continuationToken:state.continuation_token}:{})})});
    }catch{
-    failures++;await db.query("UPDATE import_progress SET not_before=now()+($2*interval '1 millisecond') WHERE job=$1",[JOB,Math.min(900000,30000*2**failures)]);
+    failures++;await persistApiBackoff(db,503,null,failures);
     console.log(JSON.stringify({event:'network_retry',failures}));if(failures>=5)throw new Error('Repeated network errors; import paused');continue;
    }
    if(response.status===429||response.status>=500){
@@ -159,9 +181,14 @@ export async function run(env=process.env){
     await response.body?.cancel();console.log(JSON.stringify({event:'api_backoff',status:response.status,delayMs:delay,failures}));
     if(failures>=5)throw new Error('Repeated Autocab errors; import paused');continue;
    }
-   if(!response.ok){await response.body?.cancel();throw new Error(`Autocab HTTP ${response.status}; import paused`)}
+   if(!response.ok){await response.body?.cancel();await persistApiBackoff(db,response.status,response.headers.get('retry-after'),1);throw new Error(`Autocab HTTP ${response.status}; import paused`)}
    // Read the response within the same timeout before making another call.
-   const body=await response.json();
+   let body;
+   try{body=await response.json()}catch{
+    failures++;await persistApiBackoff(db,503,null,failures);
+    console.log(JSON.stringify({event:'response_retry',failures}));
+    if(failures>=5)throw new Error('Repeated response errors; import paused');continue;
+   }
    const result=await savePage(db,state,body);failures=0;
    await db.query('UPDATE import_progress SET not_before=NULL WHERE job=$1',[JOB]);
    console.log(JSON.stringify({event:'page_saved',...result,requestsThisRun:requests}));

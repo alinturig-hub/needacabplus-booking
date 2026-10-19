@@ -31,6 +31,7 @@ Offset-free dates are retained raw but not silently interpreted as server time.
 - `AUTOCAB_HISTORY_INTERVAL_MS`: default 10000; minimum 7500; maximum 300000.
 - `AUTOCAB_HISTORY_MAX_REQUESTS`: default 100, maximum 200; set 1 for the initial canary.
 - `AUTOCAB_HISTORY_MAX_MINUTES`: default 25; maximum 120.
+- `AUTOCAB_HISTORY_NIGHT_BOOST=true`: enable the UK-local night policy below.
 - `AUTOCAB_HISTORY_STATUS_ONLY=true`: aggregate checkpoint/count report, no API calls.
 
 Never paste API keys in commands, logs or documentation. Configure through the
@@ -89,3 +90,33 @@ A 429 raises persisted `import_progress.throttle_floor_ms` to at least 10000ms,
 so subsequent calls/runs fall back to no more than six requests/minute, in addition
 to respecting Retry-After. That fallback does not reset automatically on restart.
 No additional subscription keys or parallel requests are used to increase quota.
+
+## UK night window (operator authorised 19 October 2026)
+
+With `AUTOCAB_HISTORY_NIGHT_BOOST=true`, 00:00 inclusive to 04:00 exclusive
+Europe/London raises the configured daytime request ceiling by 60%. With the
+7500ms day interval this is 4688ms minimum at night (approximately 12.8/minute),
+plus existing jitter. Actual throughput can be lower due to jitter, API/database
+latency or backoff. DST boundaries use the London timezone, not host UTC.
+
+During this window the worker keeps its lock and runs continuously, bypassing
+both the per-run request cap and run-duration boundary. It does not pause after
+200 requests or wait for the next half-hour schedule. Single request in flight,
+transactional checkpoints and cooldown remain mandatory. Raise the scheduled-task
+timeout to 18000 seconds (five hours) before enabling the flag. The usual
+half-hour schedule remains; overlapping invocations exit without API calls.
+At 04:00 normal rate and batch bounds resume, including rechecking after sleeps.
+This is a bounded historical importer, not a second live ingestion process.
+
+Each HTTP/network/response-read failure persists `rate_multiplier *= 0.9` (floor
+0.01), so the ceiling falls ten percent of its current value per failure.
+No automatic reset after success, midnight or restart. Example ceiling before
+jitter: 12.8 -> 11.52 -> 10.368 requests/minute. The multiplier also applies to
+the day rate. The existing 429 fallback floor of 10000ms still applies, so rate
+limits can cause a larger safety reduction. Retry-After and exponential backoff
+can still require pauses, and five consecutive retriable errors stop the run.
+Invalid payload/schema/token and database errors never advance the checkpoint.
+The API subscription's actual quota remains unconfirmed.
+
+Disable the night flag to restore daytime-only policy; do not reset the cursor,
+request timestamps, cooldown, throttle floor or multiplier for rollback.

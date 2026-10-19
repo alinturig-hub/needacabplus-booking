@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
-import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
+import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nightBoostActive,requestInterval,runBudgetAvailable,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
 
 test('UK boundaries are exact; daily windows neither overlap nor skip milliseconds',()=>{
  assert.equal(FROM,'2022-09-29T23:00:00.000Z');assert.equal(TO,'2026-10-18T21:00:00.000Z');
@@ -9,7 +9,7 @@ test('UK boundaries are exact; daily windows neither overlap nor skip millisecon
  while(w.to!==TO){const last=Date.parse(w.to);w=nextWindow(new Date(last+1));assert.equal(Date.parse(w.from),last+1);windows++;assert.ok(windows<1600)}
  assert.equal(w.to,TO);
 });
-test('production targets and request rates above eight per minute are rejected',()=>{
+test('production targets and unsafe daytime settings are rejected',()=>{
  assert.throws(()=>assertArchiveTarget('postgres://user@db/postgres'));
  assertArchiveTarget('postgres://user@db/'+ARCHIVE_DB);
  assert.throws(()=>numberSetting({INTERVAL:'7499'},'INTERVAL',10000,MIN_INTERVAL_MS,300000));
@@ -69,5 +69,44 @@ test('429 persists the slower rate across runs and never shortens Retry-After',a
  assert.ok(new Date(progress.not_before).getTime()>=before+1799000,'A later retry must not shorten an existing Retry-After cooldown');
  const prior='2026-10-18T22:00:00Z';
  assert.equal(nextRequestAt({...progress,last_request_at:prior,not_before:null},7500),Date.parse(prior)+10000);
+ }finally{await db.close()}
+});
+
+test('night window follows London midnight and 04:00 across BST/GMT transitions',()=>{
+ const enabled=iso=>nightBoostActive(true,Date.parse(iso));
+ assert.equal(enabled('2026-10-19T22:59:59Z'),false);
+ assert.equal(enabled('2026-10-19T23:00:00Z'),true);
+ assert.equal(enabled('2026-10-20T02:59:59Z'),true);
+ assert.equal(enabled('2026-10-20T03:00:00Z'),false);
+ assert.equal(enabled('2026-10-26T00:00:00Z'),true);
+ assert.equal(enabled('2026-10-26T04:00:00Z'),false);
+ assert.equal(enabled('2026-10-25T00:30:00Z'),true);
+ assert.equal(enabled('2026-10-25T01:30:00Z'),true);
+ assert.equal(enabled('2026-03-29T02:59:59Z'),true);
+ assert.equal(enabled('2026-03-29T03:00:00Z'),false);
+ assert.equal(nightBoostActive(false,Date.parse('2026-10-20T00:00:00Z')),false);
+});
+test('night raises ceiling 60 percent, bypasses batch pauses and restores daytime pacing at 04:00',()=>{
+ assert.equal(requestInterval({},7500,false),7500);
+ assert.equal(requestInterval({},7500,true),4688);
+ const exhausted={requests:500,maxRequests:200,now:100,deadline:50};
+ assert.equal(runBudgetAvailable({...exhausted,night:true}),true);
+ assert.equal(runBudgetAvailable({...exhausted,night:false}),false);
+ assert.equal(requestInterval({throttle_floor_ms:10000},7500,true),10000);
+ assert.equal(requestInterval({rate_multiplier:'0.9'},7500,true),5209);
+ assert.equal(requestInterval({rate_multiplier:'0.81'},7500,true),5788);
+});
+test('each error reduces persisted rate by ten percent; successful pages do not reset it',async()=>{
+ const db=await database();try{
+ await persistApiBackoff(db,503,null,1);
+ assert.equal(Number((await state(db)).rate_multiplier),0.9);
+ await persistApiBackoff(db,503,null,2);
+ assert.equal(Number((await state(db)).rate_multiplier),0.81);
+ const before=await state(db);
+ await savePage(db,before,{bookings:[{id:42}]});
+ const after=await state(db);
+ assert.equal(Number(after.rate_multiplier),0.81);
+ assert.equal(new Date(after.not_before).getTime(),new Date(before.not_before).getTime());
+ assert.equal(Number(after.pages),1);
  }finally{await db.close()}
 });
