@@ -120,3 +120,28 @@ The API subscription's actual quota remains unconfirmed.
 
 Disable the night flag to restore daytime-only policy; do not reset the cursor,
 request timestamps, cooldown, throttle floor or multiplier for rollback.
+
+## One-hour 20/minute trial
+
+An explicit operator-authorised trial can be armed in the private archive's
+`import_progress` row using `trial_started_at`, `trial_until` (start + 60 minutes),
+`trial_pause_until` (end + 10 minutes), and `trial_reference_multiplier` (the saved
+current multiplier). No secret or second subscription key is used. Arm only after
+the worker version supporting these fields is deployed. Do not clear API cooldown,
+429 floor, cursor, counters, or the existing rate multiplier.
+
+During the active window the ceiling is 20/minute (3000ms plus normal jitter).
+The trial uses the saved initial multiplier as a reference, so it preserves the
+previous reduced regime for automatic restoration; subsequent errors lower both
+the trial and the restored regime by the normal ten-percent rule. A prior/new 429
+floor and Retry-After still override the trial rate. No API calls are made during
+the ten-minute pause, including by another registry worker using the shared rate
+state. Expiry/pause are timestamped in PostgreSQL and survive process restarts.
+
+The worker bypasses normal batch bounds for the hour and holds its lock through
+the pause, then starts a new normal bounded batch. Night/day selection still uses
+Europe/London. Scheduled overlapping workers return without calls. Five consecutive
+retriable errors can stop a run early; expiry still cannot extend past the armed
+hour. All original records and checkpoints remain transactional and unchanged.
+To stop a trial early, shorten its expiry and set an appropriate pause end; never
+extend a trial without a new explicit instruction. Missing dates mean no trial.

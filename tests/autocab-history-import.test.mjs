@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
-import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nightBoostActive,requestInterval,runBudgetAvailable,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
+import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nightBoostActive,trialPhase,requestInterval,runBudgetAvailable,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
 
 test('UK boundaries are exact; daily windows neither overlap nor skip milliseconds',()=>{
  assert.equal(FROM,'2022-09-29T23:00:00.000Z');assert.equal(TO,'2026-10-18T21:00:00.000Z');
@@ -108,5 +108,39 @@ test('each error reduces persisted rate by ten percent; successful pages do not 
  assert.equal(Number(after.rate_multiplier),0.81);
  assert.equal(new Date(after.not_before).getTime(),new Date(before.not_before).getTime());
  assert.equal(Number(after.pages),1);
+ }finally{await db.close()}
+});
+
+const trialStart=Date.parse('2026-10-19T12:00:00Z');
+const trialFixture={trial_started_at:new Date(trialStart).toISOString(),trial_until:new Date(trialStart+3600000).toISOString(),trial_pause_until:new Date(trialStart+4200000).toISOString(),trial_reference_multiplier:'0.4',rate_multiplier:'0.4'};
+test('temporary 20/min ceiling expires after 60 minutes, pauses 10, and restores the prior reduced regime',()=>{
+ assert.equal(trialPhase(trialFixture,trialStart-1),'normal');
+ assert.equal(trialPhase(trialFixture,trialStart),'active');
+ assert.equal(trialPhase(trialFixture,trialStart+3599999),'active');
+ assert.equal(requestInterval(trialFixture,7500,false,trialStart),3000);
+ assert.equal(trialPhase(trialFixture,trialStart+3600000),'pause');
+ assert.equal(nextRequestAt(trialFixture,7500,trialStart+3600000),trialStart+4200000);
+ assert.equal(trialPhase(trialFixture,trialStart+4199999),'pause');
+ assert.equal(trialPhase(trialFixture,trialStart+4200000),'normal');
+ assert.equal(requestInterval(trialFixture,7500,false,trialStart+4200000),18750);
+ assert.equal(requestInterval(trialFixture,7500,true,trialStart+4200000),11719);
+ assert.throws(()=>trialPhase({...trialFixture,trial_until:new Date(trialStart+7200000).toISOString()},trialStart),/Invalid temporary/);
+ assert.throws(()=>trialPhase({...trialFixture,trial_pause_until:new Date(trialStart+4800000).toISOString()},trialStart),/Invalid temporary/);
+});
+test('trial never clears an API cooldown, 429 floor or new ten-percent error reductions',async()=>{
+ const db=await database();try{
+ await db.query('UPDATE import_progress SET rate_multiplier=0.4,trial_started_at=$2,trial_until=$3,trial_pause_until=$4,trial_reference_multiplier=0.4 WHERE job=$1',[JOB,trialFixture.trial_started_at,trialFixture.trial_until,trialFixture.trial_pause_until]);
+ const before=await state(db);
+ assert.equal(requestInterval(before,7500,false,trialStart),3000);
+ await persistApiBackoff(db,503,'1800',1);
+ let after=await state(db);
+ assert.equal(Number(after.rate_multiplier),0.36);
+ assert.equal(requestInterval(after,7500,false,trialStart),3334);
+ assert.ok(nextRequestAt(after,3334,trialStart)>=new Date(after.not_before).getTime());
+ await persistApiBackoff(db,429,null,1);after=await state(db);
+ assert.equal(after.throttle_floor_ms,10000);
+ assert.ok(requestInterval(after,7500,false,trialStart)>=10000);
+ assert.equal(Number(after.trial_reference_multiplier),0.4);
+ assert.equal(Number(after.pages),0);
  }finally{await db.close()}
 });

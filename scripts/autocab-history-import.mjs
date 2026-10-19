@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS import_progress (
 );
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS throttle_floor_ms integer NOT NULL DEFAULT 0;
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS rate_multiplier numeric NOT NULL DEFAULT 1 CHECK(rate_multiplier > 0 AND rate_multiplier <= 1);
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_started_at timestamptz;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_until timestamptz;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_pause_until timestamptz;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_reference_multiplier numeric;
 CREATE TABLE IF NOT EXISTS autocab_bookings (
  autocab_id text PRIMARY KEY, company_id text, booking_type text, archive_reason text,
  pickup_due_utc timestamptz, booked_at_utc timestamptz,
@@ -48,7 +52,19 @@ export function nightBoostActive(enabled,now=Date.now()){
  const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',hourCycle:'h23'}).format(new Date(now)));
  return hour>=0&&hour<4;
 }
-export function requestInterval(state,dayInterval,night){
+export function trialPhase(state,now=Date.now()){
+ const start=Date.parse(state.trial_started_at),end=Date.parse(state.trial_until),pauseEnd=Date.parse(state.trial_pause_until);
+ if(!Number.isFinite(start)||!Number.isFinite(end)||!Number.isFinite(pauseEnd))return 'normal';
+ if(end<=start||end-start>3600000||pauseEnd<end||pauseEnd-end>600000)throw new Error('Invalid temporary rate window');
+ return now<start||now>=pauseEnd?'normal':now<end?'active':'pause';
+}
+export function requestInterval(state,dayInterval,night,now=Date.now()){
+ if(trialPhase(state,now)==='active'){
+  const reference=Number(state.trial_reference_multiplier),current=Number(state.rate_multiplier??1);
+  if(!Number.isFinite(reference)||reference<=0||reference>1||!Number.isFinite(current)||current<=0||current>1)throw new Error('Invalid temporary rate reference');
+  // Retain the pre-trial multiplier; only new errors reduce this trial ceiling.
+  return Math.ceil(Math.max(3000,state.throttle_floor_ms??0)/Math.min(1,current/reference));
+ }
  const multiplier=Number(state.rate_multiplier??1);
  if(!Number.isFinite(multiplier)||multiplier<=0||multiplier>1)throw new Error('Invalid persisted request rate');
  return Math.ceil(Math.max(night?dayInterval/1.6:dayInterval,state.throttle_floor_ms??0)/multiplier);
@@ -56,8 +72,9 @@ export function requestInterval(state,dayInterval,night){
 export function runBudgetAvailable({night,requests,maxRequests,now,deadline}){
  return night||(requests<maxRequests&&now<deadline);
 }
-export function nextRequestAt(state,interval){
- return Math.max(state.last_request_at?new Date(state.last_request_at).getTime()+Math.max(interval,state.throttle_floor_ms??0):0,state.not_before?new Date(state.not_before).getTime():0);
+export function nextRequestAt(state,interval,now=Date.now()){
+ const trialPause=trialPhase(state,now)==='pause'?Date.parse(state.trial_pause_until):0;
+ return Math.max(trialPause,state.last_request_at?new Date(state.last_request_at).getTime()+Math.max(interval,state.throttle_floor_ms??0):0,state.not_before?new Date(state.not_before).getTime():0);
 }
 export async function persistApiBackoff(db,status,retryAfter,failures){
  const delay=Math.max(retryAfterMs(retryAfter),Math.min(900000,30000*2**failures));
@@ -139,10 +156,10 @@ export async function run(env=process.env){
  const maxRequests=numberSetting(env,'AUTOCAB_HISTORY_MAX_REQUESTS',100,1,MAX_REQUESTS_PER_RUN);
  const maxMinutes=numberSetting(env,'AUTOCAB_HISTORY_MAX_MINUTES',25,1,120);
  const db=new pg.Client({connectionString:env.AUTOCAB_HISTORY_DATABASE_URL,connectionTimeoutMillis:10000});
- let stop=false,requests=0,failures=0;
- const deadline=Date.now()+maxMinutes*60000;
+ let stop=false,requests=0,failures=0,trialHoldUntil=0;
+ let deadline=Date.now()+maxMinutes*60000;
  const onStop=()=>{stop=true};process.on('SIGTERM',onStop);process.on('SIGINT',onStop);
- const pause=async ms=>{const until=Date.now()+ms;while(!stop&&Date.now()<until&&(Date.now()<deadline||boosted()))await new Promise(r=>setTimeout(r,Math.min(1000,until-Date.now())))};
+ const pause=async ms=>{const until=Date.now()+ms;while(!stop&&Date.now()<until&&(Date.now()<deadline||boosted()||Date.now()<trialHoldUntil))await new Promise(r=>setTimeout(r,Math.min(1000,until-Date.now())))};
  try{
   await db.connect();
   const lock=await db.query("SELECT pg_try_advisory_lock(hashtext('autocab-history-import')) AS acquired");
@@ -154,17 +171,30 @@ export async function run(env=process.env){
    const {rows}=await db.query('SELECT job,window_from,window_to,pages,records_seen,requests,last_request_at,not_before,done,updated_at,(SELECT count(*) FROM autocab_bookings) AS unique_bookings FROM import_progress WHERE job=$1',[JOB]);console.log(JSON.stringify(rows[0]));return;
   }
   const key=await apiKey(env);
-  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightBoostPercent:60,timeZone:'Europe/London',errorReductionPercent:10}));
-  while(!stop&&runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline})){
+  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightBoostPercent:60,timeZone:'Europe/London',errorReductionPercent:10,temporaryTrialSupported:true}));
+  while(!stop){
    const {rows:[state]}=await db.query('SELECT * FROM import_progress WHERE job=$1',[JOB]);
    if(state.done){console.log('Archive complete');break}
+   const phase=trialPhase(state);
+   if(phase!=='normal')trialHoldUntil=Date.parse(state.trial_pause_until);
+   else if(trialHoldUntil){
+    trialHoldUntil=0;requests=0;deadline=Date.now()+maxMinutes*60000;
+    console.log(JSON.stringify({event:'temporary_rate_restored',timeZone:'Europe/London'}));
+   }
+   if(phase==='pause'){
+    console.log(JSON.stringify({event:'temporary_rate_pause',until:state.trial_pause_until}));
+    await pause(Math.max(0,Date.parse(state.trial_pause_until)-Date.now()));continue;
+   }
+   if(phase!=='active'&&!runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline}))break;
    // Wait for the requested historical cutoff; never mark a future window complete.
    if(Date.parse(nextWindow(state.window_from).to)>Date.now()){console.log('Waiting for final cutoff; resume later');break}
    const night=boosted();
    const effectiveInterval=requestInterval(state,interval,night);
    const nextAllowed=nextRequestAt(state,effectiveInterval);
    await pause(Math.max(0,nextAllowed-Date.now())+Math.floor(Math.random()*1000));
-   if(stop||!runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline}))break;
+   if(stop)break;
+   if(trialPhase(state)==='pause')continue;
+   if(trialPhase(state)!=='active'&&!runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline}))break;
    // Re-evaluate after sleep: 04:00 must restore day pacing before any next call.
    if(requestInterval(state,interval,boosted())>effectiveInterval)continue;
    await db.query('UPDATE import_progress SET requests=requests+1,last_request_at=now() WHERE job=$1',[JOB]);requests++;
