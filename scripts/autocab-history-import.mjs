@@ -24,6 +24,8 @@ ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_started_at timestampt
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_until timestamptz;
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_pause_until timestamptz;
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_reference_multiplier numeric;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS night_session_key text;
+ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS night_reference_multiplier numeric;
 ALTER TABLE import_progress ADD COLUMN IF NOT EXISTS trial_interval_ms integer NOT NULL DEFAULT 3000 CHECK(trial_interval_ms BETWEEN 2400 AND 300000);
 CREATE TABLE IF NOT EXISTS autocab_bookings (
  autocab_id text PRIMARY KEY, company_id text, booking_type text, archive_reason text,
@@ -47,11 +49,21 @@ export function retryAfterMs(value,now=Date.now()){
  const seconds=Number(value);if(Number.isFinite(seconds)&&seconds>=0)return Math.ceil(seconds*1000);
  const time=Date.parse(value);return Number.isFinite(time)?Math.max(0,time-now):0;
 }
-// UK wall-clock boundaries, including BST/GMT and the repeated autumn hour.
-export function nightBoostActive(enabled,now=Date.now()){
- if(!enabled)return false;
- const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',hourCycle:'h23'}).format(new Date(now)));
- return hour>=0&&hour<4;
+// UK wall-clock hours; repeated autumn hours retain the same scheduled ceiling.
+export function nightPolicy(now=Date.now()){
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));
+ const hour=Number(parts.hour);
+ if(hour>=4&&hour<21)return null;
+ const date=new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
+ if(hour<4)date.setUTCDate(date.getUTCDate()-1);
+ return {key:date.toISOString().slice(0,10),requestsPerMinute:25+5*((hour+24-21)%24)};
+}
+export function nightBoostActive(enabled,now=Date.now()){return enabled&&nightPolicy(now)!==null}
+export async function ensureNightReference(db,state,now=Date.now()){
+ const policy=nightPolicy(now);
+ if(!policy||state.night_session_key===policy.key)return state;
+ const {rows:[updated]}=await db.query('UPDATE import_progress SET night_session_key=$2,night_reference_multiplier=rate_multiplier WHERE job=$1 RETURNING *',[JOB,policy.key]);
+ return updated;
 }
 export function trialPhase(state,now=Date.now()){
  const start=Date.parse(state.trial_started_at),end=Date.parse(state.trial_until),pauseEnd=Date.parse(state.trial_pause_until);
@@ -70,7 +82,13 @@ export function requestInterval(state,dayInterval,night,now=Date.now()){
  }
  const multiplier=Number(state.rate_multiplier??1);
  if(!Number.isFinite(multiplier)||multiplier<=0||multiplier>1)throw new Error('Invalid persisted request rate');
- return Math.ceil(Math.max(night?dayInterval/1.6:dayInterval,state.throttle_floor_ms??0)/multiplier);
+ const policy=night?nightPolicy(now):null;
+ if(policy){
+  const reference=Number(state.night_reference_multiplier);
+  if(state.night_session_key!==policy.key||!Number.isFinite(reference)||reference<=0||reference>1)throw new Error('Night rate reference missing');
+  return Math.ceil(Math.max(60000/policy.requestsPerMinute,state.throttle_floor_ms??0)/Math.min(1,multiplier/reference));
+ }
+ return Math.ceil(Math.max(dayInterval,state.throttle_floor_ms??0)/multiplier);
 }
 export function runBudgetAvailable({night,requests,maxRequests,now,deadline}){
  return night||(requests<maxRequests&&now<deadline);
@@ -174,9 +192,10 @@ export async function run(env=process.env){
    const {rows}=await db.query('SELECT job,window_from,window_to,pages,records_seen,requests,last_request_at,not_before,done,updated_at,(SELECT count(*) FROM autocab_bookings) AS unique_bookings FROM import_progress WHERE job=$1',[JOB]);console.log(JSON.stringify(rows[0]));return;
   }
   const key=await apiKey(env);
-  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightBoostPercent:60,timeZone:'Europe/London',errorReductionPercent:10,temporaryTrialSupported:true}));
+  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightStartHour:21,nightEndHour:4,nightStartRate:25,nightHourlyIncrease:5,nightMaxRate:55,timeZone:'Europe/London',errorReductionPercent:10,temporaryTrialSupported:true}));
   while(!stop){
-   const {rows:[state]}=await db.query('SELECT * FROM import_progress WHERE job=$1',[JOB]);
+   let {rows:[state]}=await db.query('SELECT * FROM import_progress WHERE job=$1',[JOB]);
+   if(boosted())state=await ensureNightReference(db,state);
    if(state.done){console.log('Archive complete');break}
    const phase=trialPhase(state);
    if(phase!=='normal')trialHoldUntil=Date.parse(state.trial_pause_until);
@@ -198,6 +217,8 @@ export async function run(env=process.env){
    if(stop)break;
    if(trialPhase(state)==='pause')continue;
    if(trialPhase(state)!=='active'&&!runBudgetAvailable({night:boosted(),requests,maxRequests,now:Date.now(),deadline}))break;
+   // Re-enter the loop on a window boundary to initialise the correct reference.
+   if(boosted()!==night)continue;
    // Re-evaluate after sleep: 04:00 must restore day pacing before any next call.
    if(requestInterval(state,interval,boosted())>effectiveInterval)continue;
    await db.query('UPDATE import_progress SET requests=requests+1,last_request_at=now() WHERE job=$1',[JOB]);requests++;

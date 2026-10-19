@@ -41,8 +41,9 @@ be rotated by the account owner.
 ## Scheduling and controls
 
 One active importer per archive via a session advisory lock. At most one request
-in flight, minimum 7.5 seconds between request starts plus 0–999ms jitter, even
-across process restarts. Recommended schedule after a successful one-page canary:
+in flight. Daytime uses minimum 7.5 seconds between request starts plus
+0–999ms jitter, across process restarts; explicit night/trial policies below
+use their own bounded ceilings. Recommended schedule after a successful one-page canary:
 every 30 minutes (`*/30 * * * *`), timeout 1800 seconds, up to 200 requests per invocation (28-minute run budget for the faster profile).
 Pause by disabling the scheduled task. SIGTERM/SIGINT stop after the current page;
 the database transaction keeps bookings, page journal and checkpoint together.
@@ -91,35 +92,45 @@ so subsequent calls/runs fall back to no more than six requests/minute, in addit
 to respecting Retry-After. That fallback does not reset automatically on restart.
 No additional subscription keys or parallel requests are used to increase quota.
 
-## UK night window (operator authorised 19 October 2026)
+## UK evening/night hourly ramp (authorised 19 October 2026)
 
-With `AUTOCAB_HISTORY_NIGHT_BOOST=true`, 00:00 inclusive to 04:00 exclusive
-Europe/London raises the configured daytime request ceiling by 60%. With the
-7500ms day interval this is 4688ms minimum at night (approximately 12.8/minute),
-plus existing jitter. Actual throughput can be lower due to jitter, API/database
-latency or backoff. DST boundaries use the London timezone, not host UTC.
+With `AUTOCAB_HISTORY_NIGHT_BOOST=true`, the window is 21:00 inclusive to 04:00
+exclusive Europe/London. This replaces the prior midnight +60% policy.
 
-During this window the worker keeps its lock and runs continuously, bypassing
-both the per-run request cap and run-duration boundary. It does not pause after
-200 requests or wait for the next half-hour schedule. Single request in flight,
-transactional checkpoints and cooldown remain mandatory. Raise the scheduled-task
-timeout to 18000 seconds (five hours) before enabling the flag. The usual
-half-hour schedule remains; overlapping invocations exit without API calls.
-At 04:00 normal rate and batch bounds resume, including rechecking after sleeps.
-This is a bounded historical importer, not a second live ingestion process.
+| UK hour | Requests/minute ceiling |
+| --- | ---: |
+| 21:00–22:00 | 25 |
+| 22:00–23:00 | 30 |
+| 23:00–00:00 | 35 |
+| 00:00–01:00 | 40 |
+| 01:00–02:00 | 45 |
+| 02:00–03:00 | 50 |
+| 03:00–04:00 | 55 |
 
-Each HTTP/network/response-read failure persists `rate_multiplier *= 0.9` (floor
-0.01), so the ceiling falls ten percent of its current value per failure.
-No automatic reset after success, midnight or restart. Example ceiling before
-jitter: 12.8 -> 11.52 -> 10.368 requests/minute. The multiplier also applies to
-the day rate. The existing 429 fallback floor of 10000ms still applies, so rate
-limits can cause a larger safety reduction. Retry-After and exponential backoff
-can still require pauses, and five consecutive retriable errors stop the run.
-Invalid payload/schema/token and database errors never advance the checkpoint.
-The API subscription's actual quota remains unconfirmed.
+Intervals are rounded up from 60000/ceiling, plus existing jitter. Throughput
+can be lower due to API/DB latency, jitter and backoff. London wall-clock hours
+handle DST: the repeated autumn hour retains its ceiling, and the skipped spring
+hour has no separate slot. The night session key is the local date at 21:00,
+so midnight and process restarts do not reset reductions.
 
-Disable the night flag to restore daytime-only policy; do not reset the cursor,
-request timestamps, cooldown, throttle floor or multiplier for rollback.
+At the start of each nightly session, persist the current `rate_multiplier` in
+`night_reference_multiplier`. The scheduled ceiling is multiplied by the ratio
+of current/reference (never above one). Each new error still multiplies current
+rate by 0.9; hourly increases do not clear accumulated reductions. The old day
+multiplier is retained for restoration at 04:00, including subsequent errors.
+Existing 429 floors and Retry-After remain mandatory and can impose a stricter
+limit. No keys, cursors, cooldown or throttle-floor values are reset.
+
+Night runs retain the shared lock and bypass normal per-batch request/duration
+bounds, then restore the day profile at 04:00. Use scheduled-task timeout 36000
+seconds (ten hours), covering the extra autumn hour and a following day batch.
+The half-hour schedule remains unchanged; overlapping runs exit without calls.
+One request in flight, transactional checkpoints, response timeouts and the
+five-consecutive-errors stop remain active. A temporary trial's ten-minute pause
+also remains mandatory if it overlaps the night window.
+
+Disable the night flag to restore daytime-only scheduling; preserve all saved
+state. The vendor quota is not confirmed; these are client-side ceilings.
 
 ## One-hour 20/minute trial
 
