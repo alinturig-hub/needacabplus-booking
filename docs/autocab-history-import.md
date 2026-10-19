@@ -95,7 +95,9 @@ No additional subscription keys or parallel requests are used to increase quota.
 ## UK evening/night hourly ramp (authorised 19 October 2026)
 
 With `AUTOCAB_HISTORY_NIGHT_BOOST=true`, the window is 21:00 inclusive to 04:00
-exclusive Europe/London. This replaces the prior midnight +60% policy.
+exclusive Europe/London. This replaces the prior midnight +60% policy. The operator subsequently
+authorised a 100/minute ceiling for 02:00–04:00 only; earlier hours retain
+the hourly +5 ramp.
 
 | UK hour | Requests/minute ceiling |
 | --- | ---: |
@@ -104,8 +106,8 @@ exclusive Europe/London. This replaces the prior midnight +60% policy.
 | 23:00–00:00 | 35 |
 | 00:00–01:00 | 40 |
 | 01:00–02:00 | 45 |
-| 02:00–03:00 | 50 |
-| 03:00–04:00 | 55 |
+| 02:00–03:00 | 100 |
+| 03:00–04:00 | 100 |
 
 Intervals are rounded up from 60000/ceiling, plus existing jitter. Throughput
 can be lower due to API/DB latency, jitter and backoff. London wall-clock hours

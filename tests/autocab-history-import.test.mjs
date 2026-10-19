@@ -78,7 +78,7 @@ test('21:00–04:00 UK window and hourly ramp handle BST/GMT and repeated hours'
  const hours=['20','21','22','23','00','01','02'];
  for(const [i,h] of hours.entries()){
   const date=i<4?'2026-10-19':'2026-10-20';
-  assert.deepEqual(nightPolicy(at(`${date}T${h}:00:00Z`)),{key:'2026-10-19',requestsPerMinute:25+5*i});
+  assert.deepEqual(nightPolicy(at(`${date}T${h}:00:00Z`)),{key:'2026-10-19',requestsPerMinute:i>=5?100:25+5*i});
  }
  assert.equal(nightPolicy(at('2026-10-20T03:00:00Z')),null);
  assert.equal(nightPolicy(at('2026-10-26T21:00:00Z'))?.requestsPerMinute,25);
@@ -187,4 +187,20 @@ test('new nightly errors still reduce speed when the prior global multiplier is 
  assert.equal(Number(reduced.rate_multiplier),0.009);
  assert.equal(requestInterval(reduced,7500,true,now),2667);
  }finally{await db.close()}
+});
+
+test('100/min ceiling applies only 02:00–04:00 UK and preserves error and 429 reductions',()=>{
+ const at=iso=>Date.parse(iso);
+ const reference={night_session_key:'2026-10-19',night_reference_multiplier:'0.4',rate_multiplier:'0.4'};
+ assert.equal(nightPolicy(at('2026-10-20T00:59:59Z'))?.requestsPerMinute,45);
+ assert.equal(nightPolicy(at('2026-10-20T01:00:00Z'))?.requestsPerMinute,100);
+ assert.equal(nightPolicy(at('2026-10-20T02:59:59Z'))?.requestsPerMinute,100);
+ assert.equal(nightPolicy(at('2026-10-20T03:00:00Z')),null);
+ assert.equal(requestInterval(reference,7500,true,at('2026-10-20T01:00:00Z')),600);
+ assert.equal(requestInterval({...reference,rate_multiplier:'0.36'},7500,true,at('2026-10-20T01:00:00Z')),667);
+ assert.equal(requestInterval({...reference,throttle_floor_ms:10000},7500,true,at('2026-10-20T01:00:00Z')),10000);
+ assert.equal(nightPolicy(at('2026-10-26T02:00:00Z'))?.requestsPerMinute,100);
+ assert.equal(nightPolicy(at('2026-10-26T04:00:00Z')),null);
+ assert.equal(nightPolicy(at('2026-10-25T01:30:00Z'))?.requestsPerMinute,45);
+ assert.equal(nightPolicy(at('2026-10-25T02:00:00Z'))?.requestsPerMinute,100);
 });

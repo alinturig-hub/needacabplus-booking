@@ -56,7 +56,7 @@ export function nightPolicy(now=Date.now()){
  if(hour>=4&&hour<21)return null;
  const date=new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
  if(hour<4)date.setUTCDate(date.getUTCDate()-1);
- return {key:date.toISOString().slice(0,10),requestsPerMinute:25+5*((hour+24-21)%24)};
+ return {key:date.toISOString().slice(0,10),requestsPerMinute:hour>=2&&hour<4?100:25+5*((hour+24-21)%24)};
 }
 export function nightBoostActive(enabled,now=Date.now()){return enabled&&nightPolicy(now)!==null}
 export async function ensureNightReference(db,state,now=Date.now()){
@@ -192,7 +192,7 @@ export async function run(env=process.env){
    const {rows}=await db.query('SELECT job,window_from,window_to,pages,records_seen,requests,last_request_at,not_before,done,updated_at,(SELECT count(*) FROM autocab_bookings) AS unique_bookings FROM import_progress WHERE job=$1',[JOB]);console.log(JSON.stringify(rows[0]));return;
   }
   const key=await apiKey(env);
-  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightStartHour:21,nightEndHour:4,nightStartRate:25,nightHourlyIncrease:5,nightMaxRate:55,timeZone:'Europe/London',errorReductionPercent:10,temporaryTrialSupported:true}));
+  console.log(JSON.stringify({event:'rate_policy',nightBoostEnabled:nightEnabled,nightStartHour:21,nightEndHour:4,nightStartRate:25,nightHourlyIncrease:5,nightMaxRate:100,nightHighRateStartHour:2,timeZone:'Europe/London',errorReductionPercent:10,temporaryTrialSupported:true}));
   while(!stop){
    let {rows:[state]}=await db.query('SELECT * FROM import_progress WHERE job=$1',[JOB]);
    if(boosted())state=await ensureNightReference(db,state);
