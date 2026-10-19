@@ -71,7 +71,7 @@ export function assertArchiveTarget(url){
  const parsed=new URL(url);
  if(decodeURIComponent(parsed.pathname.slice(1))!==ARCHIVE_DB)throw new Error(`Target database must be ${ARCHIVE_DB}; operational databases are forbidden`);
 }
-async function apiKey(env){
+export async function apiKey(env){
  if(env.AUTOCAB_HISTORY_API_KEY)return env.AUTOCAB_HISTORY_API_KEY;
  if(!env.DATABASE_URL)throw new Error('Configure AUTOCAB_HISTORY_API_KEY or the existing encrypted Autocab connection');
  if(!env.AUTOCAB_HISTORY_CONNECTION_ID)throw new Error('AUTOCAB_HISTORY_CONNECTION_ID is required: validate the source before import');

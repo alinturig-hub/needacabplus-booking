@@ -42,6 +42,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/reconcile-taxicrm-delta.m
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-history-import.mjs ./scripts/autocab-history-import.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-history-source-check.mjs ./scripts/autocab-history-source-check.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrations/20261018_live_autocab_documents.sql ./scripts/migrations/20261018_live_autocab_documents.sql
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-history-registry.mjs ./scripts/autocab-history-registry.mjs
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
