@@ -13,7 +13,7 @@ export async function taxiCrmDispatchLive(){
    FROM public."Booking" booking
    LEFT JOIN public."BookingLocation" pickup ON pickup."bookingId"=booking.id AND pickup.type::text='PICKUP'
    LEFT JOIN public."BookingLocation" destination ON destination."bookingId"=booking.id AND destination.type::text='DESTINATION'
-   WHERE booking.status NOT IN ('COMPLETED','CANCELLED','REJECTED','NO_FARE','NOFARE')
+   WHERE booking.status NOT IN ('COMPLETED','CANCELLED','REJECTED','NO_FARE','NOFARE') AND booking.status NOT LIKE 'ARCHIVED%'
     AND booking."pickupDueTime" BETWEEN now()-interval '6 hours' AND now()+interval '48 hours'
    ORDER BY booking."pickupDueTime" ASC,booking."updatedAt" DESC LIMIT 500`);
   const ids=jobs.rows.map(row=>row.id);
@@ -22,7 +22,7 @@ export async function taxiCrmDispatchLive(){
    FROM public."BookingTimelineEvent" event JOIN public."Booking" booking ON booking.id=event."bookingId"
    WHERE event."bookingId"=ANY($1::text[]) ORDER BY event."occurredAt" DESC LIMIT 100`,[ids]):{rows:[] as EventRow[]};
   const count=await client.query<{total:string}>(`SELECT count(*)::text total FROM public."Booking"
-   WHERE status NOT IN ('COMPLETED','CANCELLED','REJECTED','NO_FARE','NOFARE')
+   WHERE status NOT IN ('COMPLETED','CANCELLED','REJECTED','NO_FARE','NOFARE') AND status NOT LIKE 'ARCHIVED%'
     AND "pickupDueTime" BETWEEN now()-interval '6 hours' AND now()+interval '48 hours'`);
   return {jobs:jobs.rows,events:events.rows,activeTotal:Number(count.rows[0]?.total||0)};
  }),taxiCrmFleetFreshness()]);
