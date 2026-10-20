@@ -214,3 +214,22 @@ test('dated extension keeps the prior night and 100/min only until 08:00 UK, nev
  assert.equal(nightPolicy(at('2026-10-20T04:00:00Z'),'invalid'),null);
  assert.equal(nightPolicy(at('2026-10-20T04:00:00Z'),''),null);
 });
+
+ test('200/min morning override expires and retains error reductions',()=>{
+ const end='2026-10-20T07:00:00Z',now=Date.parse('2026-10-20T04:00:00Z');
+ assert.equal(nightPolicy(now,end,'200').requestsPerMinute,200);
+ assert.equal(nightPolicy(Date.parse(end),end,'200'),null);
+ assert.equal(nightPolicy(Date.parse('2026-10-21T04:00:00Z'),end,'200'),null);
+ assert.equal(nightPolicy(Date.parse('2026-10-20T01:00:00Z'),end,'200').requestsPerMinute,100);
+ assert.throws(()=>nightPolicy(now,end,'201'));
+ const oldEnd=process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL,oldRpm=process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM;
+ try{
+ process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL=end;process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM='200';
+ const state={night_session_key:'2026-10-19',night_reference_multiplier:'0.4',rate_multiplier:'0.36'};
+ assert.equal(requestInterval(state,7500,true,now),334);
+ assert.equal(requestInterval({...state,throttle_floor_ms:10000},7500,true,now),11112);
+ }finally{
+ if(oldEnd===undefined)delete process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL;else process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL=oldEnd;
+ if(oldRpm===undefined)delete process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM;else process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM=oldRpm;
+ }
+ });

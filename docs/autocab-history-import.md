@@ -180,3 +180,8 @@ Europe/London only and at most four hours before that deadline. For the authoris
 The session key stays on the previous evening: no error multiplier, 429 floor,
 cooldown or checkpoint is reset. It expires automatically, without extending
 subsequent days. After expiry the normal 21:00–04:00 policy remains unchanged.
+
+`AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM` sets only the dated morning extension's
+ceiling (integer 1–200, default 100). The authorised 20 October increase uses
+200 until 08:00 UK. It does not change subsequent nights or reset accumulated
+error reductions, Retry-After, the 429 floor or the import cursor.
