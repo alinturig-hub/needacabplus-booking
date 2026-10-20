@@ -4,7 +4,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {datedBoostPolicy,ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nightPolicy,ensureNightReference,nightBoostActive,trialPhase,requestInterval,runBudgetAvailable,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
 
 test('UK boundaries are exact; daily windows neither overlap nor skip milliseconds',()=>{
- assert.equal(FROM,'2022-09-29T23:00:00.000Z');assert.equal(TO,'2026-10-20T04:00:00.000Z');
+ assert.equal(FROM,'2022-09-29T23:00:00.000Z');assert.equal(TO,'2026-10-20T09:00:00.000Z');
  let w=nextWindow(FROM),windows=1;
  while(w.to!==TO){const last=Date.parse(w.to);w=nextWindow(new Date(last+1));assert.equal(Date.parse(w.from),last+1);windows++;assert.ok(windows<1600)}
  assert.equal(w.to,TO);

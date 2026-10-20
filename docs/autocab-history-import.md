@@ -7,8 +7,8 @@ operational databases. The target URL must name `needacabplus_archive_20261018`.
 
 ## Scope and fidelity
 
-30 September 2022 00:00 through 20 October 2026 05:00 Europe/London, inclusive:
-`2022-09-29T23:00:00.000Z` through `2026-10-20T04:00:00.000Z`.
+30 September 2022 00:00 through 20 October 2026 10:00 Europe/London, inclusive:
+`2022-09-29T23:00:00.000Z` through `2026-10-20T09:00:00.000Z`.
 All documented Search types, empty company/capability/telephone filters.
 Daily UTC windows (not UK calendar-day buckets), with millisecond-inclusive bounds
 and no gaps. The window's filters stay unchanged throughout token pagination.
@@ -186,7 +186,7 @@ ceiling (integer 1–250, default 100). The authorised 20 October increase uses
 250 until 08:00 UK. It does not change subsequent nights or reset accumulated
 error reductions, Retry-After, the 429 floor or the import cursor.
 
-The cutoff was extended on 20 October to 05:00 UK (04:00 UTC). The existing job
+The cutoff was extended on 20 October to 10:00 UK (09:00 UTC). The existing job
 identifier is retained to continue its checkpoint without reimporting prior pages.
 
 At the operator’s request the morning ceiling was raised from 200 to 250/min
@@ -202,4 +202,4 @@ It takes precedence over the morning/night schedule, keeps the prior night's
 reference even after 21:00, and never resets errors, cooldowns, 429 floors or the
 checkpoint. At expiry the normal schedule resumes. Coolify caps each worker task
 at 10 hours; scheduled invocations continue from the checkpoint after that limit.
-The data cutoff remains 20 October 2026 at 05:00 UK.
+The data cutoff is 20 October 2026 at 10:00 UK.
