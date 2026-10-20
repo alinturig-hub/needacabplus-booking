@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
-import {ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nightPolicy,ensureNightReference,nightBoostActive,trialPhase,requestInterval,runBudgetAvailable,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
+import {datedBoostPolicy,ARCHIVE_DB,FROM,TO,JOB,SCHEMA,MIN_INTERVAL_MS,MAX_REQUESTS_PER_RUN,assertArchiveTarget,nightPolicy,ensureNightReference,nightBoostActive,trialPhase,requestInterval,runBudgetAvailable,nextWindow,numberSetting,retryAfterMs,nextRequestAt,persistApiBackoff,savePage,timestamp,validatePage} from '../scripts/autocab-history-import.mjs';
 
 test('UK boundaries are exact; daily windows neither overlap nor skip milliseconds',()=>{
  assert.equal(FROM,'2022-09-29T23:00:00.000Z');assert.equal(TO,'2026-10-20T04:00:00.000Z');
@@ -233,3 +233,23 @@ test('dated extension keeps the prior night and 100/min only until 08:00 UK, nev
  if(oldRpm===undefined)delete process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM;else process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM=oldRpm;
  }
  });
+
+test('dated 300/min boost spans daytime and evening without resetting the night reference',()=>{
+ const env={AUTOCAB_HISTORY_DAY_BOOST_FROM:'2026-10-20T06:14:00Z',AUTOCAB_HISTORY_DAY_BOOST_UNTIL:'2026-10-20T23:00:00Z',AUTOCAB_HISTORY_DAY_BOOST_RPM:'300'};
+ const at=Date.parse;
+ for(const time of ['2026-10-20T06:14:00Z','2026-10-20T12:00:00Z','2026-10-20T22:59:59Z'])assert.deepEqual(datedBoostPolicy(at(time),env),{key:'2026-10-19',requestsPerMinute:300});
+ assert.equal(datedBoostPolicy(at('2026-10-20T06:13:59Z'),env),null);
+ assert.equal(datedBoostPolicy(at('2026-10-20T23:00:00Z'),env),null);
+ assert.equal(datedBoostPolicy(at('2026-10-21T12:00:00Z'),env),null);
+ assert.equal(datedBoostPolicy(at('2026-10-20T12:00:00Z'),{}),null);
+ assert.throws(()=>datedBoostPolicy(at('2026-10-20T12:00:00Z'),{...env,AUTOCAB_HISTORY_DAY_BOOST_RPM:'301'}));
+ assert.throws(()=>datedBoostPolicy(at('2026-10-20T12:00:00Z'),{...env,AUTOCAB_HISTORY_DAY_BOOST_UNTIL:'2026-10-22T00:00:00Z'}));
+ const keys=Object.keys(env),old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ try{
+ Object.assign(process.env,env);
+ const now=at('2026-10-20T21:00:00Z'),state={night_session_key:'2026-10-19',night_reference_multiplier:'0.4',rate_multiplier:'0.36'};
+ assert.equal(requestInterval(state,7500,true,now),223);
+ assert.equal(requestInterval({...state,throttle_floor_ms:10000},7500,true,now),11112);
+ assert.equal(nightPolicy(at('2026-10-20T23:00:00Z')).key,'2026-10-20');
+ }finally{for(const k of keys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k]}}
+});

@@ -191,3 +191,15 @@ identifier is retained to continue its checkpoint without reimporting prior page
 
 At the operator’s request the morning ceiling was raised from 200 to 250/min
 on 20 October. The same dated expiry and existing error reductions still apply.
+
+### Dated all-day override (20 October 2026)
+
+The operator authorised up to 300 requests/minute for the remainder of the UK day.
+`AUTOCAB_HISTORY_DAY_BOOST_FROM=2026-10-20T06:14:00Z`,
+`AUTOCAB_HISTORY_DAY_BOOST_UNTIL=2026-10-20T23:00:00Z` (00:00 UK), and
+`AUTOCAB_HISTORY_DAY_BOOST_RPM=300` activate a dated override of at most 24 hours.
+It takes precedence over the morning/night schedule, keeps the prior night's
+reference even after 21:00, and never resets errors, cooldowns, 429 floors or the
+checkpoint. At expiry the normal schedule resumes. The worker task timeout is
+extended to 24 hours so it can retain its single-worker lock through this day.
+The data cutoff remains 20 October 2026 at 05:00 UK.

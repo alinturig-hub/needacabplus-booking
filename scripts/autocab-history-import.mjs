@@ -49,8 +49,19 @@ export function retryAfterMs(value,now=Date.now()){
  const seconds=Number(value);if(Number.isFinite(seconds)&&seconds>=0)return Math.ceil(seconds*1000);
  const time=Date.parse(value);return Number.isFinite(time)?Math.max(0,time-now):0;
 }
+// Explicit dated override; retain one reference across restarts and the evening boundary.
+export function datedBoostPolicy(now=Date.now(),env=process.env){
+ const start=Date.parse(env.AUTOCAB_HISTORY_DAY_BOOST_FROM??''),end=Date.parse(env.AUTOCAB_HISTORY_DAY_BOOST_UNTIL??'');
+ if(!Number.isFinite(start)||!Number.isFinite(end))return null;
+ if(end<=start||end-start>86400000)throw new Error('Invalid dated boost window');
+ if(now<start||now>=end)return null;
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(start)).map(p=>[p.type,p.value]));
+ const date=new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);date.setUTCDate(date.getUTCDate()-1);
+ return {key:date.toISOString().slice(0,10),requestsPerMinute:numberSetting(env,'AUTOCAB_HISTORY_DAY_BOOST_RPM',300,1,300)};
+}
 // UK wall-clock hours; repeated autumn hours retain the same scheduled ceiling.
 export function nightPolicy(now=Date.now(),extensionUntil=process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL,extensionRpm=process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM){
+ const dated=datedBoostPolicy(now);if(dated)return dated;
  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));
  const hour=Number(parts.hour);
  const extensionEnd=Date.parse(extensionUntil??'');
