@@ -169,3 +169,14 @@ older 20/minute trials. Schema and code reject intervals below 2400ms and window
 longer than two hours. A new trial must not overwrite an active/pause window.
 The saved reference multiplier, subsequent ten-percent error reductions, 429
 floor, Retry-After, shared lock and transactional checkpoints still apply.
+
+
+### Dated morning extension
+
+`AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL` accepts a dated ISO UTC deadline for a
+one-off continuation of the prior night's 100/minute ceiling, within 04:00–08:00
+Europe/London only and at most four hours before that deadline. For the authorised
+20 October 2026 extension, the deadline is `2026-10-20T07:00:00Z` (08:00 UK).
+The session key stays on the previous evening: no error multiplier, 429 floor,
+cooldown or checkpoint is reset. It expires automatically, without extending
+subsequent days. After expiry the normal 21:00–04:00 policy remains unchanged.

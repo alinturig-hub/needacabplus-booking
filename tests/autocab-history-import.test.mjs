@@ -204,3 +204,13 @@ test('100/min ceiling applies only 02:00–04:00 UK and preserves error and 429 
  assert.equal(nightPolicy(at('2026-10-25T01:30:00Z'))?.requestsPerMinute,45);
  assert.equal(nightPolicy(at('2026-10-25T02:00:00Z'))?.requestsPerMinute,100);
 });
+
+test('dated extension keeps the prior night and 100/min only until 08:00 UK, never on following days',()=>{
+ const end='2026-10-20T07:00:00Z',at=Date.parse;
+ assert.deepEqual(nightPolicy(at('2026-10-20T03:00:00Z'),end),{key:'2026-10-19',requestsPerMinute:100});
+ assert.deepEqual(nightPolicy(at('2026-10-20T06:59:59Z'),end),{key:'2026-10-19',requestsPerMinute:100});
+ assert.equal(nightPolicy(at('2026-10-20T07:00:00Z'),end),null);
+ assert.equal(nightPolicy(at('2026-10-21T04:00:00Z'),end),null);
+ assert.equal(nightPolicy(at('2026-10-20T04:00:00Z'),'invalid'),null);
+ assert.equal(nightPolicy(at('2026-10-20T04:00:00Z'),''),null);
+});

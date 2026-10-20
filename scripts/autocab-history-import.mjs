@@ -50,13 +50,15 @@ export function retryAfterMs(value,now=Date.now()){
  const time=Date.parse(value);return Number.isFinite(time)?Math.max(0,time-now):0;
 }
 // UK wall-clock hours; repeated autumn hours retain the same scheduled ceiling.
-export function nightPolicy(now=Date.now()){
+export function nightPolicy(now=Date.now(),extensionUntil=process.env.AUTOCAB_HISTORY_NIGHT_EXTENSION_UNTIL){
  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));
  const hour=Number(parts.hour);
- if(hour>=4&&hour<21)return null;
+ const extensionEnd=Date.parse(extensionUntil??'');
+ const extended=hour>=4&&hour<8&&Number.isFinite(extensionEnd)&&now<extensionEnd&&now>=extensionEnd-4*3600000;
+ if(hour>=4&&hour<21&&!extended)return null;
  const date=new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
- if(hour<4)date.setUTCDate(date.getUTCDate()-1);
- return {key:date.toISOString().slice(0,10),requestsPerMinute:hour>=2&&hour<4?100:25+5*((hour+24-21)%24)};
+ if(hour<4||extended)date.setUTCDate(date.getUTCDate()-1);
+ return {key:date.toISOString().slice(0,10),requestsPerMinute:extended||(hour>=2&&hour<4)?100:25+5*((hour+24-21)%24)};
 }
 export function nightBoostActive(enabled,now=Date.now()){return enabled&&nightPolicy(now)!==null}
 export async function ensureNightReference(db,state,now=Date.now()){
