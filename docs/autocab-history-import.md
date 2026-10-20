@@ -200,6 +200,6 @@ The operator authorised up to 300 requests/minute for the remainder of the UK da
 `AUTOCAB_HISTORY_DAY_BOOST_RPM=300` activate a dated override of at most 24 hours.
 It takes precedence over the morning/night schedule, keeps the prior night's
 reference even after 21:00, and never resets errors, cooldowns, 429 floors or the
-checkpoint. At expiry the normal schedule resumes. The worker task timeout is
-extended to 24 hours so it can retain its single-worker lock through this day.
+checkpoint. At expiry the normal schedule resumes. Coolify caps each worker task
+at 10 hours; scheduled invocations continue from the checkpoint after that limit.
 The data cutoff remains 20 October 2026 at 05:00 UK.
