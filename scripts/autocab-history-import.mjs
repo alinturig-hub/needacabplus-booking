@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 export const ENDPOINT='https://autocab-api.azure-api.net/booking/v1/1.2/search';
 export const TYPES=['Active','Advanced','Mobile','Dispatched','Completed','Cancelled','Recovered','NoJob','Skipped','Suspended','ExchangedActive','ExchangedMobile','ExchangedCompleted','ExchangedCancelled','ExchangedNoJob'];
 export const FROM='2022-09-29T23:00:00.000Z'; // 30 September, 00:00 Europe/London
-export const TO='2026-10-18T21:00:00.000Z'; // 18 October, 22:00 Europe/London (inclusive)
+export const TO='2026-10-20T04:00:00.000Z'; // 20 October, 05:00 Europe/London (inclusive)
 export const ARCHIVE_DB='needacabplus_archive_20261018';
 export const MIN_INTERVAL_MS=7500;
 export const MAX_REQUESTS_PER_RUN=200;
