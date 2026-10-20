@@ -182,9 +182,12 @@ cooldown or checkpoint is reset. It expires automatically, without extending
 subsequent days. After expiry the normal 21:00–04:00 policy remains unchanged.
 
 `AUTOCAB_HISTORY_NIGHT_EXTENSION_RPM` sets only the dated morning extension's
-ceiling (integer 1–200, default 100). The authorised 20 October increase uses
-200 until 08:00 UK. It does not change subsequent nights or reset accumulated
+ceiling (integer 1–250, default 100). The authorised 20 October increase uses
+250 until 08:00 UK. It does not change subsequent nights or reset accumulated
 error reductions, Retry-After, the 429 floor or the import cursor.
 
 The cutoff was extended on 20 October to 05:00 UK (04:00 UTC). The existing job
 identifier is retained to continue its checkpoint without reimporting prior pages.
+
+At the operator’s request the morning ceiling was raised from 200 to 250/min
+on 20 October. The same dated expiry and existing error reductions still apply.

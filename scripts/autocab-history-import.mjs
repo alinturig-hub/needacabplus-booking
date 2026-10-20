@@ -58,7 +58,7 @@ export function nightPolicy(now=Date.now(),extensionUntil=process.env.AUTOCAB_HI
  if(hour>=4&&hour<21&&!extended)return null;
  const date=new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
  if(hour<4||extended)date.setUTCDate(date.getUTCDate()-1);
- const morningRpm=extended?numberSetting({RPM:extensionRpm},'RPM',100,1,200):100;
+ const morningRpm=extended?numberSetting({RPM:extensionRpm},'RPM',100,1,250):100;
  return {key:date.toISOString().slice(0,10),requestsPerMinute:extended?morningRpm:(hour>=2&&hour<4)?100:25+5*((hour+24-21)%24)};
 }
 export function nightBoostActive(enabled,now=Date.now()){return enabled&&nightPolicy(now)!==null}
