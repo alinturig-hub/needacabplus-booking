@@ -63,3 +63,49 @@ original API data alongside live state and report unmatched references explicitl
 
 Rollback: disable only the history-copy task. Keep the additive tables and source
 archive; no canonical rollback is needed because this stage never changes them.
+
+## Canonical missing-booking reconciliation
+
+`20261020_autocab_canonical_reconcile.sql` adds an audit queue. The explicit worker
+`scripts/autocab-canonical-reconcile.mjs --prepare` selects missing original IDs
+only and the most recent provider `archivedBooking.archiveTime`, with numeric
+archive ID as a deterministic tie-break. Conflicting reasons at the same latest
+time are flagged for review. Run without flags for a read-only queue summary.
+
+`--apply` inserts missing canonical rows in transactions of at most 100 bookings,
+with the same per-booking advisory locks as the webhook writer and
+`ON CONFLICT(provider, externalId) DO NOTHING`. Only newly inserted rows receive
+normalized pickup, destination and via records. Existing live rows and their
+relationships are never updated. The queue records source entry, resulting ID,
+state, review flags and processing time. A relation failure rolls back the full
+batch and queue updates. Resume selects only pending queue rows.
+
+Each inserted Booking.rawPayload is the full, unchanged selected Search JSON.
+Every other version remains linked through autocab_history.entries.original_booking_id.
+No synthetic webhook, timeline event, notification, charge or dispatch action is
+created. The worker refuses unreviewed non-internal triggers on canonical tables.
+No NormalCustomer or consent record is manufactured.
+
+Completed / ExchangedCompleted map to COMPLETED; Cancelled / ExchangedCancelled
+to CANCELLED. The source has no verified cancellation timestamp, so it is not
+invented from archive time. Missing completion timestamps are flagged. NoJob maps
+to ARCHIVED_NO_JOB, never automatically NO_FARE. Historical Dispatched, Recover,
+Suspended and Skipped receive ARCHIVED_* states to keep them out of live dispatch.
+Unknown or conflicting states become ARCHIVED_REVIEW. These records need review
+before interpreting historical service outcomes as operational KPIs.
+
+UTC-normalized canonical timestamp columns follow the existing timestamp-without-
+time-zone convention. Explicit offsets take precedence; offset-free Autocab times
+use the existing Europe/London parser, which rejects ambiguous/nonexistent DST
+times. All original timestamps and their original precision remain in raw JSON.
+Money is copied only from corresponding provider fields, without computing
+commission, net earnings or office revenue. Missing nullable fields remain null;
+required fields use existing model defaults, while raw JSON preserves absence.
+
+For the first production canary use AUTOCAB_RECONCILE_MAX_BOOKINGS=100. Check its
+ledger, full JSON equality with its source entries, relations, queue accounting,
+absence of dispatch-active states and unchanged preexisting bookings before
+continuing. Completion requires zero unmatched original references and no pending
+queue rows; counts alone do not certify financial or service-quality formulas.
+Rollback is reviewed, never an automatic delete: imported rows may subsequently
+have received live webhooks or CRM links. Preserve the ledger and history.
