@@ -9,7 +9,7 @@ export const adminMenuGroups: AdminMenuGroup[] = [
   ]},
   {id: 'bookings', label: 'Booking', description: 'Monitor bookings, find trips and manage booking rules.', icon: BookOpen, items: [
     {label: 'Booking rules', href: '/admin/configuration#bookings', description: 'Configure booking sources, payment options and pickup timing.'},
-    {label: 'Live overview', href: '/admin', description: 'See current booking activity, statuses and service outcomes.'},
+    {label: 'Live overview', href: '/admin/live-overview', description: 'See current booking activity, statuses and service outcomes.'},
     {label: 'Search bookings', href: '/admin/bookings', description: 'Find trips by reference, passenger, address, driver or vehicle.'},
   ]},
   {id: 'fleet', label: 'Drivers / Vehicles', description: 'Review drivers and the vehicles in your fleet.', icon: CarFront, items: [

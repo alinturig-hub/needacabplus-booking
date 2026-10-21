@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState, useSyncExternalStore, type ReactNode} from 'react';
-import {Activity, ChevronDown, ChevronRight, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
+import {Activity, ChevronDown, ChevronRight, ChartNoAxesCombined, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
 import {saveAdminInterface, useAdminInterface} from './admin-interface';
 import {adminMenuGroups} from './admin-menu';
+import {taxiCrmAppUrl} from '@/lib/admin-links';
 import './admin-workspace.css';
 
 function subscribeHash(callback: () => void) {
@@ -70,6 +71,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
         <Link className="admin-workspace-dispatch" href="/dispatch" prefetch={false} onClick={close}>
           <Activity size={19}/><span>Open Dispatch</span><ChevronRight size={16}/>
         </Link>
+        {taxiCrmAppUrl()&&<a className="admin-workspace-dispatch" href={taxiCrmAppUrl()!} target="_blank" rel="noopener noreferrer" onClick={close}><ChartNoAxesCombined size={19}/><span>Open TaxiCRM</span><ChevronRight size={16}/></a>}
       </nav>
       <div className="admin-workspace-sidebar-footer">
         <span><ShieldCheck size={15}/> Secured Admin access</span>
