@@ -2,18 +2,26 @@
 import Link from 'next/link';
 import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import {ArrowRight,CalendarDays,UsersRound,CarFront,MonitorSmartphone,TriangleAlert,UserRoundPlus,Settings2,CalendarPlus,Database,Radio,CreditCard,ChartNoAxesCombined,RefreshCw,LoaderCircle} from 'lucide-react';
-import type {DashboardSummary} from '@/lib/admin-dashboard';
+import type {DashboardSummary,OutcomeCount} from '@/lib/admin-dashboard';
 import {taxiCrmAppUrl} from '@/lib/admin-links';
 import './admin-dashboard.css';
 const count=(n:number|null|undefined)=>n===null||n===undefined?'—':n.toLocaleString('en-GB');
 const time=(value:string)=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value));
-function Card({icon,title,value,children,href,action,attention=false}:{icon:ReactNode;title:string;value:number|null|undefined;children:ReactNode;href:string;action:string;attention?:boolean}){
- return <article className={`dashboard-card${attention?' dashboard-card-attention':''}`}>
+function Card({icon,title,value,children,href,action,attention=false,className=''}:{icon:ReactNode;title:string;value:number|null|undefined;children:ReactNode;href:string;action:string;attention?:boolean;className?:string}){
+ return <article className={`dashboard-card ${className}${attention?' dashboard-card-attention':''}`}>
   <span className="dashboard-card-icon" aria-hidden="true">{icon}</span>
   <div className="dashboard-card-content"><h2>{title}</h2><strong className="dashboard-card-value">{count(value)}</strong>
    <div className="dashboard-card-detail">{children}</div><Link href={href} className="dashboard-card-action">{action}<ArrowRight size={17}/></Link>
   </div>
  </article>;
+}
+function BookingOutcome({title,counts,kind}:{title:string;counts:OutcomeCount|null|undefined;kind:string}){
+ return <section className={`dashboard-outcome dashboard-outcome-${kind}`} aria-label={title}>
+  <h3>{title}</h3><strong className="dashboard-outcome-total">{count(counts?.total)}</strong>
+  <dl>{(['cash','account','card'] as const).map(payment=><div key={payment}><dt>{payment[0].toUpperCase()+payment.slice(1)}</dt><dd>{count(counts?.[payment])}</dd></div>)}
+   {Boolean(counts?.other)&&<div><dt>Other / unknown</dt><dd>{count(counts?.other)}</dd></div>}
+  </dl>
+ </section>;
 }
 export default function AdminDashboard(){
  const [data,setData]=useState<DashboardSummary|null>(null),[error,setError]=useState(''),[refreshing,setRefreshing]=useState(false);
@@ -46,11 +54,15 @@ export default function AdminDashboard(){
   </header>
   {error&&<p className="dashboard-notice" role="alert">{error} {data?'Previously loaded figures are shown below.':'Please try refreshing.'}</p>}
   <section className="dashboard-cards" aria-label="Workspace summary">
-   <Card icon={<CalendarDays/>} title="Bookings today" value={data?.bookings} href="/admin/live-overview" action="View live overview"><p>Scheduled for today · UK time</p>{data?.bookings===null&&<p className="dashboard-unavailable">Booking data unavailable</p>}</Card>
+   <Card className="dashboard-bookings-card" icon={<CalendarDays/>} title="Bookings today" value={data?.bookings} href="/admin/live-overview" action="View live overview">
+    <p>{data?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(data.day+'T12:00:00Z')):'Today'} · 00:00:00–23:59:59 UK · pickup time</p>
+    {data?.bookings===null&&<p className="dashboard-unavailable">Booking data unavailable</p>}
+    <div className="dashboard-outcomes"><BookingOutcome title="Completed" counts={data?.outcomes?.completed} kind="completed"/><BookingOutcome title="Cancelled" counts={data?.outcomes?.cancelled} kind="cancelled"/><BookingOutcome title="No Fare" counts={data?.outcomes?.noFare} kind="no-fare"/></div>
+   </Card>
    <Card icon={<UsersRound/>} title="Drivers online" value={data?.fleet?.online} href="/admin/drivers" action="View drivers"><div className="dashboard-driver-chips"><span><i/>{count(data?.fleet?.free)} free</span><span><i/>{count(data?.fleet?.busy)} busy</span></div><small>Autocab live feed</small></Card>
-   <Card icon={<CarFront/>} title="Vehicles" value={data?.fleet?.vehicles} href="/admin/vehicles" action="Manage fleet"><p>Active {data?.fleet?.source==='local'?'local':'Autocab'} fleet vehicles</p></Card>
-   <Card icon={<MonitorSmartphone/>} title="Webapp bookings" value={data?.webapp} href="/admin/bookings" action="View bookings"><p>Need A Cab Plus · pickups today</p></Card>
-   <Card icon={<UsersRound/>} title="Memberships" value={data?.memberships?.active} href="/admin/configuration#pricing-rules" action="Membership settings"><p>Members with active benefits</p>{Boolean(data?.memberships?.test)&&<small>Includes {count(data?.memberships?.test)} operator test access</small>}</Card>
+
+   <Card icon={<MonitorSmartphone/>} title="Need A Cab Plus bookings" value={data?.webapp} href="/admin/bookings" action="View bookings"><p>Need A Cab Plus · pickups today</p></Card>
+   <Card icon={<UsersRound/>} title="Memberships" value={data?.memberships?.active} href="/admin/configuration#pricing-rules" action="Membership settings"><p>Members with active benefits</p><div className="dashboard-member-tiers">{data?.memberships?.tiers?.map(tier=><div key={tier.id}><span>{tier.name}</span><strong>{count(tier.active)}</strong></div>)}</div>{Boolean(data?.memberships?.test)&&<small>Includes {count(data?.memberships?.test)} operator test access</small>}</Card>
    <Card icon={<TriangleAlert/>} title="Needs attention" value={attention} href="/admin/vehicles" action="Review fleet documents" attention={Boolean(attention)}><p>{data?.attention.documents===null?'Document checks unavailable':`${count(data?.attention.documents)} local fleet documents due or expired`}</p><Link className="dashboard-setup-link" href="/admin/drivers">Review driver documents →</Link>{Boolean(data?.attention.setup)&&<Link className="dashboard-setup-link" href="/admin/configuration#payments">Payment setup required →</Link>}</Card>
   </section>
   <section className="dashboard-quick"><h2>Quick actions</h2><div>
