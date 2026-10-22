@@ -15,8 +15,10 @@ Validation: synthetic mapping cases, a PostgreSQL-compatible batched-query fixtu
 The canonical admin reader now returns both complete `BookingLocation` records,
 ordered `BookingVia` records, financial/distance fields and every recorded
 operational timestamp. UTC canonical timestamps are sent with an explicit `Z`;
-Explicit JSON offsets are authoritative; unoffset fields from this feed use UTC,
-matching the canonical columns (verified on the supplied booking references). Estimated pickup
+Explicit JSON offsets are authoritative. Raw Autocab times without offsets use
+Europe/London; legacy normalized database exports remain UTC. The source
+BookingCreated receipt for 13215177 proves the raw 04:54 UK time corresponds to
+03:54 UTC. Earlier naive-as-UTC assumptions were incorrect during BST. Estimated pickup
 is only populated from an actual `EstimatedPickupTime`, never from journey
 `estimatedTime`. Missing events are labelled **Not recorded**. Other missing
 values are labelled **Not supplied by source**. `Archived` is displayed as
@@ -68,3 +70,9 @@ remain valid. Restart the same command to resume. An audit-backed rollback must
 compare the current field to the recorded repaired value before restoring its
 before-value, so later real webhook updates cannot be erased. Do not drop the
 snapshot column while a deployed application uses it.
+
+Version `saved-json-details-v2` also corrects this proven timezone-mapping defect.
+It only changes an existing timestamp when the original modern provider string
+has no offset, its old naive-as-UTC interpretation exactly equals that column,
+and the unambiguous London interpretation differs. Different/newer values and
+legacy normalized flat exports remain untouched. Each correction is audited.

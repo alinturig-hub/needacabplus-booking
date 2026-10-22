@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {recoverAssignmentDetails,canonicalAssignmentFields} from '../lib/autocab/assignment-details.mjs';
 import {recoverBookingDetails} from '../lib/autocab/booking-detail-recovery.mjs';
-export const REPAIR_JOB='saved-json-details-v1';
+export const REPAIR_JOB='saved-json-details-v2';
 const allowed=new Set(['driverId','vehicleId',...Object.values(canonicalAssignmentFields).flatMap(Object.values),'assignmentDetails','pickupDueTime','dropOffDueTime','bookedAtTime','dispatchedAt','arrivedAt','pickedUpAt','completedAt','cancelledAt','acceptedAt','noFareAt','distance','systemDistance','meterDistance','estimatedDistance','estimatedPrice','fare','price','cost','extraCost','gratuityAmount','pricingTariff','pricingSource','estimatedTime','driverNote','officeNote','flightDetails','cabExchangeReference']);
 const quoted=x=>'"'+x.replaceAll('"','""')+'"';
 export async function repairBatch(db,{limit=250,dryRun=false}={}){

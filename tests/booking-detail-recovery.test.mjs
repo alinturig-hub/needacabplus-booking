@@ -43,3 +43,11 @@ test('unoffset feed UTC values and explicit BST offsets resolve to the same inst
  assert.equal(sourceTimestamp('2026-10-22T06:30:00+01:00'),'2026-10-22T05:30:00.000Z');
  assert.equal(sourceTimestamp('0001-01-01T00:00:00Z'),null);
 });
+test('repairs a proven old UTC interpretation of raw London wall time but preserves newer and normalized legacy facts',()=>{
+ const raw={BookingId:123,BookedAtTime:'2026-10-22T04:54:41.4703388'};
+ const r=recoverBookingDetails({...row,bookedAtTime:new Date('2026-10-22T04:54:41.470Z')},[doc(raw)]);
+ assert.equal(r.patch.bookedAtTime,'2026-10-22T03:54:41.470Z');
+ assert.equal(recoverBookingDetails({...row,bookedAtTime:new Date('2026-10-22T03:54:41.470Z')},[doc(raw)]).patch.bookedAtTime,undefined);
+ assert.equal(recoverBookingDetails({...row,bookedAtTime:new Date('2026-10-22T02:54:41.470Z')},[doc(raw)]).patch.bookedAtTime,undefined);
+ assert.equal(recoverBookingDetails({...row,bookedAtTime:new Date('2026-10-22T04:54:41.470Z')},[doc({autocab_booking_id:123,booked_at:'2026-10-22T04:54:41.470Z'})]).patch.bookedAtTime,undefined);
+});

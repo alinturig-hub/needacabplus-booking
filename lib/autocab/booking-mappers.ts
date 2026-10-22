@@ -1,3 +1,4 @@
+import {autocabIso} from '@/lib/autocab-time.mjs';
 import { Prisma } from "@/generated/prisma/client";
 
 export function normaliseString(value: unknown): string | null {
@@ -67,11 +68,8 @@ export function normaliseDate(value: unknown): Date | null {
   }
 
   if (typeof value === "string" && value.trim() !== "") {
-    const date = new Date(value);
-
-    if (!Number.isNaN(date.getTime())) {
-      return date;
-    }
+    const iso=autocabIso(value);
+    if(iso&&Date.parse(iso)>=0)return new Date(iso);
   }
 
   return null;
