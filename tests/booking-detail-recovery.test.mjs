@@ -59,3 +59,16 @@ test('JSONB key reordering does not create a false repair or repeated write',()=
  const second=recoverAssignmentDetails({...row,...first.patch,driverId:null,vehicleId:null,assignmentDetails:reorder(first.details)},docs,{onlyWhenAddsInformation:true});
  assert.equal(second.changed,false);assert.deepEqual(second.patch,{});
 });
+
+test('live webhook recovery supplements nested pricing and ETA without inventing completion or replacing known values',()=>{
+ const payload={BookingId:123,DropOffTime:'2026-10-22T06:45:00',EstimatedTime:'15',Pricing:{Distance:11.8,MeterDistance:11.8},Pickup:{Address:'Station',Zone:{Id:2084,Name:'Station'},Coordinates:{Latitude:50.4,Longitude:-4.1}},CompletedAtTime:'2026-10-22T06:45:00'};
+ const result=recoverBookingDetails({...row,status:'ARRIVED',distance:0},[doc(payload)],[{type:'PICKUP',address:'Station',zoneId:null,latitude:null,longitude:null}]);
+ assert.equal(result.patch.distance,undefined);
+ assert.equal(result.patch.meterDistance,'11.8');
+ assert.equal(result.patch.estimatedTime,'15');
+ assert.equal(result.patch.dropOffDueTime,'2026-10-22T05:45:00.000Z');
+ assert.equal(result.patch.completedAt,undefined);
+ assert.equal(result.locations[0].zoneId,'2084');
+ assert.deepEqual(recoverBookingDetails({...row,status:'ARRIVED'},[doc({BookingId:123})]).patch,{});
+ assert.equal(recoverBookingDetails(row,[doc({...payload,BookingId:999})]).locations.length,0);
+});

@@ -1,3 +1,4 @@
+import {recoverBookingDetails} from '@/lib/autocab/booking-detail-recovery.mjs';
 import {recoverAssignmentDetails} from '@/lib/autocab/assignment-details.mjs';
 import { Prisma } from "@/generated/prisma/client";
 import { upsertBooking } from "@/lib/autocab/booking-upsert";
@@ -104,6 +105,36 @@ export async function persistBookingEvent(
     options.status==='REJECTED'?[]:[{kind:'webhook',id:event.id,payload:event.payload}],
     {fillOnly:stale||regressive});
   if(details.changed)await tx.booking.update({where:{id:bookingId},data:{...details.patch,assignmentDetails:details.details as Prisma.InputJsonObject}});
+  // Use the same saved-JSON recovery as the historical repair before taking
+  // the snapshot. Only the current accepted event can supplement journey facts;
+  // delayed events and rejected offers must not resurrect an older route.
+  if (!stale && !regressive && options.status !== 'REJECTED') {
+    const saved = await tx.booking.findUniqueOrThrow({
+      where: {id: bookingId}, include: {locations: true, vias: true},
+    });
+    const recoveredDetails = recoverBookingDetails(
+      saved as unknown as Record<string,unknown>,
+      [{kind:'canonical_raw',id:event.id,payload:event.payload}],
+      saved.locations, saved.vias,
+    );
+    if (Object.keys(recoveredDetails.patch).length) {
+      await tx.booking.update({where:{id:bookingId},data:recoveredDetails.patch});
+    }
+    for (const location of recoveredDetails.locations) {
+      const {type,...data}=location;
+      await tx.bookingLocation.upsert({
+        where:{bookingId_type:{bookingId,type}},
+        create:{bookingId,type,...data},update:data,
+      });
+    }
+    for (const via of recoveredDetails.vias) {
+      const {position,...data}=via;
+      await tx.bookingVia.upsert({
+        where:{bookingId_position:{bookingId,position}},
+        create:{bookingId,position,...data},update:data,
+      });
+    }
+  }
   await tx.webhookEvent.update({
     where: { id: event.id },
     data: { externalBookingId: externalId, bookingId },
