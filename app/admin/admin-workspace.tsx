@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState, useSyncExternalStore, type ReactNode} from 'react';
-import {Activity, ChevronDown, ChevronRight, ChartNoAxesCombined, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
+import {Activity, CarTaxiFront, ChevronDown, ChevronRight, ChartNoAxesCombined, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
 import {saveAdminInterface, useAdminInterface} from './admin-interface';
 import {adminMenuGroups} from './admin-menu';
 import {taxiCrmAppUrl} from '@/lib/admin-links';
@@ -24,8 +24,8 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
   const currentItem = adminMenuGroups.flatMap(group => group.items).find(item => item.href === currentHref);
   const categoryGroup = adminMenuGroups.find(group => pathname === `/admin/category/${group.id}`);
   const currentGroup = categoryGroup ?? adminMenuGroups.find(group => group.items.some(item => item.href === currentHref));
-  const pageTitle = categoryGroup?.label ?? currentItem?.label ?? (pathname === '/admin' ? 'Dashboard' : 'Settings');
-  const sectionTitle = currentGroup?.label ?? 'Workspace';
+  const pageTitle = categoryGroup?.label ?? currentItem?.label ?? (pathname === '/admin' ? 'Dashboard' : pathname === '/admin/hackney' ? 'Hackney' : 'Settings');
+  const sectionTitle = pathname === '/admin/hackney' ? 'Operations' : currentGroup?.label ?? 'Workspace';
   const close = () => setMobileOpen(false);
 
   return <div className={`admin-workspace-shell theme-${interfaceSettings.theme}${interfaceSettings.density === 'compact' ? ' density-compact' : ''}${interfaceSettings.reduceMotion ? ' reduce-motion' : ''}`}>
@@ -71,6 +71,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
         <Link className="admin-workspace-dispatch" href="/dispatch" prefetch={false} onClick={close}>
           <Activity size={19}/><span>Open Dispatch</span><ChevronRight size={16}/>
         </Link>
+        <Link className="admin-workspace-dispatch" href="/admin/hackney" onClick={close} aria-current={pathname==='/admin/hackney'?'page':undefined}><CarTaxiFront size={19}/><span>Hackney</span><ChevronRight size={16}/></Link>
         {taxiCrmAppUrl()&&<a className="admin-workspace-dispatch" href={taxiCrmAppUrl()!} target="_blank" rel="noopener noreferrer" onClick={close}><ChartNoAxesCombined size={19}/><span>Open TaxiCRM</span><ChevronRight size={16}/></a>}
       </nav>
       <div className="admin-workspace-sidebar-footer">

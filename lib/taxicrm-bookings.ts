@@ -1,3 +1,5 @@
+import {loadHackneyPolicy} from '@/lib/hackney';
+import {hackneyExpressions,bookingGroupPredicate} from '@/lib/hackney-policy.mjs';
 import {canonicalBookingAssignments} from '@/lib/taxicrm-booking-assignment';
 import type {PoolClient} from 'pg';
 import {bookingPeriod} from '@/lib/booking-period';
@@ -115,9 +117,15 @@ export type TaxiCrmBookingPage={pastPeriod:boolean;bookings:Record<string,unknow
 export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCrmBookingPage>{
  const period=bookingPeriod(params),exporting=params.get('export')==='csv',page=Math.max(1,Number.parseInt(params.get('page')||'1',10)||1),requestedSize=Number.parseInt(params.get('pageSize')||'20',10),pageSize=exporting?50_000:([10,20,50,100].includes(requestedSize)?requestedSize:20);
  const search=(params.get('search')||'').trim().slice(0,120),selectedStatuses=[...new Set(params.getAll('status').map(value=>value.trim().slice(0,60)).filter(Boolean))].slice(0,50),source=(params.get('source')||'').trim().slice(0,100),payment=(params.get('payment')||'').trim().slice(0,100),dateField=params.get('dateField')==='booked'?'booked':'pickup';
+ const bookingGroup=params.get('group');
+ const hackneyPolicy=bookingGroup?await loadHackneyPolicy():null;
  return withTaxiCrmReadOnly(async client=>{
   const mapping=await discover(client),values:unknown[]=[],conditions:string[]=[];
   const add=(value:unknown)=>{values.push(value);return `$${values.length}`};
+  if(bookingGroup&&hackneyPolicy){
+   if(mapping.schema!=='public'||mapping.table!=='Booking')throw new TaxiCrmBookingSchemaError('Booking categories require the canonical live database.');
+   conditions.push(bookingGroupPredicate(bookingGroup,hackneyExpressions(hackneyPolicy,add)));
+  }
   const textFields=(['id','reference','customerName','phone','pickup','destination','driver','vehicle'] as Field[]).map(field=>column(mapping,field)).filter(Boolean) as string[];
   if(search){const placeholder=add(`%${search}%`);const searchable=textFields.map(name=>`COALESCE(${name}::text,'') ILIKE ${placeholder}`);if(mapping.locationTable)searchable.push(`EXISTS (SELECT 1 FROM ${ident(mapping.locationTable.schema)}.${ident(mapping.locationTable.table)} search_location WHERE search_location."bookingId"=booking.${ident(mapping.fields.id!.name)} AND search_location.address ILIKE ${placeholder})`);conditions.push(`(${searchable.join(' OR ')})`)}
   const statusColumn=column(mapping,'status')!;

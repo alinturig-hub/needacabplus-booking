@@ -7,6 +7,8 @@ function load(){
  const mod={exports:{}};
  const code=ts.transpileModule(fs.readFileSync('lib/taxicrm-bookings.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  new Function('require','module','exports',code)(id=>{
+  if(id==='@/lib/hackney')return {loadHackneyPolicy:async()=>({prefixes:['9','4'],flaggedSources:['FlaggedBooking']})};
+  if(id==='@/lib/hackney-policy.mjs')return require('../lib/hackney-policy.mjs');
   if(id==='@/lib/taxicrm-booking-assignment')return {canonicalBookingAssignments:async()=>{throw Error('not used')}};
   if(id==='@/lib/booking-period')return {bookingPeriod:()=>({period:'today',start:'2026-10-11',end:'2026-10-11'})};
   if(id==='@/lib/taxicrm-database')return {withTaxiCrmReadOnly:async()=>{throw Error('not used')}};

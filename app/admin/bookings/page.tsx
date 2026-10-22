@@ -5,7 +5,9 @@ import AdminWorkspace from '../admin-workspace';
 
 export const dynamic='force-dynamic';
 
-export default async function BookingSearchPage(){
+export default async function BookingSearchPage({searchParams}:{searchParams:Promise<{group?:string}>}){
+ const {group}=await searchParams;
+ const initialGroup=['hackney','street','hackney-street','private-hire','unknown'].includes(group||'')?group!:'All';
  if(!await isAdmin())redirect('/admin-login');
- return <AdminWorkspace><AdminApp mode="search"/></AdminWorkspace>;
+ return <AdminWorkspace><AdminApp mode="search" initialGroup={initialGroup}/></AdminWorkspace>;
 }

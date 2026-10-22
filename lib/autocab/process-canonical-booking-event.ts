@@ -1,3 +1,5 @@
+import {bookingExternalId} from '@/lib/autocab/webhook-processing';
+import {isObject} from '@/lib/autocab/booking-mappers';
 import { Prisma } from '@/generated/prisma/client';
 import { applyCanonicalBookingEvent, isCanonicalBookingEvent } from '@/lib/autocab/canonical-booking-handler';
 import { prisma } from '@/lib/prisma';
@@ -18,6 +20,14 @@ export async function processCanonicalBookingEvent(webhookEventId:string):Promis
    if(!event.webhookConfiguration?.isEnabled||!isCanonicalBookingEvent(event.eventType)){
     await tx.webhookEvent.update({where:{id:event.id},data:{status:'IGNORED',processedAt:new Date(),processingError:!isCanonicalBookingEvent(event.eventType)?'No canonical booking handler registered for event type.':null}});
     return;
+   }
+   const externalId=isObject(event.payload)?bookingExternalId(event.payload):null;
+   if(externalId){
+    const removed=await tx.$queryRaw<{external_id:string}[]>`SELECT external_id FROM public.deleted_autocab_booking_refs WHERE external_id=${externalId}`;
+    if(removed.length){
+     await tx.webhookEvent.update({where:{id:event.id},data:{status:'IGNORED',processedAt:new Date(),processingError:'Booking permanently removed by administrator; replay suppressed.'}});
+     return;
+    }
    }
    await tx.webhookEvent.update({where:{id:event.id},data:{status:'PROCESSING',processingError:null,attemptCount:{increment:1}}});
    await applyCanonicalBookingEvent(tx,event.id,event.eventType);
