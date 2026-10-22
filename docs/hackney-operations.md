@@ -58,3 +58,24 @@ Live validation on 22 October 2026: account CMAC CABX (L), saved account ID 2019
 1,270 Hackney account jobs, 577 COMPLETED, completed booking value GBP 15,633.16,
 one completed zero-price job and no completed missing prices. Counts can change
 with live updates; ID 2019 is verified context and is not hard-coded as a match.
+
+## Date filters
+
+The Hackney workspace now defaults to Today and supports Yesterday, 7 days,
+30 days, Custom and All history. The two rolling presets are inclusive UK
+calendar dates ending today (today plus 6/29 preceding dates). Custom includes
+both dates. These filters supersede the earlier fixed all-history card scope.
+All cards, unknown-driver counts and CMAC completed value use the same selected
+pickup period. Booking links carry the group and date range into Search bookings;
+exports retain those filters. Configuration itself remains independent of dates.
+
+Canonical UTC-naive pickup timestamps are compared against London-local bounds
+converted to UTC, using an inclusive start and exclusive next midnight. The
+indexed timestamp column is not wrapped in a timezone/date expression. This
+handles the UK's 23/25-hour DST days. Invalid ranges return HTTP 400. Legacy API
+requests without a period preserve all-history compatibility; the workspace
+always submits its explicit selection.
+
+Changing the period hides values for the prior selection. Pending requests are
+aborted and guarded against stale responses. Custom date drafts only affect
+metrics after Apply range. Config drafts are not reset by a date refresh.

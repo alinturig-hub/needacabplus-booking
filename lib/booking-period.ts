@@ -4,7 +4,8 @@ export function bookingPeriod(params:URLSearchParams,now=new Date()){
  const date=(s:string|null)=>{if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s)||!Number.isFinite(Date.parse(s))||new Date(s).toISOString().slice(0,10)!==s)throw Error('Enter valid start and end dates.');return s};
  if(period==='all')return {period,start:null,end:null};
  if(period==='today')return {period,start:today,end:today};
- if(period==='7days'){const d=new Date(today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-6);return {period,start:d.toISOString().slice(0,10),end:today}}
+ if(period==='yesterday'){const d=new Date(today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-1);const day=d.toISOString().slice(0,10);return {period,start:day,end:day}}
+ if(period==='7days'||period==='30days'){const d=new Date(today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-(period==='7days'?6:29));return {period,start:d.toISOString().slice(0,10),end:today}}
  if(period==='custom'){const start=date(params.get('from')),end=date(params.get('to'));const fromTime=params.get('fromTime')||'00:00',toTime=params.get('toTime')||'23:59';if(!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(fromTime)||!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(toTime))throw Error('Enter valid hours and minutes.');if(start>end||(start===end&&fromTime>toTime))throw Error('The end must be on or after the start.');return {period,start,end,fromTime,toTime}}
  throw Error('Choose a valid booking period.');
 }
