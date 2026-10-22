@@ -14,6 +14,7 @@ test('UK yesterday, inclusive 30 calendar days and DST date boundaries',()=>{
  assert.deepEqual(bookingPeriod(new URLSearchParams('period=7days'),now),{period:'7days',start:'2026-03-26',end:'2026-04-01'});
  for(const query of ['period=invalid','period=custom&from=2026-02-30&to=2026-03-01','period=custom&from=2026-10-22&to=2026-10-21'])assert.throws(()=>bookingPeriod(new URLSearchParams(query),now));
  const href=new URL(hackneyBookingHref('hackney-cmac',{period:'custom',from:'2026-10-01',to:'2026-10-22'}),'https://example.test');
+ assert.equal(href.pathname,'/admin/hackney/bookings');
  assert.equal(href.searchParams.get('group'),'hackney-cmac');assert.equal(href.searchParams.get('from'),'2026-10-01');assert.equal(href.searchParams.get('to'),'2026-10-22');
 });
 test('canonical period predicate includes last second, excludes next midnight and handles 23/25-hour UK days',async()=>{

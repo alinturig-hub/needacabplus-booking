@@ -9,5 +9,10 @@ export default async function BookingSearchPage({searchParams}:{searchParams:Pro
  const {group,period,from,to}=await searchParams;
  const initialGroup=group==='hackney-cmac'||group==='hackney-street'?'hackney':['hackney','private-hire','unknown'].includes(group||'')?group!:'All';
  if(!await isAdmin())redirect('/admin-login');
- return <AdminWorkspace><AdminApp mode="search" initialGroup={initialGroup} initialPeriod={['today','yesterday','7days','30days','custom','all'].includes(period||'')?period!:'today'} initialFrom={from||''} initialTo={to||''}/></AdminWorkspace>;
+ if(initialGroup!=='All'){
+  const params=new URLSearchParams({group:initialGroup});
+  if(period)params.set('period',period);if(from)params.set('from',from);if(to)params.set('to',to);
+  redirect('/admin/hackney/bookings?'+params);
+ }
+ return <AdminWorkspace><AdminApp mode="search" initialPeriod={['today','yesterday','7days','30days','custom','all'].includes(period||'')?period!:'today'} initialFrom={from||''} initialTo={to||''}/></AdminWorkspace>;
 }
