@@ -373,10 +373,11 @@ export function buildBookingUpdateData(
     const vehicle = getAssignedVehicle(payload);
 
     if (vehicle) {
-      data.vehicleId = normaliseString(vehicle.Id);
-      data.vehicleCallSign = normaliseString(vehicle.Callsign);
-      data.vehicleRegistration = normaliseString(vehicle.Registration);
-      data.vehiclePlateNumber = normaliseString(vehicle.PlateNumber);
+      for (const [source,target] of [['Id','vehicleId'],['Callsign','vehicleCallSign'],['Registration','vehicleRegistration'],['PlateNumber','vehiclePlateNumber']]) {
+        assignIfPresent(data,vehicle,source,target,normaliseString);
+      }
+    } else if (payload.Vehicle===null || payload.VehicleDetails===null || getObject(payload,'VehicleDetails')?.Vehicle===null) {
+      Object.assign(data,{vehicleId:null,vehicleCallSign:null,vehicleRegistration:null,vehiclePlateNumber:null});
     }
   }
 

@@ -49,10 +49,30 @@ export async function synchroniseLocation(
         },
       },
       select: {
+        address: true,
         latitude: true,
         longitude: true,
+        zoneId: true,
+        zoneDescriptor: true,
+        zoneName: true,
       },
     });
+
+  // A sparse update for the same address is not a removal of its zone or coordinates.
+  // A changed address must not inherit coordinates from the previous stop.
+  if (existing?.address === data.address) {
+    for (const [group, fields] of [
+      ["Zone", [["Id", "zoneId"], ["Descriptor", "zoneDescriptor"], ["Name", "zoneName"]]],
+      ["Coordinates", [["Latitude", "latitude"], ["Longitude", "longitude"]]],
+    ] as const) {
+      const incoming = getObject(location, group);
+      for (const [source, target] of fields) {
+        if (!hasOwn(location, group) || (incoming && !hasOwn(incoming, source))) {
+          (data as Record<string, unknown>)[target] = existing[target];
+        }
+      }
+    }
+  }
 
   const coordinatesChanged =
     existing !== null &&

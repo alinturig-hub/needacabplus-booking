@@ -30,6 +30,7 @@ export async function upsertBooking(
       "driverForename",
       "driverSurname",
       "driverBadgeNumber",
+      "vehicleId", "vehicleCallSign", "vehicleRegistration", "vehiclePlateNumber",
     ] as const) {
       create[key] = null;
       delete update[key];
@@ -41,12 +42,14 @@ export async function upsertBooking(
       (existing.driverBadgeNumber !== null &&
         typeof update.driverBadgeNumber === "string" &&
         update.driverBadgeNumber !== existing.driverBadgeNumber);
+    const vehicleConflict = existing.vehicleId !== null && update.vehicleId !== existing.vehicleId;
     // A delayed event may fill gaps but must not overwrite a newer badge, fare,
     // pickup date or raw payload. Locations/vias/customer links also stay intact.
     for (const key of Object.keys(update)) {
       if (
         key === "rawPayload" ||
         (key.startsWith("driver") && assignmentConflict) ||
+        (key.startsWith("vehicle") && vehicleConflict) ||
         existing[key as keyof typeof existing] !== null
       ) {
         delete (update as Record<string, unknown>)[key];
@@ -67,6 +70,9 @@ export async function upsertBooking(
       },
       buildBookingUpdateData(payload),
     );
+  }
+  if (existing && !preserveExisting && (typeof update.vehicleId==='string'||update.vehicleId===null) && update.vehicleId!==existing.vehicleId) {
+    Object.assign(update,{vehicleCallSign:null,vehicleRegistration:null,vehiclePlateNumber:null},buildBookingUpdateData(payload));
   }
   const booking = await tx.booking.upsert({
     where: {

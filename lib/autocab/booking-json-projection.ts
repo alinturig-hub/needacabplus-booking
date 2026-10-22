@@ -37,7 +37,7 @@ export async function projectBookingJson(tx:Prisma.TransactionClient,options:{bo
  const patch=webhookDocument(event.payload as Record<string,unknown>,externalId);
  if(options.ignoreDriverAssignment){
   // Rejected offers must never become the assigned driver in the read model.
-  for(const key of ['Driver','DriverDetails','DriverId','driver','driverId'])delete patch[key];
+  for(const key of ['Driver','DriverDetails','DriverId','driver','driverId','Vehicle','VehicleDetails','VehicleId','vehicle','vehicleId'])delete patch[key];
  }
  const preserve=options.preserveExisting||Boolean(existing&&existing.last_event_occurred_at>occurredAt);
  const doc=mergeDocument(existing?.raw_payload??canonicalSeed(options.previousBooking,options.previousEvents,externalId),patch,preserve);

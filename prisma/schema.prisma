@@ -294,6 +294,8 @@ model Booking {
   cancelledAt    DateTime?
   noFareAt       DateTime?
 
+  assignmentDetails   Json?
+
   driverId            String?
   driverCallSign      String?
   driverForename      String?

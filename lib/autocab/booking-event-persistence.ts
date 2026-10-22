@@ -1,3 +1,4 @@
+import {recoverAssignmentDetails} from '@/lib/autocab/assignment-details.mjs';
 import { Prisma } from "@/generated/prisma/client";
 import { upsertBooking } from "@/lib/autocab/booking-upsert";
 import {
@@ -98,6 +99,11 @@ export async function persistBookingEvent(
     ignoreDriverAssignment:options.status==='REJECTED',
     previousBooking:current,previousEvents:previous,operationalStatus:applied.status,
   });
+  const assigned = await tx.booking.findUniqueOrThrow({where:{id:bookingId}});
+  const details = recoverAssignmentDetails(assigned as unknown as Record<string,unknown>,
+    options.status==='REJECTED'?[]:[{kind:'webhook',id:event.id,payload:event.payload}],
+    {fillOnly:stale||regressive});
+  if(details.changed)await tx.booking.update({where:{id:bookingId},data:{...details.patch,assignmentDetails:details.details as Prisma.InputJsonObject}});
   await tx.webhookEvent.update({
     where: { id: event.id },
     data: { externalBookingId: externalId, bookingId },

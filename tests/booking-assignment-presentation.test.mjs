@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
-import {bookingAssignmentPresentation,bookingAssignmentsSql} from '../lib/booking-assignment-presentation.mjs';
+import {bookingAssignmentPresentation,bookingAssignmentsSql,bookingDetailPresentation} from '../lib/booking-assignment-presentation.mjs';
 
 test('uses booking snapshots before current registry and separates call signs from names and registration',()=>{
  const result=bookingAssignmentPresentation({
@@ -37,10 +37,13 @@ test('payload from another assignment is ignored',()=>{
 test('batched SQL matches saved IDs within the provider, never reused call signs',async()=>{
  const db=new PGlite();
  try{
-  await db.exec(`CREATE TABLE "Booking" (id text,provider text,"driverId" text,"driverCallSign" text,"driverForename" text,"driverSurname" text,"driverBadgeNumber" text,"vehicleId" text,"vehicleCallSign" text,"vehicleRegistration" text,"vehiclePlateNumber" text,"rawPayload" jsonb);
+  await db.exec(`CREATE TABLE "Booking" (id text,provider text,"driverId" text,"driverCallSign" text,"driverForename" text,"driverSurname" text,"driverBadgeNumber" text,"vehicleId" text,"vehicleCallSign" text,"vehicleRegistration" text,"vehiclePlateNumber" text,"rawPayload" jsonb,"externalId" text,"assignmentDetails" jsonb);
+   CREATE TABLE autocab_bookings(autocab_id text,booking_id text,raw_payload jsonb);
+   CREATE TABLE "BookingLocation" ("bookingId" text,type text);
+   CREATE TABLE "BookingVia" ("bookingId" text,position integer);
    CREATE TABLE "Driver" (id text,provider text,"externalId" text,"fullName" text,forename text,surname text,mobile text,telephone text,"badgeNumber" text);
    CREATE TABLE "Vehicle" (id text,provider text,"externalId" text,make text,model text,colour text,registration text,"plateNumber" text);
-   INSERT INTO "Booking" VALUES ('test-booking','AUTOCAB','1025','11','Saved','Driver','B1','1022','11','SAVED REG',NULL,'{}');
+   INSERT INTO "Booking" VALUES ('test-booking','AUTOCAB','1025','11','Saved','Driver','B1','1022','11','SAVED REG',NULL,'{}','ref',NULL);
    INSERT INTO "Driver" VALUES ('driver-key','AUTOCAB','1025','Current Driver',NULL,NULL,'07000000000',NULL,'B2'),('wrong-provider','OTHER','1025','Wrong provider',NULL,NULL,'wrong',NULL,'wrong');
    INSERT INTO "Vehicle" VALUES ('car-key','AUTOCAB','1022','Correct make','Correct model','Blue','CURRENT REG','P1'),('wrong-car','OTHER','1022','Wrong make',NULL,NULL,'WRONG REG',NULL);`);
   const rows=(await db.query(bookingAssignmentsSql,[['test-booking']])).rows;
@@ -50,4 +53,14 @@ test('batched SQL matches saved IDs within the provider, never reused call signs
   assert.equal(r.vehicle_data.make,'Correct make');assert.equal(r.vehicle_data.registration,'SAVED REG');
   assert.equal((await db.query(bookingAssignmentsSql,[['missing-booking']])).rows.length,0);
  }finally{await db.close()}
+});
+
+test('returns saved locations, zero coordinates, ordered vias and every recorded event without inventing future times',()=>{
+ const r=bookingDetailPresentation({booking_fields:{pickupDueTime:'2026-10-22T05:30:00',pickedUpAt:'2026-10-22T04:33:04.19',completedAt:'2026-10-22T04:41:30.867',distance:'0',meterDistance:'2.123',pricingTariff:'T1'},booking_payload:{archivedBooking:{estimatedPickupTime:'2026-10-22T05:25:00+01:00'}},location_details:[{type:'PICKUP',zoneId:'12',zoneName:'Station',latitude:0,longitude:0},{type:'DESTINATION',latitude:50,longitude:-4}],via_details:[{position:0,address:'Via'}]});
+ assert.equal(r.pickup_data.zoneId,'12');assert.equal(r.pickup_data.latitude,0);
+ assert.equal(r.timeline_data.scheduledAt,'2026-10-22T05:30:00Z');
+ assert.equal(r.timeline_data.onBoardAt,'2026-10-22T04:33:04.19Z');
+ assert.equal(r.timeline_data.cancelledAt,null);
+ assert.equal(r.timeline_data.estimatedPickupAt,'2026-10-22T04:25:00.000Z');
+ assert.equal(r.pricing_data.distance,'0');assert.equal(r.pricing_data.tariff,'T1');assert.equal(r.via_points.length,1);
 });

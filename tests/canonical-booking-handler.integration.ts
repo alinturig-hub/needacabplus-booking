@@ -108,11 +108,25 @@ try{
  await processCanonicalBookingEvent(jsonCreated.id);
  assert.equal(Number((await document(jsonId)).webhook_event_count),4);
 
+ const detailsId=`writer-detail-${randomUUID()}`;
+ await apply('BookingCreated',{BookingId:detailsId,EventTimestamp:'2026-10-22T05:00:00Z',Driver:{Id:51,Forename:'Saved',Surname:'Driver',Mobile:'test-phone'},Vehicle:{Id:81,Callsign:'11',Registration:'AB12 CDE',Make:'Snapshot make'},Pickup:{Address:'Fixture station',Zone:{Id:12,Name:'Station'},Coordinates:{Latitude:50.3,Longitude:-4.1}}});
+ await apply('BookingModified',{BookingId:detailsId,EventTimestamp:'2026-10-22T05:01:00Z',Driver:{Id:51},Vehicle:{Id:81},Pickup:{Address:'Fixture station'}});
+ let savedDetails=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:detailsId}},include:{locations:true}});
+ assert.equal((savedDetails.assignmentDetails as {driver:{phone:string}}).driver.phone,'test-phone');
+ assert.equal((savedDetails.assignmentDetails as {vehicle:{make:string}}).vehicle.make,'Snapshot make');
+ assert.equal(savedDetails.vehicleRegistration,'AB12 CDE');assert.equal(savedDetails.locations[0].zoneId,'12');assert.equal(Number(savedDetails.locations[0].latitude),50.3);
+ await apply('BookingModified',{BookingId:detailsId,EventTimestamp:'2026-10-22T05:02:00Z',Vehicle:{Id:82}});
+ savedDetails=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:detailsId}},include:{locations:true}});
+ assert.equal(savedDetails.vehicleRegistration,null);assert.equal((savedDetails.assignmentDetails as {vehicle:{make?:string}}).vehicle.make,undefined);
+ await apply('BookingModified',{BookingId:detailsId,EventTimestamp:'2026-10-22T05:03:00Z',Driver:null,Vehicle:null});
+ savedDetails=await prisma.booking.findUniqueOrThrow({where:{provider_externalId:{provider:'AUTOCAB',externalId:detailsId}},include:{locations:true}});
+ assert.equal(savedDetails.driverId,null);assert.equal(savedDetails.vehicleId,null);assert.equal((savedDetails.assignmentDetails as {driver:unknown}).driver,null);
+
  const rejectedId=`writer-json-rejected-${randomUUID()}`;
  await apply('BookingCreated',{BookingId:rejectedId,EventTimestamp:'2026-10-18T10:00:00Z'});
- await apply('BookingRejected',{BookingId:rejectedId,EventTimestamp:'2026-10-18T11:00:00Z',Driver:{Id:'not-assigned'}});
+ await apply('BookingRejected',{BookingId:rejectedId,EventTimestamp:'2026-10-18T11:00:00Z',Driver:{Id:'not-assigned'},Vehicle:{Id:'not-assigned-car'}});
  const rejectedDoc=await document(rejectedId);
- assert.equal(rejectedDoc.raw_payload.driver,undefined);
+ assert.equal(rejectedDoc.raw_payload.driver,undefined);assert.equal(rejectedDoc.raw_payload.vehicle,undefined);
  assert.equal(rejectedDoc.operational_status,'REJECTED');
 
  const blockedId=`writer-json-atomic-${randomUUID()}`;

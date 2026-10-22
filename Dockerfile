@@ -45,6 +45,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrations/20261018_live_
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-history-registry.mjs ./scripts/autocab-history-registry.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-history-merge.mjs ./scripts/autocab-history-merge.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/autocab-canonical-reconcile.mjs ./scripts/autocab-canonical-reconcile.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/repair-booking-details.mjs ./scripts/repair-booking-details.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/lib/autocab/assignment-details.mjs /app/lib/autocab/booking-detail-recovery.mjs ./lib/autocab/
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
