@@ -1,0 +1,11 @@
+# Driver and vehicle details in booking views
+
+The canonical booking reader previously projected only its generic `driver` and `vehicle` fields. Schema discovery selected the call-sign fields, after which the response placed those identifiers into `driver_data.name` and `vehicle_data.registration`. Consequently stored webhook details were not shown in the modal.
+
+Canonical `public."Booking"` UI pages now fetch assignments in one bounded batch for the displayed booking IDs using the existing read-only reader. Snapshot forename/surname, badge, call sign and registration/plate fields have priority. Matching raw webhook assignment objects supply additional original details. Registry records are matched using the saved provider plus external/internal ID, never a call sign that could be reassigned. Raw assignment IDs/call signs that contradict the saved assignment are ignored.
+
+Only missing details are filled from the current driver/vehicle registry (for example the driver phone or vehicle make/model/colour). Affected cards explicitly disclose current-register additions, which are not asserted to be historical snapshots. The current vehicle's driver or booking is never used to identify a past assignment. No assignment means no reconstructed driver/vehicle object. ETA remains unknown unless separately provided; it is not fabricated from identifiers or status.
+
+Call signs now have their own rows and cannot be used as substitutes for names, badges, registration or plate numbers. Generic noncanonical source behavior and CSV export remain unchanged; large CSV exports do not perform assignment enrichment. The parent booking API retains its existing Admin/Dispatcher authentication. No booking, webhook, driver or vehicle record is written, and ingestion configuration is unchanged.
+
+Validation: synthetic mapping cases, a PostgreSQL-compatible batched-query fixture with overlapping IDs across providers, existing schema mapper tests, TypeScript, targeted ESLint and production build. A read-only live query for booking 13215030 verified processed BookingModified/Arrived/POB events and the availability of snapshot identity/registration and matched registry phone/make/model. The exact enrichment query was also checked with `needacabplus_shared_reader`; diagnostic output contained only presence flags and no names/phone numbers.
