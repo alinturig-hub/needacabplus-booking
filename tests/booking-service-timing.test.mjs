@@ -22,7 +22,7 @@ test('hand-computed boundaries, pre-book DAP rule, unknowns, phase delays, drop-
  for(const [id,expected] of Object.entries({booking:'ON_TIME',late:'LATE',fifteen:'LATE',severe:'SEVERELY_LATE',prebook:'ON_TIME',prelate:'LATE',early:'EARLY',missing:'UNKNOWN',pending:'OVERDUE_UNCONFIRMED',cancelled:'NOT_ASSESSED',unknown:'UNKNOWN',dst:'ON_TIME',invalid:'INVALID_TIMELINE','13215177':'LATE'}))assert.equal(result[id].assessment,expected,id);
  assert.equal(Date.parse(result.booking.estimatedDropoffAt),Date.parse('2026-10-22T05:20:00Z'));
  assert.equal(Date.parse(result.supplied.estimatedDropoffAt),Date.parse('2026-10-22T05:30:00Z'));
- assert.equal(result.noestimate.estimatedDropoffAt,null);
+ assert.equal(result.noestimate.estimatedDropoffAt,null);assert.equal(result.booking.lateMinutes,0);
  assert.equal(Date.parse(result.phases.estimatedDropoffAt),Date.parse('2026-10-22T05:22:00Z'));
  assert.equal(result['13215177'].bookingToDapMinutes,10.2);
  assert.equal(result.phases.dispatchDelayMinutes,7);assert.equal(result.phases.dispatchToDapMinutes,3);assert.equal(result.phases.acceptanceToDapMinutes,2);assert.equal(result.phases.dapToOnboardMinutes,2);

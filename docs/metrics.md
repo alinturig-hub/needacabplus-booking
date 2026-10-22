@@ -48,7 +48,8 @@ outcomes are not assessed. DAP before booking time is an invalid timeline.
 ## Phase durations (minutes)
 
 `bookingToDapMinutes` = (DAP − booked time)/60 seconds.
-`lateMinutes` = positive (DAP − deadline)/60 seconds; null otherwise.
+`lateMinutes` = max(0, (DAP − deadline)/60 seconds) for assessable arrivals;
+null when arrival/deadline is missing or the outcome/timeline cannot be assessed.
 `dispatchDelayMinutes` = (dispatched − booked)/60 seconds.
 `dispatchToDapMinutes` = (DAP − dispatched)/60 seconds.
 `acceptanceToDapMinutes` = (DAP − accepted)/60 seconds.
@@ -74,3 +75,6 @@ separately; it is not assumed to be an exact passenger drop-off event.
 These assessments show service delivery and timing evidence. They do not establish
 individual driver responsibility and never change a driver's status, allocation,
 pay or access. No penalties, suspension or ranking are automated.
+
+Canonical timestamp-without-time-zone fields store UTC; booking-list date filters
+convert those instants to Europe/London before selecting a local calendar day.

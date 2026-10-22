@@ -53,3 +53,12 @@ test('TaxiCRM schema mapper links canonical bookings to their locations',()=>{
  assert.equal(mapping.fields.pickupAt.name,'pickupDueTime');
  assert.equal(mapping.fields.reference.name,'externalId');
 });
+
+test('canonical UTC timestamps filter by the correct UK day across BST and winter midnights',async()=>{
+ const {PGlite}=await import('@electric-sql/pglite');const db=new PGlite();try{
+ const {bookingLocalTime}=load();const expression=bookingLocalTime(column('Booking','pickupDueTime','timestamp without time zone'),true);
+ const sql=`SELECT (${expression})::date::text AS day_key FROM (SELECT $1::timestamp AS "pickupDueTime") booking`;
+ assert.equal((await db.query(sql,['2026-10-22T23:30:00'])).rows[0].day_key,'2026-10-23');
+ assert.equal((await db.query(sql,['2026-12-22T23:30:00'])).rows[0].day_key,'2026-12-22');
+ }finally{await db.close()}
+});

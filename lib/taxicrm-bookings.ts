@@ -94,7 +94,7 @@ export async function inspectTaxiCrmBookingSchema(){
 
 const select=(mapping:TaxiCrmBookingMapping,field:Field,alias:string)=>mapping.locationTable&&(field==='pickup'||field==='destination')?`locations.${field} AS ${ident(alias)}`:mapping.fields[field]?`booking.${ident(mapping.fields[field]!.name)} AS ${ident(alias)}`:`NULL AS ${ident(alias)}`;
 const column=(mapping:TaxiCrmBookingMapping,field:Field)=>mapping.fields[field]?`booking.${ident(mapping.fields[field]!.name)}`:null;
-function localTime(columnInfo:Column){const name=`booking.${ident(columnInfo.name)}`;if(columnInfo.dataType==='timestamp with time zone')return `(${name} AT TIME ZONE 'Europe/London')`;if(columnInfo.dataType==='date'||columnInfo.dataType==='timestamp without time zone')return name;return `(NULLIF(${name}::text,'')::timestamptz AT TIME ZONE 'Europe/London')`}
+export function bookingLocalTime(columnInfo:Column,canonicalUtc=false){const name=`booking.${ident(columnInfo.name)}`;if(columnInfo.dataType==='timestamp with time zone')return `(${name} AT TIME ZONE 'Europe/London')`;if(columnInfo.dataType==='timestamp without time zone'&&canonicalUtc)return `((${name} AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/London')`;if(columnInfo.dataType==='date'||columnInfo.dataType==='timestamp without time zone')return name;return `(NULLIF(${name}::text,'')::timestamptz AT TIME ZONE 'Europe/London')`}
 const valuesOf=(row:Record<string,unknown>,name:string)=>row[name]===null||row[name]===undefined?'':String(row[name]);
 const dateOf=(row:Record<string,unknown>,name:string)=>row[name] instanceof Date?(row[name] as Date).toISOString():valuesOf(row,name);
 const pricingAmount=(value:unknown,columnInfo?:Column):number|null=>{
@@ -126,7 +126,7 @@ export async function readTaxiCrmBookings(params:URLSearchParams):Promise<TaxiCr
   const paymentColumn=column(mapping,'payment');if(payment&&paymentColumn)conditions.push(`${paymentColumn}::text=${add(payment)}`);
   const timeInfo=dateField==='booked'?mapping.fields.createdAt:(mapping.fields.pickupAt||mapping.fields.createdAt||mapping.fields.updatedAt);
   if(period.start&&period.end&&!timeInfo)throw new TaxiCrmBookingSchemaError(`TaxiCRM cannot filter by ${dateField==='booked'?'booking creation':'pickup'} time because the source field is unavailable.`);
-  if(period.start&&period.end&&timeInfo){const time=localTime(timeInfo);if(period.period==='custom'){
+  if(period.start&&period.end&&timeInfo){const time=bookingLocalTime(timeInfo,mapping.schema==='public'&&mapping.table==='Booking');if(period.period==='custom'){
    conditions.push(`${time} >= ${add(`${period.start}T${period.fromTime}`)}::timestamp AND ${time} < (${add(`${period.end}T${period.toTime}`)}::timestamp + interval '1 minute')`);
   }else conditions.push(`${time}::date BETWEEN ${add(period.start)}::date AND ${add(period.end)}::date`)}
   const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'',table=`${tableName(mapping)} booking`;
