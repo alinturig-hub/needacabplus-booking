@@ -24,3 +24,17 @@ Exeter bookings (Autocab company 4). Identification uses source company IDs,
 not addresses or destination text. Retired databases and pre-existing backups
 are distinct from the operational shared database; no claim of backup erasure
 is made by the operations module.
+
+Deletion completed and committed on 22 October 2026:
+
+- Live canonical bookings deleted: 9,301.
+- Shared history JSON versions deleted: 16,026.
+- Original import archive JSON versions deleted: 16,026 (the same versions in its source copy).
+- Repair audit rows deleted: 9,383; reconciliation queue rows deleted: 704.
+- 9,301 ID-only replay suppression records retained.
+- Live total immediately after deletion: 2,732,142; ongoing ingestion can change it.
+
+The guarded SQL used is retained under `scripts/maintenance/`. These scripts are
+manual maintenance records and are not run by application startup or deployment.
+The first original-archive attempt timed out during a redundant JSON join and
+rolled back; the validated company-scoped retry completed successfully.
