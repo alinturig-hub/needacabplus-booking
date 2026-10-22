@@ -56,7 +56,7 @@ export async function POST(request:Request){
 export async function GET(request:Request){
  if(!await isDispatchUser())return Response.json({error:'Dispatch access required.'},{status:403});
  const bookingGroup=new URL(request.url).searchParams.get('group');
- if(bookingGroup&&!['hackney','street','hackney-street','private-hire','unknown'].includes(bookingGroup))return Response.json({error:'Invalid booking group.'},{status:400});
+ if(bookingGroup&&!['hackney','hackney-cmac','street','hackney-street','private-hire','unknown'].includes(bookingGroup))return Response.json({error:'Invalid booking group.'},{status:400});
  if(bookingGroup&&(!taxiCrmDatabaseConfigured()||!taxiCrmBookingReadEnabled()))return Response.json({error:'Booking groups require the live canonical database.'},{status:503});
  if(new URL(request.url).searchParams.get('requireTaxiCrm')==='1'&&(!taxiCrmDatabaseConfigured()||!taxiCrmBookingReadEnabled()))return Response.json({error:'TaxiCRM booking search is not connected. Configure the read-only TaxiCRM database connection and enable booking reads.'},{status:503,headers:{'Cache-Control':'no-store'}});
  if(taxiCrmDatabaseConfigured()&&taxiCrmBookingReadEnabled()){

@@ -38,3 +38,23 @@ The guarded SQL used is retained under `scripts/maintenance/`. These scripts are
 manual maintenance records and are not run by application startup or deployment.
 The first original-archive attempt timed out during a redundant JSON join and
 rolled back; the validated company-scoped retry completed successfully.
+
+## CMAC account card
+
+The CMAC · Hackney card is a subset of Hackney bookings, not an additional
+additive group. It requires Account payment and a CMAC word marker in the saved
+account name/code, or a provider-matched AutocabAccount identity whose registry
+name/code contains that marker. It does not require FlaggedBooking or street
+pickup. Saved call sign classification follows the shared Hackney policy.
+
+The card shows all-history booking count, COMPLETED count, and SUM(price) over
+COMPLETED jobs. Monetary arithmetic stays PostgreSQL numeric; the API serializes
+the sum as text. Known zero prices are retained and counted; NULL prices are
+excluded and their count is shown. The value is gross completed booking value,
+not operator revenue or driver earnings. The card and booking filter share the
+same predicate. Links explicitly open all history; exports retain the group.
+
+Live validation on 22 October 2026: account CMAC CABX (L), saved account ID 2019;
+1,270 Hackney account jobs, 577 COMPLETED, completed booking value GBP 15,633.16,
+one completed zero-price job and no completed missing prices. Counts can change
+with live updates; ID 2019 is verified context and is not hard-coded as a match.

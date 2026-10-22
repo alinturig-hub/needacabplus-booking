@@ -5,9 +5,9 @@ import AdminWorkspace from '../admin-workspace';
 
 export const dynamic='force-dynamic';
 
-export default async function BookingSearchPage({searchParams}:{searchParams:Promise<{group?:string}>}){
- const {group}=await searchParams;
- const initialGroup=['hackney','street','hackney-street','private-hire','unknown'].includes(group||'')?group!:'All';
+export default async function BookingSearchPage({searchParams}:{searchParams:Promise<{group?:string;period?:string}>}){
+ const {group,period}=await searchParams;
+ const initialGroup=['hackney','hackney-cmac','street','hackney-street','private-hire','unknown'].includes(group||'')?group!:'All';
  if(!await isAdmin())redirect('/admin-login');
- return <AdminWorkspace><AdminApp mode="search" initialGroup={initialGroup}/></AdminWorkspace>;
+ return <AdminWorkspace><AdminApp mode="search" initialGroup={initialGroup} initialPeriod={period==='all'?'all':'today'}/></AdminWorkspace>;
 }

@@ -15,6 +15,11 @@ export async function GET(){
     count(*) FILTER(WHERE ${e.street})::int street,
     count(*) FILTER(WHERE ${e.hackney} AND ${e.street})::int overlap,
     count(*) FILTER(WHERE ${e.unknown})::int unknown_driver,
+    count(*) FILTER(WHERE ${e.hackney} AND ${e.cmac})::int cmac_jobs,
+    count(*) FILTER(WHERE ${e.hackney} AND ${e.cmac} AND booking.status='COMPLETED')::int cmac_completed,
+    COALESCE(sum(booking.price) FILTER(WHERE ${e.hackney} AND ${e.cmac} AND booking.status='COMPLETED'),0)::text cmac_completed_value,
+    count(*) FILTER(WHERE ${e.hackney} AND ${e.cmac} AND booking.status='COMPLETED' AND booking.price IS NULL)::int cmac_missing_price,
+    count(*) FILTER(WHERE ${e.hackney} AND ${e.cmac} AND booking.status='COMPLETED' AND booking.price=0)::int cmac_zero_price,
     count(*) FILTER(WHERE ${e.hackney} AND (booking."pickupDueTime" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/London')::date=(now() AT TIME ZONE 'Europe/London')::date)::int hackney_today
     FROM public."Booking" booking`,values);
    return result.rows[0];
