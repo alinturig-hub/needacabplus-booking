@@ -15,7 +15,8 @@ Validation: synthetic mapping cases, a PostgreSQL-compatible batched-query fixtu
 The canonical admin reader now returns both complete `BookingLocation` records,
 ordered `BookingVia` records, financial/distance fields and every recorded
 operational timestamp. UTC canonical timestamps are sent with an explicit `Z`;
-Autocab JSON wall times use the existing Europe/London parser. Estimated pickup
+Explicit JSON offsets are authoritative; unoffset fields from this feed use UTC,
+matching the canonical columns (verified on the supplied booking references). Estimated pickup
 is only populated from an actual `EstimatedPickupTime`, never from journey
 `estimatedTime`. Missing events are labelled **Not recorded**. Other missing
 values are labelled **Not supplied by source**. `Archived` is displayed as

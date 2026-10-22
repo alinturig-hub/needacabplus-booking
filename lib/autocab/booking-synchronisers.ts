@@ -10,6 +10,30 @@ import {
 
 type LocationType = "PICKUP" | "DESTINATION";
 
+function retainOmittedLocationData(
+  data: NonNullable<ReturnType<typeof buildLocationData>>,
+  source: JsonObject,
+  existing: ReturnType<typeof buildLocationData> | undefined,
+) {
+  // A sparse update for the same address is not a removal of its zone or coordinates.
+  // A changed address must not inherit coordinates from the previous stop.
+  if (existing?.address === data.address) {
+    for (const [group, fields] of [
+      ["Zone", [["Id", "zoneId"], ["Descriptor", "zoneDescriptor"], ["Name", "zoneName"]]],
+      ["Coordinates", [["Latitude", "latitude"], ["Longitude", "longitude"]]],
+    ] as const) {
+      const incoming = getObject(source, group);
+      for (const [source, target] of fields) {
+        if (!hasOwn(source, group) || (incoming && !hasOwn(incoming, source))) {
+          (data as Record<string, unknown>)[target] = existing[target];
+        }
+      }
+    }
+  }
+
+}
+
+
 export async function synchroniseLocation(
   tx: Prisma.TransactionClient,
   bookingId: string,
@@ -58,21 +82,7 @@ export async function synchroniseLocation(
       },
     });
 
-  // A sparse update for the same address is not a removal of its zone or coordinates.
-  // A changed address must not inherit coordinates from the previous stop.
-  if (existing?.address === data.address) {
-    for (const [group, fields] of [
-      ["Zone", [["Id", "zoneId"], ["Descriptor", "zoneDescriptor"], ["Name", "zoneName"]]],
-      ["Coordinates", [["Latitude", "latitude"], ["Longitude", "longitude"]]],
-    ] as const) {
-      const incoming = getObject(location, group);
-      for (const [source, target] of fields) {
-        if (!hasOwn(location, group) || (incoming && !hasOwn(incoming, source))) {
-          (data as Record<string, unknown>)[target] = existing[target];
-        }
-      }
-    }
-  }
+  retainOmittedLocationData(data, location, existing);
 
   const coordinatesChanged =
     existing !== null &&
@@ -115,6 +125,7 @@ export async function synchroniseVias(
   }
 
   const vias = getArray(payload, "Vias");
+  const previous = vias?.length ? await tx.bookingVia.findMany({where:{bookingId}}) : [];
 
   await tx.bookingVia.deleteMany({
     where: {
@@ -138,6 +149,7 @@ export async function synchroniseVias(
         return null;
       }
 
+      retainOmittedLocationData(data, via, previous.find(item=>item.position===index));
       return {
         bookingId,
         position: index,

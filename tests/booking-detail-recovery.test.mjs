@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {recoverAssignmentDetails} from '../lib/autocab/assignment-details.mjs';
-import {recoverBookingDetails} from '../lib/autocab/booking-detail-recovery.mjs';
+import {recoverBookingDetails,sourceTimestamp} from '../lib/autocab/booking-detail-recovery.mjs';
 const row={id:'b',provider:'AUTOCAB',externalId:'123',status:'COMPLETED',driverId:'5',vehicleId:'8'};
 const doc=(payload,kind='canonical_raw')=>({kind,id:'source',payload});
 test('recovers archived full name and real registration without splitting names or using call signs as identifiers',()=>{
@@ -36,4 +36,10 @@ test('does not fabricate completion for an arrived booking or reinterpret archiv
  const raw={BookingId:123,CompletedAtTime:'2026-10-22T06:45:00+01:00',CancelledAtTime:'2026-10-22T06:45:00+01:00'};
  const r=recoverBookingDetails({...row,status:'ARRIVED'},[doc(raw)]);assert.deepEqual(r.patch,{});
  const noFare=recoverBookingDetails({...row,status:'NO_FARE'},[doc({archivedBooking:{originalAutoID:123,reason:'NoJob',completedAtTime:'2026-10-22T06:45:00+01:00'}},'archive')]);assert.deepEqual(noFare.patch,{});
+});
+
+test('unoffset feed UTC values and explicit BST offsets resolve to the same instant',()=>{
+ assert.equal(sourceTimestamp('2026-10-22T05:30:00'),'2026-10-22T05:30:00.000Z');
+ assert.equal(sourceTimestamp('2026-10-22T06:30:00+01:00'),'2026-10-22T05:30:00.000Z');
+ assert.equal(sourceTimestamp('0001-01-01T00:00:00Z'),null);
 });
