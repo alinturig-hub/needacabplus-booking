@@ -23,8 +23,8 @@ function retainOmittedLocationData(
       ["Coordinates", [["Latitude", "latitude"], ["Longitude", "longitude"]]],
     ] as const) {
       const incoming = getObject(source, group);
-      for (const [source, target] of fields) {
-        if (!hasOwn(source, group) || (incoming && !hasOwn(incoming, source))) {
+      for (const [sourceKey, target] of fields) {
+        if (!hasOwn(source, group) || (incoming && !hasOwn(incoming, sourceKey))) {
           (data as Record<string, unknown>)[target] = existing[target];
         }
       }
