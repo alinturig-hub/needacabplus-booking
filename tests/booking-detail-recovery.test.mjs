@@ -51,3 +51,11 @@ test('repairs a proven old UTC interpretation of raw London wall time but preser
  assert.equal(recoverBookingDetails({...row,bookedAtTime:new Date('2026-10-22T02:54:41.470Z')},[doc(raw)]).patch.bookedAtTime,undefined);
  assert.equal(recoverBookingDetails({...row,bookedAtTime:new Date('2026-10-22T04:54:41.470Z')},[doc({autocab_booking_id:123,booked_at:'2026-10-22T04:54:41.470Z'})]).patch.bookedAtTime,undefined);
 });
+
+test('JSONB key reordering does not create a false repair or repeated write',()=>{
+ const docs=[doc({autocab_booking_id:123,driver_name:'Saved Driver',driver_phone:'test-phone',vehicle_registration:'AB12 CDE',vehicle_make:'Saved make'})];
+ const first=recoverAssignmentDetails({...row,driverId:null,vehicleId:null},docs);
+ const reorder=x=>Array.isArray(x)?x.map(reorder):x&&typeof x==='object'?Object.fromEntries(Object.entries(x).reverse().map(([k,v])=>[k,reorder(v)])):x;
+ const second=recoverAssignmentDetails({...row,...first.patch,driverId:null,vehicleId:null,assignmentDetails:reorder(first.details)},docs,{onlyWhenAddsInformation:true});
+ assert.equal(second.changed,false);assert.deepEqual(second.patch,{});
+});
