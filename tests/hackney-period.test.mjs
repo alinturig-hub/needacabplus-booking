@@ -38,7 +38,8 @@ test('Hackney API filters every card including CMAC value, and rejects invalid r
  ('AUTOCAB','901','FlaggedBooking',false,'Account','CMAC',NULL,NULL,'COMPLETED',20,'2026-10-22T22:59:59.999'),
  ('AUTOCAB','402','FlaggedBooking',false,'Account','CMAC',NULL,NULL,'COMPLETED',100,'2026-10-21T22:59:59.999'),
  ('AUTOCAB','403','OperatorWeb',false,'Account','CMAC',NULL,NULL,'COMPLETED',200,'2026-10-22T23:00:00'),
- ('AUTOCAB',NULL,'OperatorWeb',false,'Cash',NULL,NULL,NULL,'BOOKED',30,'2026-10-22T12:00:00');`);
+ ('AUTOCAB',NULL,'OperatorWeb',false,'Cash',NULL,NULL,NULL,'BOOKED',30,'2026-10-22T12:00:00'),
+ ('AUTOCAB','117','OperatorWeb',false,'Cash',NULL,NULL,NULL,'BOOKED',30,'2026-10-22T12:00:00');`);
  const route=loadTs('app/api/admin/hackney/route.ts',{
  '@/lib/database':{},'@/lib/security':{isAdmin:async()=>true,sameOrigin:()=>true},
  '@/lib/taxicrm-database':{withTaxiCrmReadOnly:async work=>work(db)},
@@ -49,7 +50,7 @@ test('Hackney API filters every card including CMAC value, and rejects invalid r
  for(const [period,expectedJobs,expectedValue] of [['today',2,'30'],['yesterday',1,'100'],['7days',3,'130'],['30days',3,'130'],['all',4,'330']]){
   const response=await route.GET(new Request('https://example.test/api/admin/hackney?period='+period));const body=await response.json();assert.equal(response.status,200);
   assert.equal(body.summary.hackney,expectedJobs);assert.equal(body.summary.cmac_jobs,expectedJobs);assert.equal(body.summary.cmac_completed_value,expectedValue);
-  if(period==='today'){assert.equal(body.summary.street,1);assert.equal(body.summary.unknown_driver,1)}
+  if(period==='today'){assert.equal(body.summary.street,1);assert.equal(body.summary.unknown_driver,1);assert.equal(body.summary.private_hire,1)}
  }
  const custom=await(await route.GET(new Request('https://example.test/api/admin/hackney?period=custom&from=2026-10-22&to=2026-10-22'))).json();assert.equal(custom.summary.cmac_completed_value,'30');
  assert.equal((await route.GET(new Request('https://example.test/api/admin/hackney?period=custom&from=bad&to=2026-10-22'))).status,400);

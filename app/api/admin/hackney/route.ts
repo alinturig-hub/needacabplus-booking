@@ -18,6 +18,7 @@ export async function GET(request:Request){
    const e=hackneyExpressions(policy,add);
    const periodWhere=hackneyPeriodPredicate(period,add);
    const result=await client.query(`SELECT count(*) FILTER(WHERE ${e.hackney})::int hackney,
+    count(*) FILTER(WHERE NOT ${e.hackney} AND NOT ${e.unknown})::int private_hire,
     count(*) FILTER(WHERE ${e.street})::int street,
     count(*) FILTER(WHERE ${e.hackney} AND ${e.street})::int overlap,
     count(*) FILTER(WHERE ${e.unknown})::int unknown_driver,

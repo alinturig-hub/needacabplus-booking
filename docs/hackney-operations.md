@@ -79,3 +79,15 @@ always submits its explicit selection.
 Changing the period hides values for the prior selection. Pending requests are
 aborted and guarded against stale responses. Custom date drafts only affect
 metrics after Apply range. Config drafts are not reset by a date refresh.
+
+## Simplified visible categories
+
+The operator requested only Hackney, Private hire and Unknown in the booking
+group selector and Hackney overview. Separate CMAC, Street/Flagdown and
+Hackney+Street options/cards were removed from those interfaces. Original
+account/source/street flags, historical booking data, backend predicates and
+backward-compatible API fields remain intact. The server now also reports the
+Private hire complement of known non-Hackney call signs for the selected period.
+Legacy CMAC/Hackney+Street page links open the main Hackney group; legacy Street
+page links open All groups. The three visible categories remain independent
+of account and booking origin.
