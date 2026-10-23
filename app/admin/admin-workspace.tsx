@@ -3,10 +3,9 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState, useSyncExternalStore, type ReactNode} from 'react';
-import {Activity, CarTaxiFront, ChevronDown, ChevronRight, ChartNoAxesCombined, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
+import {Activity, ChevronDown, ChevronRight, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, X} from 'lucide-react';
 import {saveAdminInterface, useAdminInterface} from './admin-interface';
 import {adminMenuGroups} from './admin-menu';
-import {taxiCrmAppUrl} from '@/lib/admin-links';
 import './admin-workspace.css';
 
 function subscribeHash(callback: () => void) {
@@ -19,12 +18,13 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => '');
   const interfaceSettings = useAdminInterface();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({bookings: true, 'general-settings': true});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({reports:true});
   const currentHref = pathname + hash;
-  const currentItem = adminMenuGroups.flatMap(group => group.items).find(item => item.href === currentHref);
+  const matchesItem=(href:string)=>href===currentHref||(!href.includes('#')&&pathname.startsWith(href+'/'));
+  const currentItem = adminMenuGroups.flatMap(group => group.items).find(item => matchesItem(item.href));
   const categoryGroup = adminMenuGroups.find(group => pathname === `/admin/category/${group.id}`);
-  const currentGroup = categoryGroup ?? adminMenuGroups.find(group => group.items.some(item => item.href === currentHref));
-  const pageTitle = categoryGroup?.label ?? currentItem?.label ?? (pathname === '/admin' ? 'Dashboard' : pathname.startsWith('/admin/hackney') ? (pathname === '/admin/hackney' ? 'Hackney' : 'Hackney bookings') : 'Settings');
+  const currentGroup = categoryGroup ?? adminMenuGroups.find(group => group.items.some(item => matchesItem(item.href)));
+  const pageTitle = categoryGroup?.label ?? currentItem?.label ?? (pathname === '/admin' ? 'Overview' : pathname.startsWith('/admin/hackney') ? (pathname === '/admin/hackney' ? 'Hackney' : 'Hackney bookings') : pathname.startsWith('/admin/configuration/integrations') ? 'Integrations' : 'Settings');
   const sectionTitle = pathname.startsWith('/admin/hackney') ? 'Operations' : currentGroup?.label ?? 'Workspace';
   const close = () => setMobileOpen(false);
 
@@ -41,12 +41,12 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
       <nav aria-label="Admin sections">
         <span className="admin-workspace-nav-label">WORKSPACE</span>
         <Link className={`admin-workspace-home${pathname === '/admin' ? ' active' : ''}`} href="/admin" onClick={close} aria-current={pathname === '/admin' ? 'page' : undefined}>
-          <LayoutDashboard size={19}/><span>Dashboard</span>
+          <LayoutDashboard size={19}/><span>Overview</span>
         </Link>
-        <span className="admin-workspace-nav-label admin-workspace-nav-label-spaced">MANAGEMENT</span>
+        <span className="admin-workspace-nav-label admin-workspace-nav-label-spaced">MODULES</span>
         {adminMenuGroups.map(group => {
           const Icon = group.icon;
-          const groupActive = categoryGroup?.id === group.id || group.items.some(item => item.href === currentHref);
+          const groupActive = categoryGroup?.id === group.id || group.items.some(item => matchesItem(item.href));
           const open = expanded[group.id] ?? groupActive;
           return <div className="admin-workspace-group" key={group.id}>
             <div className={`admin-workspace-group-heading${groupActive ? ' active' : ''}`}>
@@ -59,7 +59,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
             </div>
             {open && <div className="admin-workspace-submenu">
               {group.items.filter(item => !item.categoryOnly).map(item => {
-                const current = item.href === currentHref;
+                const current = matchesItem(item.href);
                 return item.href.includes('#')
                   ? <a key={item.href} href={item.href} onClick={close} aria-current={current ? 'page' : undefined}>{item.label}</a>
                   : <Link key={item.href} href={item.href} onClick={close} aria-current={current ? 'page' : undefined}>{item.label}</Link>;
@@ -67,12 +67,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
             </div>}
           </div>;
         })}
-        <span className="admin-workspace-nav-label admin-workspace-nav-label-spaced">OPERATIONS</span>
-        <Link className="admin-workspace-dispatch" href="/dispatch" prefetch={false} onClick={close}>
-          <Activity size={19}/><span>Open Dispatch</span><ChevronRight size={16}/>
-        </Link>
-        <Link className="admin-workspace-dispatch" href="/admin/hackney" onClick={close} aria-current={pathname.startsWith('/admin/hackney')?'page':undefined}><CarTaxiFront size={19}/><span>Hackney</span><ChevronRight size={16}/></Link>
-        {taxiCrmAppUrl()&&<a className="admin-workspace-dispatch" href={taxiCrmAppUrl()!} target="_blank" rel="noopener noreferrer" onClick={close}><ChartNoAxesCombined size={19}/><span>Open TaxiCRM</span><ChevronRight size={16}/></a>}
+
       </nav>
       <div className="admin-workspace-sidebar-footer">
         <span><ShieldCheck size={15}/> Secured Admin access</span>
