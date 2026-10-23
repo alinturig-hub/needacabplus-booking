@@ -2,10 +2,8 @@ import {Activity,BookOpen,CarFront,Settings2,SlidersHorizontal,UsersRound,type L
 export type AdminMenuItem={label:string;href:string;description:string;categoryOnly?:boolean};
 export type AdminMenuGroup={id:string;label:string;description:string;icon:LucideIcon;items:AdminMenuItem[]};
 export const adminMenuGroups:AdminMenuGroup[]=[
- {id:'dispatch',label:'Dispatch',description:'Send jobs to drivers and follow acceptance, rejection and live journeys.',icon:Activity,items:[
-  {label:'Dispatch workspace',href:'/dispatch',description:'Assign bookings and manage the live dispatch workflow.'},
-  {label:'Live map',href:'/admin/live-map',description:'Review live fleet positions.'},
-  {label:'Dispatch analysis',href:'/admin/dispatch',description:'Review dispatch activity and service performance.'},
+ {id:'dispatch',label:'Dispatch',description:'Configure dispatch rules, driver eligibility, offer timing and simulation. Dispatchers work in the separate Dispatch application.',icon:Activity,items:[
+  {label:'Rules & simulation',href:'/admin/dispatch-rules',description:'Configure driver selection and offer timing, and test dispatch rules.'},
  ]},
  {id:'customers',label:'Customers',description:'Customer access, service eligibility and membership configuration.',icon:UsersRound,items:[
   {label:'Customer access',href:'/admin/customers/access',description:'Customer registration and sign-in methods.'},
@@ -24,7 +22,6 @@ export const adminMenuGroups:AdminMenuGroup[]=[
  {id:'configuration',label:'Configuration',description:'Configure integrations, booking rules, fares and operational services.',icon:SlidersHorizontal,items:[
   {label:'Integrations',href:'/admin/configuration/integrations',description:'Independent Autocab and TaxiCRM integration workspaces.'},
   {label:'Booking rules',href:'/admin/configuration#bookings',description:'Booking sources, payment options and pickup timing.'},
-  {label:'Dispatch rules',href:'/admin/configuration#dispatch',description:'Driver search and dispatch timing.'},
   {label:'Fare sources',href:'/admin/configuration#pricing',description:'Autocab live fares and local tariffs.'},
   {label:'Pricing rules & promotions',href:'/admin/configuration#pricing-rules',description:'Service pricing, membership and demand rules.'},
   {label:'Payments',href:'/admin/configuration#payments',description:'Payment providers and checkout settings.'},

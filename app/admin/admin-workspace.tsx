@@ -85,7 +85,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
           <button className="admin-workspace-theme-toggle" type="button" onClick={() => saveAdminInterface({...interfaceSettings, theme: interfaceSettings.theme === 'dark' ? 'light' : 'dark'})} aria-label={`Switch to ${interfaceSettings.theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${interfaceSettings.theme === 'dark' ? 'Light' : 'Dark'} theme`}>
             {interfaceSettings.theme === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}<span>{interfaceSettings.theme === 'dark' ? 'Light' : 'Dark'} mode</span>
           </button>
-          <Link className="admin-workspace-topbar-action" href="/dispatch" prefetch={false}><Activity size={16}/>Open Dispatch<ChevronRight size={15}/></Link>
+          <a className="admin-workspace-topbar-action" href="https://dispatch.needacabplus.app/" target="_blank" rel="noopener noreferrer"><Activity size={16}/>Open Dispatch<ChevronRight size={15}/></a>
         </div>
       </header>
       {children}

@@ -66,7 +66,7 @@ export default function AdminDashboard(){
    <Card icon={<TriangleAlert/>} title="Needs attention" value={attention} href="/admin/vehicles" action="Review fleet documents" attention={Boolean(attention)}><p>{data?.attention.documents===null?'Document checks unavailable':`${count(data?.attention.documents)} local fleet documents due or expired`}</p><Link className="dashboard-setup-link" href="/admin/drivers">Review driver documents →</Link>{Boolean(data?.attention.setup)&&<Link className="dashboard-setup-link" href="/admin/configuration#payments">Payment setup required →</Link>}</Card>
   </section>
   <section className="dashboard-quick"><h2>Quick actions</h2><div>
-   <Link href="/dispatch" prefetch={false}><CalendarPlus/><span>Add booking</span></Link>
+   <a href="https://dispatch.needacabplus.app/" target="_blank" rel="noopener noreferrer"><CalendarPlus/><span>Add booking</span></a>
    <Link href="/admin/drivers"><UserRoundPlus/><span>Manage drivers</span></Link>
    <Link href="/admin/vehicles"><CarFront/><span>Fleet settings</span></Link>
    <Link href="/admin/configuration#bookings"><Settings2/><span>Booking rules</span></Link>

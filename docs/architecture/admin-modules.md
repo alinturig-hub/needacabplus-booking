@@ -3,6 +3,8 @@
 Seven top-level workspaces: Overview, Dispatch, Customers, Reports,
 Operations, Configuration and Settings.
 
+- Dispatch in Admin owns rules, driver eligibility, offer timing and simulation only.
+  Dispatchers use https://dispatch.needacabplus.app/; the Admin header opens this separate application.
 - Reports owns booking search/history and the booking overview.
 - Operations owns Fleet (Drivers and Vehicles) and Hackney.
 - Configuration owns booking/dispatch rules, fares, payments, maps,
