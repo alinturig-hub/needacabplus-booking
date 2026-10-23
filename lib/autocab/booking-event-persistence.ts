@@ -55,6 +55,13 @@ export async function persistBookingEvent(
       })
     : [];
   const stale = previous.some((item) => webhookOccurredAt(item) > occurredAt);
+  // Context-only modifications do not advance the operational lifecycle. Their
+  // receipt timestamp can be milliseconds later than a completion timestamp.
+  // Preserve newer payload fields independently from applying a final status.
+  const terminal = options.status === 'COMPLETED' || options.status === 'CANCELLED' || options.status === 'NO_FARE';
+  const statusStale = terminal
+    ? previous.some(item => !['bookingmodified','bookingrunninglate','autocabbookingmodified','autocabrunninglate'].includes(normaliseEventType(item.eventType)) && webhookOccurredAt(item) > occurredAt)
+    : stale;
   const recovered =
     !stale && normaliseEventType(event.eventType) === "bookingrecovered";
   const regressive =
@@ -69,7 +76,7 @@ export async function persistBookingEvent(
     stale || regressive || options.status === "REJECTED",
     options.status === "REJECTED",
   );
-  if (options.status && !stale) {
+  if (options.status && !statusStale) {
     await updateBookingStatus(tx, bookingId, options.status, recovered);
   }
   const timestampField = {
@@ -84,7 +91,7 @@ export async function persistBookingEvent(
   });
   if (
     options.status &&
-    !stale &&
+    !statusStale &&
     options.status in timestampField &&
     (options.status === "ACCEPTED" || applied.status === options.status)
   ) {
