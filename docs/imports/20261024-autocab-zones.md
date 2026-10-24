@@ -17,8 +17,13 @@ invented or repaired for the drawing editor.
 Existing manual Mutley was adopted by matching its name, with its previous
 version recorded and its published snapshot retained. The Autocab boundary is a
 new draft. No live snapshot, pricing assignment, dispatch rule or driver queue
-was changed by this import. A single operating boundary cannot be inferred from
-Autocab's Normal/System zone types; its intended coverage needs to be specified.
+was changed by this import. The user specified UK-wide operating coverage. A separate United Kingdom draft
+uses Natural Earth 1:50m Admin 0 data (public domain), including England, Scotland,
+Wales and Northern Ireland and island components. This is a generalised national
+boundary, not an Autocab plot or a detailed coastal/legal service boundary.
+The source GeoJSON and attribution are saved in scripts/data/uk-operating-area.geojson.
+Generate its idempotent import with `npx tsx scripts/import-uk-operating-area.ts output.sql`.
+MultiPolygon support preserves its 23 parts as one operating area in the editor.
 
 Reproduce with `npx tsx scripts/import-autocab-map-zones.ts inventory.json output.sql`.
 The inventory JSON contains `zones`, with externalId, name, active, mdtZoneId,

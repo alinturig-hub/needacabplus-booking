@@ -36,3 +36,11 @@ test('Autocab plots retain boundaries, remove zero-length duplicate vertices and
  assert.equal(prepareAutocabZone({...record,rawPayload:{...record.rawPayload,zoneType:'NoGps'}}).purpose,'system');
  assert.throws(()=>prepareAutocabZone({...record,rawPayload:{zoneType:'Normal',boundary:[{longitude:0,latitude:0},{longitude:1,latitude:1},{longitude:0,latitude:1},{longitude:1,latitude:0}]}}));
 });
+test('UK operating boundary includes all four nations and excludes Dublin and Paris',()=>{
+ const feature=JSON.parse(fs.readFileSync('scripts/data/uk-operating-area.geojson','utf8'));
+ const geometry=schema.zoneGeometrySchema.parse(feature.geometry);assert.equal(geometry.type,'MultiPolygon');
+ const {pointInZone}=load('lib/native-dispatch-engine.ts',{'./dispatch-routing':{milesBetween(){return 0}}});
+ const inside=(latitude,longitude)=>geometry.coordinates.some(coordinates=>pointInZone({latitude,longitude},{id:'part',geometry:{type:'Polygon',coordinates}}));
+ for(const p of [[50.3755,-4.1427],[51.5074,-0.1278],[55.9533,-3.1883],[51.4816,-3.1791],[54.5973,-5.9301]])assert.ok(inside(...p),String(p));
+ assert.equal(inside(53.3498,-6.2603),false);assert.equal(inside(48.8566,2.3522),false);
+});
