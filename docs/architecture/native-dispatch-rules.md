@@ -35,8 +35,14 @@ and previews synthetic offer schedules. This does not send live offers.
 
 ## Driver App integration still required
 
-The user confirmed no Driver App exists yet. `driver.needacabplus.app` is proposed;
-this change does not deploy a driver application or configure DNS.
+A separate Driver App pilot is available at `drivers.needacabplus.app`, with
+invited accounts, foreground GPS, integrated road routing, voice instructions and
+training job lifecycle events. `/driver/preview` is a public design preview.
+Accounts and training offers are managed under Configuration → Apps → Driver.
+Training jobs are database-constrained and never update customer bookings or payments.
+Real native offer delivery remains unconnected. Routing uses a configurable HTTPS
+OSRM service (`DRIVER_ROUTING_URL`); the pilot defaults to the public OSRM server.
+Live traffic, speed limits and native background navigation are not included.
 
 Before real offer delivery, connect this core to:
 

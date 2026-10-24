@@ -1,0 +1,1 @@
+export function GET(){return Response.json({name:'Need A Cab Plus Driver',short_name:'N+ Driver',id:'/driver',start_url:'/driver',scope:'/driver',display:'standalone',background_color:'#0d1415',theme_color:'#0d1415',icons:[{src:'/driver/icon.svg',sizes:'any',type:'image/svg+xml',purpose:'any'}]},{headers:{'Content-Type':'application/manifest+json'}})}

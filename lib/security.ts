@@ -19,7 +19,7 @@ export async function setAdminSession(){const state=await adminSecurity(),expiry
 export async function clearAdminSession(){(await cookies()).set(COOKIE,'',cookieOptions(0))}
 export function sameOrigin(request:Request){
  const origin=request.headers.get('origin');if(!origin)return false;
- const allowed=new Set([new URL(request.url).origin,'https://admin.needacabplus.app','https://dispatch.needacabplus.app','https://webapp.needacabplus.app']);
+ const allowed=new Set([new URL(request.url).origin,'https://admin.needacabplus.app','https://drivers.needacabplus.app','https://dispatch.needacabplus.app','https://webapp.needacabplus.app']);
  const expected=process.env.APP_ORIGIN;if(expected)allowed.add(expected);
  const forwardedHost=(request.headers.get('x-forwarded-host')||'').split(',')[0].trim();
  const forwardedProto=(request.headers.get('x-forwarded-proto')||'https').split(',')[0].trim();
