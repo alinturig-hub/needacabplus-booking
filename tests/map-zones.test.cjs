@@ -8,7 +8,7 @@ test('zone geometry rejects crossing, open, degenerate and out-of-range rings',(
 });
 test('zone API protects writes and publishes immutable live snapshots independently of drafts',async()=>{
  const {PGlite}=await import('@electric-sql/pglite');const db=new PGlite();let admin=true,origin=true;
- try{await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zones.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zone_publication.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_autocab_map_zones.sql','utf8'));
+ try{await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zones.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zone_publication.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_autocab_map_zones.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zone_deletion.sql','utf8'));
  const client={query:async(sql,args)=>{const r=await db.query(sql,args);return{...r,rowCount:r.affectedRows}},release(){}};
  const routes=load('app/api/admin/zones/route.ts',{'@/lib/database':{database:()=>({...client,connect:async()=>client})},'@/lib/security':{isAdmin:async()=>admin,sameOrigin:()=>origin,unavailable:()=>Response.json({error:'Unavailable'},{status:503})},'@/lib/map-zone-schema':schema});
  const request=(value)=>new Request('https://admin.needacabplus.app/api/admin/zones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
@@ -26,6 +26,19 @@ test('zone API protects writes and publishes immutable live snapshots independen
  await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zone_publication.sql','utf8'));assert.equal((await(await routes.GET()).json()).zones[0].published_snapshot,null,'Rerunning migration must not publish drafts');
  admin=false;assert.equal((await routes.PATCH(request({id:saved.id,version:saved.version,action:'publish'}))).status,403);admin=true;
  const versions=await db.query('SELECT count(*)::int n FROM map_zone_versions');assert.equal(versions.rows[0].n,6);assert.equal((await(await routes.GET()).json()).zones.length,1);
+ await db.exec(`CREATE TABLE public."Zone" ("externalId" text,name text,"rawPayload" jsonb,provider text,"companyId" int,active boolean,"mdtZoneId" int); INSERT INTO public."Zone" VALUES('2062','Pennycross','{"zoneType":"Normal","boundary":[{"longitude":0,"latitude":0},{"longitude":1,"latitude":0},{"longitude":1,"latitude":1}]}','AUTOCAB',1,true,1);`);
+ await db.query("UPDATE map_zones SET source_provider='AUTOCAB',source_external_id='2062' WHERE id=$1",[saved.id]);
+ response=await routes.PATCH(request({id:saved.id,version:saved.version,action:'publish'}));saved=(await response.json()).zone;
+ admin=false;assert.equal((await routes.DELETE(request({id:saved.id,version:saved.version}))).status,403);admin=true;origin=false;assert.equal((await routes.DELETE(request({id:saved.id,version:saved.version}))).status,403);origin=true;
+ assert.equal((await routes.DELETE(request({id:saved.id,version:saved.version-1}))).status,409);
+ assert.equal((await routes.DELETE(request({id:saved.id,version:saved.version}))).status,200);
+ assert.equal((await(await routes.GET()).json()).zones.length,0);assert.equal((await(await routes.GET(new Request('https://admin.needacabplus.app/api/admin/zones?view=live'))).json()).zones.length,0);
+ const retained=(await db.query('SELECT deleted_at,version,published_snapshot FROM map_zones WHERE id=$1',[saved.id])).rows[0];assert.ok(retained.deleted_at);assert.equal(retained.published_snapshot,null);
+ const referenceRoute=load('app/api/admin/zones/references/route.ts',{'@/lib/database':{database:()=>client},'@/lib/security':{isAdmin:async()=>true,unavailable:()=>Response.json({error:'Unavailable'},{status:503})},'@/lib/map-zone-display':load('lib/map-zone-display.ts')});assert.deepEqual((await(await referenceRoute.GET()).json()).zones,[],'Deleting an imported zone must not make it reappear as a source reference');
+ assert.equal((await db.query('SELECT count(*)::int n FROM map_zone_versions WHERE zone_id=$1',[saved.id])).rows[0].n,8);
+ assert.equal((await routes.PUT(request({...zone,id:saved.id,version:retained.version}))).status,409);
+ assert.equal((await routes.PATCH(request({id:saved.id,version:retained.version,action:'publish'}))).status,409);
+ assert.equal((await routes.POST(request({...zone,name:saved.name}))).status,201,'Deleted names can be reused without losing the original history');
  }finally{await db.close()}
 });
 test('Autocab plots retain boundaries, remove zero-length duplicate vertices and reject crossing source polygons',()=>{

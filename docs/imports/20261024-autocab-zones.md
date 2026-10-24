@@ -50,3 +50,15 @@ unimported company-1 Normal zones without modifying the registry or map drafts.
 They still cannot be saved or published until their geometry passes validation.
 Viewing a boundary never publishes it. The Live-only map uses saved published
 geometry, while the default overview displays drafts and identifies that state.
+
+## Saving and deleting
+
+The map toolbar provides **Save map** for the selected draft and **Delete zone**
+with a confirmation naming the selected record. Saving does not publish a draft;
+Publish live remains a separate action. Deletion removes the zone from both
+editor and live results, clears its publication and retains its original source
+link, geometry and version history. An imported zone's retained source link also
+prevents it reappearing as an unimported reference. Original Autocab registry data
+is never deleted. The server requires an administrator, a valid request origin
+and the current zone version for deletion; stale requests cannot remove a newer
+edit. Deleted names can be reused for new zones.

@@ -761,3 +761,7 @@ ALTER TABLE public.map_zones ADD COLUMN IF NOT EXISTS source_payload jsonb;
 CREATE UNIQUE INDEX IF NOT EXISTS map_zones_source_unique ON public.map_zones(source_provider,source_external_id) WHERE source_provider IS NOT NULL AND source_external_id IS NOT NULL;
 ALTER TABLE public.map_zones DROP CONSTRAINT IF EXISTS map_zones_geometry_check;
 ALTER TABLE public.map_zones ADD CONSTRAINT map_zones_geometry_check CHECK(geometry->>'type' IN('Polygon','MultiPolygon'));
+-- Retain source links and version history so deleted imports do not reappear as references.
+ALTER TABLE public.map_zones ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+DROP INDEX IF EXISTS public.map_zones_name_unique;
+CREATE UNIQUE INDEX map_zones_name_unique ON public.map_zones(lower(name)) WHERE deleted_at IS NULL;
