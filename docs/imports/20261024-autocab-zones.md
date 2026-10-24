@@ -32,3 +32,21 @@ SQL atomically. Re-running the same inventory is idempotent and does not overwri
 local edits unless the source payload has changed. Source conflicts fail rather
 than silently replacing another zone. The script writes a rejected-record report
 beside its SQL output. Original registry data stays in the database, not GitHub.
+
+## Combined plot map
+
+The Zones workspace opens with a Plymouth overview of every plot boundary and
+its original `(MDT ID) DESCRIPTOR` label. The UK operating outline is a separate
+layer. System zones stay out of the geographic plot overlay. Search filters the
+left list while retaining neighbouring boundaries on the right-hand map.
+Clicking a label or polygon selects its record; edit mode exposes only the
+selected boundary to the drawing tools, with neighbours remaining read-only.
+The list and inspector scroll independently from the desktop map. Mobile puts
+the map above the controls. No ASAP service label is present in Zones.
+
+The three rejected Autocab polygons can now be inspected as dashed, read-only
+reference outlines. `/api/admin/zones/references` is administrator-only and reads
+unimported company-1 Normal zones without modifying the registry or map drafts.
+They still cannot be saved or published until their geometry passes validation.
+Viewing a boundary never publishes it. The Live-only map uses saved published
+geometry, while the default overview displays drafts and identifies that state.

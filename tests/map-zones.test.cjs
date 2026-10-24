@@ -44,3 +44,18 @@ test('UK operating boundary includes all four nations and excludes Dublin and Pa
  for(const p of [[50.3755,-4.1427],[51.5074,-0.1278],[55.9533,-3.1883],[51.4816,-3.1791],[54.5973,-5.9301]])assert.ok(inside(...p),String(p));
  assert.equal(inside(53.3498,-6.2603),false);assert.equal(inside(48.8566,2.3522),false);
 });
+test('overview labels preserve MDT codes and reference boundaries remain distinct from editable zones',()=>{
+ const {zoneMapFeatures,autocabReferenceZone}=load('lib/map-zone-display.ts');
+ const plot={...zone,id:'plot',purpose:'plot',source_payload:{mdtZoneId:47,descriptor:'MUT',centre:{longitude:-4.14,latitude:50.38}}};
+ const reference=autocabReferenceZone({externalId:'2080',name:'Parkway W',rawPayload:{zoneType:'Normal',mdtZoneId:19,descriptor:'PRKW',boundary:[{longitude:0,latitude:0},{longitude:1,latitude:1},{longitude:0,latitude:1},{longitude:1,latitude:0}]}});
+ assert.equal(reference.reference,true);assert.equal(reference.geometry.coordinates[0].length,5);
+ assert.equal(autocabReferenceZone({externalId:'bad',name:'bad',rawPayload:{zoneType:'Normal',boundary:[{longitude:NaN,latitude:0}]}}),null);
+ const features=zoneMapFeatures([plot,{...zone,id:'UK'},{...zone,id:'system',purpose:'system'},reference],'plot');
+ assert.equal(features.boundaries.features.length,3);assert.equal(features.labels.features.length,2);
+ assert.equal(features.labels.features[0].properties.label,'(47) MUT');assert.deepEqual(features.labels.features[0].geometry.coordinates,[-4.14,50.38]);
+ assert.equal(features.boundaries.features[0].properties.selected,true);assert.equal(features.boundaries.features[2].properties.reference,true);
+});
+test('Autocab reference endpoint is administrator-only and excludes non-geographic system records',async()=>{
+ let admin=false,calls=0;const route=load('app/api/admin/zones/references/route.ts',{'@/lib/security':{isAdmin:async()=>admin,unavailable:()=>Response.json({error:'Unavailable'},{status:503})},'@/lib/database':{database:()=>({query:async sql=>{calls++;assert.match(sql,/companyId.*=1/);assert.match(sql,/NOT EXISTS/);return{rows:[{externalId:'2080',name:'Parkway W',rawPayload:{zoneType:'Normal',boundary:[{longitude:0,latitude:0},{longitude:1,latitude:1},{longitude:0,latitude:1},{longitude:1,latitude:0}]}},{externalId:'445',name:'Break',rawPayload:{zoneType:'LongBreak',boundary:[]}}]}}})},'@/lib/map-zone-display':load('lib/map-zone-display.ts')});
+ assert.equal((await route.GET()).status,403);assert.equal(calls,0);admin=true;const response=await route.GET();assert.equal(response.status,200);assert.equal((await response.json()).zones.length,1);
+});
