@@ -85,3 +85,12 @@ GPS course, or sufficient accurate displacement, updates heading along the short
 angular path; stationary/noisy fixes retain the last reliable course. Manual map
 exploration pauses follow and resumes after eight seconds of inactivity. Explicit
 follow preferences disable this automatic return until the driver recenters.
+
+
+Offered jobs use a separate floating card and full-route overview (driver → pickup
+→ destination), with a passenger pickup marker, destination marker, separate road
+ETAs/distances, fare and an acceptance countdown. `service_type` persists ASAP,
+Priority, Prebook or Guarantee; the operator selects the label when sending a
+training offer. These labels do not enable live dispatch or change fare rules.
+Public previews accept `?service=ASAP|Priority|Prebook|Guarantee`. Accepted trip
+navigation and the expandable passenger/destination/fare panel are unchanged.

@@ -751,3 +751,5 @@ DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='needacabplus_shared_reader') THEN REVOKE ALL ON public.driver_app_accounts,public.driver_app_sessions FROM needacabplus_shared_reader;GRANT SELECT(id,driver_id,email,enabled,online,latitude,longitude,accuracy,gps_at,created_at) ON public.driver_app_accounts TO needacabplus_shared_reader;GRANT SELECT ON public.driver_app_jobs,public.driver_app_events TO needacabplus_shared_reader;END IF;
 IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='cabby_ro') THEN REVOKE ALL ON public.driver_app_accounts,public.driver_app_sessions FROM cabby_ro;END IF;
 END $$;
+
+ALTER TABLE public.driver_app_jobs ADD COLUMN IF NOT EXISTS service_type text NOT NULL DEFAULT 'ASAP' CHECK(service_type IN('ASAP','Priority','Prebook','Guarantee'));

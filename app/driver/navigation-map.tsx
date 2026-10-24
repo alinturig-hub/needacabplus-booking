@@ -3,8 +3,8 @@ import {useEffect,useRef,useState} from 'react';
 import {Map,Marker,LngLatBounds,type GeoJSONSource} from 'maplibre-gl';
 import {configuredMapStyle,openStreetMapStyle} from '@/lib/browser-map-style';
 import {routeProgress,type DriverRoute,type NavPoint} from '@/lib/driver-navigation';
-type Props={route:DriverRoute|null;position:NavPoint;destination?:NavPoint;pickup?:NavPoint;following?:boolean;navigating?:boolean;heading?:number|null;accuracy?:number|null;recenter?:number;bottomInset?:number;onPan?:()=>void};
-export default function NavigationMap({route,position,destination,pickup,following=true,navigating=false,heading=null,accuracy=null,recenter=0,bottomInset=150,onPan}:Props){
+type Props={offered?:boolean;route:DriverRoute|null;position:NavPoint;destination?:NavPoint;pickup?:NavPoint;following?:boolean;navigating?:boolean;heading?:number|null;accuracy?:number|null;recenter?:number;bottomInset?:number;onPan?:()=>void};
+export default function NavigationMap({offered=false,route,position,destination,pickup,following=true,navigating=false,heading=null,accuracy=null,recenter=0,bottomInset=150,onPan}:Props){
  const container=useRef<HTMLDivElement>(null),mapRef=useRef<Map|null>(null),driverRef=useRef<Marker|null>(null),endRef=useRef<Marker|null>(null),panRef=useRef(onPan),pickupRef=useRef<Marker|null>(null),followRef=useRef<HTMLDivElement>(null),bearingRef=useRef<{bearing:number;route:DriverRoute|null}>({bearing:0,route:null});
  useEffect(()=>{panRef.current=onPan},[onPan]);
  const pinned=following&&(navigating||!route);
@@ -19,22 +19,24 @@ export default function NavigationMap({route,position,destination,pickup,followi
  map.addLayer({id:'driver-route-outline',type:'line',source:'driver-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#14392e','line-width':11}});
  map.addLayer({id:'driver-route-line',type:'line',source:'driver-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#a2ffda','line-width':5}});
  const arrow=document.createElement('div');arrow.className='driver-position';arrow.innerHTML='<span>▲</span>';driverRef.current=new Marker({element:arrow,rotationAlignment:'map'}).setLngLat([-4.1423,50.3697]).addTo(map);markers.push(driverRef.current);
- const end=document.createElement('div');end.className='driver-destination';end.textContent='■';endRef.current=new Marker({element:end}).setLngLat([-4.1436,50.3778]);markers.push(endRef.current);const pin=document.createElement('div');pin.className='driver-pickup-marker';pin.textContent='●';pickupRef.current=new Marker({element:pin}).setLngLat([-4.1436,50.3778]);markers.push(pickupRef.current);setReady(true)});
+ const end=document.createElement('div');end.className='driver-destination';end.textContent='■';endRef.current=new Marker({element:end}).setLngLat([-4.1436,50.3778]);markers.push(endRef.current);const pin=document.createElement('div');pin.className='driver-pickup-marker';pin.innerHTML='<svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><circle cx="12" cy="7" r="4" fill="white"/><path d="M4 22v-4a8 8 0 0116 0v4z" fill="white"/></svg>';pickupRef.current=new Marker({element:pin}).setLngLat([-4.1436,50.3778]);markers.push(pickupRef.current);setReady(true)});
  map.on('error',()=>{if(disposed||!map||map.isStyleLoaded())return;if(!fallback&&typeof style==='string'){fallback=true;map.setStyle(fallbackStyle);return}setError(true)})
  }).catch(()=>{if(!disposed)setError(true)});
  const resize=new ResizeObserver(()=>map?.resize());if(container.current)resize.observe(container.current);
  return()=>{disposed=true;abort.abort();resize.disconnect();markers.forEach(m=>m.remove());map?.remove();mapRef.current=null}
  },[]);
  useEffect(()=>{if(!ready||!mapRef.current||!container.current)return;const map=mapRef.current;map.resize();const width=container.current.clientWidth,height=container.current.clientHeight,desktop=width>=800;
- const padding={top:Math.min(160,height*.2),right:desktop?80:36,bottom:desktop?60:Math.min(bottomInset+28,height*.62),left:desktop?470:36};
+ const padding={top:Math.min(offered?55:160,height*.2),right:desktop?80:36,bottom:desktop?60:Math.min(bottomInset+(offered?56:28),height*(offered?0.84:0.62)),left:desktop?470:36};
+ map.setPaintProperty('driver-route-line','line-color',offered?'#f5f6f3':'#a2ffda');map.setPaintProperty('driver-route-outline','line-color',offered?'#666e71':'#14392e');map.setPaintProperty('driver-route-line','line-width',offered?6:5);
  const source=map.getSource('driver-route') as GeoJSONSource;source?.setData(route?{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:route.coordinates}}:{type:'FeatureCollection',features:[]});
  if(route&&!navigating){map.easeTo({bearing:0,pitch:0,duration:0});const bounds=new LngLatBounds();route.coordinates.forEach(p=>bounds.extend(p));map.fitBounds(bounds,{padding,maxZoom:15,duration:500})}
  // Refit when the sheet changes size; GPS following is handled separately.
- },[route,ready,bottomInset,navigating]);
+ },[route,ready,bottomInset,navigating,offered]);
  useEffect(()=>{if(!ready||!mapRef.current)return;const progress=route?routeProgress(route,position):null,matched=navigating&&progress&&progress.offRouteMetres<=30&&(accuracy??100)<=40?progress.matchedPoint:position;driverRef.current?.setLngLat([matched.longitude,matched.latitude]);driverRef.current?.setRotation(heading??bearingRef.current.bearing);if(driverRef.current)driverRef.current.getElement().hidden=pinned;
+ if(endLat!==undefined&&endLon!==undefined)endRef.current?.getElement().classList.toggle('driver-offer-destination',offered);
  if(endLat!==undefined&&endLon!==undefined)endRef.current?.setLngLat([endLon,endLat]).addTo(mapRef.current);else endRef.current?.remove();
  if(pickupLat!==undefined&&pickupLon!==undefined)pickupRef.current?.setLngLat([pickupLon,pickupLat]).addTo(mapRef.current);else pickupRef.current?.remove();
- },[position,endLat,endLon,pickupLat,pickupLon,ready,route,navigating,heading,accuracy,pinned]);
+ },[position,endLat,endLon,pickupLat,pickupLon,ready,route,navigating,heading,accuracy,pinned,offered]);
  useEffect(()=>{if(!ready||!mapRef.current||!container.current)return;const map=mapRef.current,width=container.current.clientWidth,height=container.current.clientHeight,desktop=width>=800;
  container.current.dataset.cameraMode=pinned?(navigating?'navigation':'following'):'overview';
  if(!pinned)return;
