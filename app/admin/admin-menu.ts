@@ -25,6 +25,7 @@ export const adminMenuGroups:AdminMenuGroup[]=[
   {label:'Fare sources',href:'/admin/configuration#pricing',description:'Autocab live fares and local tariffs.'},
   {label:'Pricing rules & promotions',href:'/admin/configuration#pricing-rules',description:'Service pricing, membership and demand rules.'},
   {label:'Payments',href:'/admin/configuration#payments',description:'Payment providers and checkout settings.'},
+  {label:'Zones',href:'/admin/zones',description:'Draw, name and save operational, pricing, dispatch and demand zones.'},
   {label:'Maps & places',href:'/admin/configuration#maps',description:'Maps, address search and GPS lookup.'},
   {label:'Communications',href:'/admin/configuration#sms',description:'Messaging connections and delivery tests.'},
  ]},
