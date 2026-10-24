@@ -39,7 +39,7 @@ export default function NavigationMap({route,position,destination,pickup,followi
  const moved=prev&&(prev.lat!==position.latitude||prev.lon!==position.longitude),requested=prev&&(prev.recenter!==recenter||!prev.following&&following);
  const width=container.current?.clientWidth??390,height=container.current?.clientHeight??844,desktop=width>=800;
  if(container.current)container.current.dataset.cameraMode=navigating&&following?'navigation':'overview';
- if(navigating&&following&&route){const progress=routeProgress(route,position),center=progress.offRouteMetres<=30&&(accuracy??100)<=40?progress.matchedPoint:position,top=Math.min(205,height*.3),visible=Math.max(80,height-bottomInset-top),y=top+visible*.72;
+ if(navigating&&following&&route){const progress=routeProgress(route,position),center=progress.offRouteMetres<=30&&(accuracy??100)<=40?progress.matchedPoint:position,top=Math.min(205,height*.3),visible=Math.max(80,height-bottomInset-top),y=Math.min(height-bottomInset-30,top+visible*.72);
  map.easeTo({center:[center.longitude,center.latitude],bearing:heading??progress.routeBearing,pitch:45,zoom:progress.turnMetres<150?17.5:16.8,offset:[desktop?195:0,y-height/2],duration:650});
  }else if(following&&(!route||moved||requested)&&!navigating)map.easeTo({center:[position.longitude,position.latitude],offset:[desktop?195:0,(Math.min(160,height*.2)-(desktop?60:Math.min(bottomInset+28,height*.62)))/2],duration:500});
  },[position,following,recenter,ready,route,bottomInset,navigating,heading,accuracy]);
