@@ -77,3 +77,11 @@ good accuracy. Routing synchronizes a fresh foreground GPS fix before requesting
 the route. OSRM segment distance/duration annotations drive remaining distance and
 ETA where available; uncertain GPS does not trigger rerouting, and deviations must
 persist before recalculation. This remains estimated routing without live traffic.
+
+
+Following also applies while online without a job. The vehicle uses a fixed screen
+anchor while the map interpolates GPS/camera movement underneath it. Reliable moving
+GPS course, or sufficient accurate displacement, updates heading along the shortest
+angular path; stationary/noisy fixes retain the last reliable course. Manual map
+exploration pauses follow and resumes after eight seconds of inactivity. Explicit
+follow preferences disable this automatic return until the driver recenters.

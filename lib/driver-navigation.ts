@@ -19,3 +19,20 @@ export function routeProgress(route:DriverRoute,point:NavPoint){
  return{offRouteMetres:best,remainingMetres:Math.max(0,route.distance-covered),remainingSeconds:Math.max(0,route.duration-elapsed),nextInstruction:next?.instruction??'Continue ahead',turnMetres:Math.max(0,(next?.distanceFromStart??route.distance)-covered),matchedPoint,routeBearing:bearingBetween({longitude:a[0],latitude:a[1]},{longitude:b[0],latitude:b[1]}),remainingCoordinates:[[matchedPoint.longitude,matchedPoint.latitude] as [number,number],...coordinates.slice(index+1)]};
 }
 export function distanceLabel(metres:number){return metres<160?`${Math.round(metres*3.28084/10)*10} ft`:`${(metres/1609.344).toFixed(1)} mi`}
+
+export type CourseFix=NavPoint&{accuracy:number;at:number;heading:number|null;speed:number|null};
+export type DriverCourse={heading:number|null;anchor:CourseFix};
+export function updateDriverCourse(previous:DriverCourse|null,fix:CourseFix):DriverCourse{
+ const initial:DriverCourse=previous??{heading:null,anchor:fix};
+ if(!Number.isFinite(fix.accuracy)||fix.accuracy>35)return initial;
+ const dt=(fix.at-initial.anchor.at)/1000;
+ if(previous&&dt<=0)return previous;
+ if(fix.speed!==null&&fix.speed<1.5)return{heading:initial.heading,anchor:fix};
+ let candidate:number|null=null;
+ if(fix.speed!==null&&fix.speed>=1.5&&fix.heading!==null&&Number.isFinite(fix.heading))candidate=(fix.heading%360+360)%360;
+ else if(previous&&dt>=.5&&dt<=15){const distance=metresBetween(initial.anchor,fix);if(distance>=Math.max(10,fix.accuracy*2,initial.anchor.accuracy*2)&&distance/dt>=1.5)candidate=bearingBetween(initial.anchor,fix)}
+ if(candidate===null)return{heading:initial.heading,anchor:!previous||dt>15?fix:initial.anchor};
+ const delta=initial.heading===null?0:((candidate-initial.heading+540)%360)-180;
+ const heading=initial.heading===null?candidate:Math.abs(delta)<2?initial.heading:(initial.heading+delta*.55+360)%360;
+ return{heading,anchor:fix};
+}

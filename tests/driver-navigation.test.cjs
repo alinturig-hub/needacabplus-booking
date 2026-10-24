@@ -7,3 +7,11 @@ test('navigation uses road segment lengths and times, retains a turn until reach
  p=nav.routeProgress(route,{longitude:0,latitude:.00099});assert.equal(p.nextInstruction,'Turn right');assert(p.turnMetres<12,'approaching turn remains visible');
  p=nav.routeProgress(route,{longitude:0,latitude:.0012});assert.equal(p.nextInstruction,'Arrive');assert.equal(nav.bearingBetween({latitude:0,longitude:0},{latitude:0,longitude:1}),90);assert.equal(nav.bearingBetween({latitude:0,longitude:0},{latitude:0,longitude:-1}),270);
 });
+test('driver heading remains stable at rest and follows reliable course without a north wraparound spin',()=>{
+ const fix={latitude:50.37,longitude:-4.14,accuracy:3,at:1000,heading:359,speed:8};let course=nav.updateDriverCourse(null,fix);assert.equal(course.heading,359);
+ course=nav.updateDriverCourse(course,{...fix,at:2000,heading:1});assert(course.heading>358||course.heading<2,'359 to 1 degrees follows the short arc');const previous=course.heading;
+ course=nav.updateDriverCourse(course,{...fix,at:3000,heading:180,speed:0});assert.equal(course.heading,previous,'a stationary GPS compass change is ignored');
+ course=nav.updateDriverCourse(course,{...fix,at:4000,accuracy:100,heading:180});assert.equal(course.heading,previous,'poor accuracy cannot turn the camera');
+ let inferred=nav.updateDriverCourse(null,{...fix,heading:null,speed:null});inferred=nav.updateDriverCourse(inferred,{...fix,latitude:50.370001,at:2000,heading:null,speed:null});assert.equal(inferred.heading,null,'small GPS jitter does not create a course');
+ inferred=nav.updateDriverCourse(inferred,{...fix,latitude:50.3702,at:4000,heading:null,speed:null});assert(Math.abs(inferred.heading)<1,'reliable northward displacement supplies the course');
+});
