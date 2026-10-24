@@ -3,6 +3,7 @@ export type AdminMenuItem={label:string;href:string;description:string;categoryO
 export type AdminMenuGroup={id:string;label:string;description:string;icon:LucideIcon;items:AdminMenuItem[]};
 export const adminMenuGroups:AdminMenuGroup[]=[
  {id:'dispatch',label:'Dispatch',description:'Configure dispatch rules, driver eligibility, offer timing and simulation. Dispatchers work in the separate Dispatch application.',icon:Activity,items:[
+  {label:'Zones — Draft & Live',href:'/admin/zones',description:'Draw zone boundaries, save drafts and publish a separate live version.'},
   {label:'Rules & simulation',href:'/admin/dispatch-rules',description:'Configure driver selection and offer timing, and test dispatch rules.'},
  ]},
  {id:'customers',label:'Customers',description:'Customer access, service eligibility and membership configuration.',icon:UsersRound,items:[
@@ -25,7 +26,6 @@ export const adminMenuGroups:AdminMenuGroup[]=[
   {label:'Fare sources',href:'/admin/configuration#pricing',description:'Autocab live fares and local tariffs.'},
   {label:'Pricing rules & promotions',href:'/admin/configuration#pricing-rules',description:'Service pricing, membership and demand rules.'},
   {label:'Payments',href:'/admin/configuration#payments',description:'Payment providers and checkout settings.'},
-  {label:'Zones',href:'/admin/zones',description:'Draw, name and save operational, pricing, dispatch and demand zones.'},
   {label:'Maps & places',href:'/admin/configuration#maps',description:'Maps, address search and GPS lookup.'},
   {label:'Communications',href:'/admin/configuration#sms',description:'Messaging connections and delivery tests.'},
  ]},
