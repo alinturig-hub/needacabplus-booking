@@ -68,3 +68,12 @@ Before real offer delivery, connect this core to:
 
 The admin API is deliberately configuration/simulation-only. It does not accept
 arbitrary driver events or claim that native live delivery is available.
+
+
+Driver navigation uses a close, heading-up camera with a route overview toggle.
+A moving device GPS heading takes precedence; otherwise the matched road segment
+supplies the bearing. GPS positions are only visually snapped near the road with
+good accuracy. Routing synchronizes a fresh foreground GPS fix before requesting
+the route. OSRM segment distance/duration annotations drive remaining distance and
+ETA where available; uncertain GPS does not trigger rerouting, and deviations must
+persist before recalculation. This remains estimated routing without live traffic.
