@@ -21,6 +21,7 @@ export const adminMenuGroups:AdminMenuGroup[]=[
   {label:'Hackney',href:'/admin/hackney',description:'Hackney booking groups, activity and classification settings.'},
  ]},
  {id:'configuration',label:'Configuration',description:'Configure integrations, booking rules, fares and operational services.',icon:SlidersHorizontal,items:[
+  {label:'Applications',href:'/admin/configuration/apps',description:'Passenger App and the planned Driver App, with separate access and mobile releases.'},
   {label:'Integrations',href:'/admin/configuration/integrations',description:'Independent Autocab and TaxiCRM integration workspaces.'},
   {label:'Booking rules',href:'/admin/configuration#bookings',description:'Booking sources, payment options and pickup timing.'},
   {label:'Fare sources',href:'/admin/configuration#pricing',description:'Autocab live fares and local tariffs.'},

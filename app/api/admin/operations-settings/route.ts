@@ -29,6 +29,9 @@ export async function GET(){
  try{
   const data=await rows(),byId=new Map(data.map(item=>[item.id,item]));
   const dispatch={...dispatchDefaults,...byId.get('dispatch')?.settings,automaticDispatch:false,simulation:{...simulationDefaults,...(byId.get('dispatch')?.settings.simulation as object||{})}};
+  // Native rules have their own editor; legacy forms must not overwrite them.
+  delete (dispatch as Record<string,unknown>).nativeRules;
+  delete (dispatch as Record<string,unknown>).nativeMethodChanges;
   const pricing={...pricingDefaults,...byId.get('pricing')?.settings} as Record<string,unknown>;delete pricing.liveQuotes;
   const stripeSecrets=byId.get('stripe')?.secrets_encrypted?decryptCredentials(byId.get('stripe')!.secrets_encrypted):{};
   const stripe={...stripeDefaults,...byId.get('stripe')?.settings,secretKeyConfigured:Boolean(stripeSecrets.secretKey),webhookSecretConfigured:Boolean(stripeSecrets.webhookSecret)};
