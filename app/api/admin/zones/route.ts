@@ -6,7 +6,7 @@ import {mapZoneInputSchema} from '@/lib/map-zone-schema';
 export const dynamic='force-dynamic';
 export async function GET(request?:Request){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
- try{const result=await database().query('SELECT id,name,colour,purpose,enabled,geometry,version,updated_at,published_snapshot,published_version,published_at FROM map_zones ORDER BY lower(name),id');const live=request&&new URL(request.url).searchParams.get('view')==='live';const zones=live?result.rows.filter(row=>row.published_snapshot?.enabled).map(row=>({...row.published_snapshot,id:row.id,version:row.published_version,updated_at:row.published_at})):result.rows;return Response.json({zones},{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}
+ try{const result=await database().query('SELECT id,name,colour,purpose,enabled,geometry,version,updated_at,published_snapshot,published_version,published_at,source_provider,source_external_id,source_payload FROM map_zones ORDER BY lower(name),id');const live=request&&new URL(request.url).searchParams.get('view')==='live';const zones=live?result.rows.filter(row=>row.published_snapshot?.enabled).map(row=>({...row.published_snapshot,id:row.id,version:row.published_version,updated_at:row.published_at})):result.rows;return Response.json({zones},{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}
 }
 const updateSchema=mapZoneInputSchema.extend({id:z.string().uuid(),version:z.number().int().positive()});
 async function save(request:Request,update:boolean){

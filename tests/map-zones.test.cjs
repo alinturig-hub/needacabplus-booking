@@ -8,7 +8,7 @@ test('zone geometry rejects crossing, open, degenerate and out-of-range rings',(
 });
 test('zone API protects writes and publishes immutable live snapshots independently of drafts',async()=>{
  const {PGlite}=await import('@electric-sql/pglite');const db=new PGlite();let admin=true,origin=true;
- try{await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zones.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zone_publication.sql','utf8'));
+ try{await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zones.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_map_zone_publication.sql','utf8'));await db.exec(fs.readFileSync('scripts/migrations/20261024_autocab_map_zones.sql','utf8'));
  const client={query:async(sql,args)=>{const r=await db.query(sql,args);return{...r,rowCount:r.affectedRows}},release(){}};
  const routes=load('app/api/admin/zones/route.ts',{'@/lib/database':{database:()=>({...client,connect:async()=>client})},'@/lib/security':{isAdmin:async()=>admin,sameOrigin:()=>origin,unavailable:()=>Response.json({error:'Unavailable'},{status:503})},'@/lib/map-zone-schema':schema});
  const request=(value)=>new Request('https://admin.needacabplus.app/api/admin/zones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
@@ -27,4 +27,12 @@ test('zone API protects writes and publishes immutable live snapshots independen
  admin=false;assert.equal((await routes.PATCH(request({id:saved.id,version:saved.version,action:'publish'}))).status,403);admin=true;
  const versions=await db.query('SELECT count(*)::int n FROM map_zone_versions');assert.equal(versions.rows[0].n,6);assert.equal((await(await routes.GET()).json()).zones.length,1);
  }finally{await db.close()}
+});
+test('Autocab plots retain boundaries, remove zero-length duplicate vertices and reject crossing source polygons',()=>{
+ const {prepareAutocabZone}=load('lib/autocab/zone-import.ts',{'@/lib/map-zone-schema':schema});
+ const record={externalId:'2062',name:'Pennycross',active:true,mdtZoneId:1,descriptor:'PNX',rawPayload:{zoneType:'Normal',boundary:[{longitude:0,latitude:0},{longitude:1,latitude:0},{longitude:1,latitude:0},{longitude:1,latitude:1},{longitude:0,latitude:1}]}};
+ assert.deepEqual(prepareAutocabZone(record).geometry.coordinates[0],[[0,0],[1,0],[1,1],[0,1],[0,0]]);
+ assert.equal(prepareAutocabZone(record).purpose,'plot');
+ assert.equal(prepareAutocabZone({...record,rawPayload:{...record.rawPayload,zoneType:'NoGps'}}).purpose,'system');
+ assert.throws(()=>prepareAutocabZone({...record,rawPayload:{zoneType:'Normal',boundary:[{longitude:0,latitude:0},{longitude:1,latitude:1},{longitude:0,latitude:1},{longitude:1,latitude:0}]}}));
 });

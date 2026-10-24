@@ -8,6 +8,6 @@ function validRing(ring:[number,number][]){
  return Math.abs(area)>1e-12;
 }
 export const zoneGeometrySchema=z.object({type:z.literal('Polygon'),coordinates:z.tuple([z.array(point).min(4).max(1001).refine(validRing,'Draw a closed polygon without crossing edges.')])}).strict();
-export const mapZoneInputSchema=z.object({name:z.string().trim().min(1).max(100),colour:z.string().regex(/^#[0-9a-f]{6}$/i),purpose:z.enum(['operational','pricing','dispatch','demand']),enabled:z.boolean(),geometry:zoneGeometrySchema}).strict();
+export const mapZoneInputSchema=z.object({name:z.string().trim().min(1).max(100),colour:z.string().regex(/^#[0-9a-f]{6}$/i),purpose:z.enum(['operational','plot','system','pricing','dispatch','demand']),enabled:z.boolean(),geometry:zoneGeometrySchema}).strict();
 export type MapZoneInput=z.infer<typeof mapZoneInputSchema>;
-export type MapZone=MapZoneInput&{id:string;version:number;updated_at:string;published_snapshot:MapZoneInput|null;published_version:number|null;published_at:string|null};
+export type MapZone=MapZoneInput&{id:string;version:number;updated_at:string;published_snapshot:MapZoneInput|null;published_version:number|null;published_at:string|null;source_provider?:string|null;source_external_id?:string|null;source_payload?:Record<string,unknown>|null};
