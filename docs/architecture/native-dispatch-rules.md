@@ -44,6 +44,13 @@ Real native offer delivery remains unconnected. Routing uses a configurable HTTP
 OSRM service (`DRIVER_ROUTING_URL`); the pilot defaults to the public OSRM server.
 Live traffic, speed limits and native background navigation are not included.
 
+The map-first workspace uses a compact online/offline dock with an expandable
+status sheet, a home map preview, recentering and device-local voice/follow
+preferences. Offered training trips show a road route via pickup to destination
+with separate pickup and trip estimates before acceptance. The map camera reserves
+space for the measured sheet height. Service/cash filters, demand heatmaps and
+rewards are not simulated; operator eligibility and live dispatch remain separate.
+
 Before real offer delivery, connect this core to:
 
 1. An authenticated driver identity, eligibility/capability checks and fresh GPS.

@@ -1,0 +1,12 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+function load(file,deps={}){const m={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>id in deps?deps[id]:require(id),m,m.exports);return m.exports}
+test('offer overview routes driver via pickup to destination and never accepts another driver’s job',async()=>{
+ let signedIn=true,owns=true,url='',queries=0;const oldFetch=global.fetch;
+ const pickup={latitude:50.38,longitude:-4.14},destination={latitude:50.42,longitude:-4.11};
+ const api=load('app/api/driver/navigation/route.ts',{'@/lib/database':{database:()=>({query:async(sql,args)=>{queries++;assert.equal(args[1],'driver-a');return{rows:owns?[{pickup,destination,training:true}]:[]}}})},'@/lib/driver-app':{currentDriver:async()=>signedIn?{id:'driver-a'}:null,trainingPickup:pickup,trainingDestination:destination,previewDriver:{latitude:50.37,longitude:-4.15}},'@/lib/customer-verification':{authLimit:async()=>{},AuthError:class extends Error{}},'@/lib/security':{sameOrigin:()=>true,unavailable:()=>Response.json({error:'Unavailable'},{status:503})},'@/lib/driver-navigation':load('lib/driver-navigation.ts')});
+ global.fetch=async input=>{url=String(input);return Response.json({routes:[{geometry:{coordinates:[[-4.15,50.37],[-4.14,50.38],[-4.11,50.42]]},distance:6000,duration:1200,legs:[{distance:1000,duration:240,steps:[]},{distance:5000,duration:960,steps:[]}]}]})};
+ const req=(extra={})=>new Request('https://drivers.needacabplus.app/api/driver/navigation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:'dce2e619-8c03-4910-a7c7-2718b69603c4',phase:'offer',...extra})});
+ try{let r=await api.POST(req());assert.equal(r.status,200);const d=await r.json();assert(new URL(url).pathname.endsWith('/-4.15,50.37;-4.14,50.38;-4.11,50.42'));assert.equal(d.pickupDuration,240);assert.equal(d.tripDistance,5000);assert.equal(d.illustrative,true);
+ owns=false;assert.equal((await api.POST(req())).status,404);signedIn=false;assert.equal((await api.POST(req())).status,401);const before=queries;assert.equal((await api.POST(req({preview:true}))).status,200);assert.equal(queries,before);assert.equal((await api.POST(req({preview:true,latitude:1}))).status,400);
+ }finally{global.fetch=oldFetch}
+});

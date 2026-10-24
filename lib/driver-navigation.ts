@@ -1,6 +1,6 @@
 export type NavPoint={latitude:number;longitude:number};
 export type NavStep={instruction:string;distanceFromStart:number;location:[number,number]};
-export type DriverRoute={coordinates:[number,number][];distance:number;duration:number;steps:NavStep[];illustrative?:boolean};
+export type DriverRoute={coordinates:[number,number][];distance:number;duration:number;steps:NavStep[];illustrative?:boolean;pickupDistance?:number;pickupDuration?:number;tripDistance?:number;tripDuration?:number};
 export function metresBetween(a:NavPoint,b:NavPoint){const r=Math.PI/180,lat=(b.latitude-a.latitude)*r,lon=(b.longitude-a.longitude)*r;return 6371000*2*Math.asin(Math.min(1,Math.sqrt(Math.sin(lat/2)**2+Math.cos(a.latitude*r)*Math.cos(b.latitude*r)*Math.sin(lon/2)**2)))}
 export function maneuverText(type:string,modifier:string|undefined,name:string|undefined){const road=name?` onto ${name}`:'';if(type==='arrive')return 'Your destination is ahead';if(type==='depart')return name?`Head towards ${name}`:'Follow the route';if(type.includes('roundabout')||type==='rotary')return `At the roundabout, follow the highlighted exit${road}`;if(modifier?.includes('left'))return `Turn ${modifier==='slight left'?'slightly ':''}left${road}`;if(modifier?.includes('right'))return `Turn ${modifier==='slight right'?'slightly ':''}right${road}`;if(modifier==='uturn')return 'Make a U-turn when permitted';return name?`Continue on ${name}`:'Continue ahead'}
 export function routeProgress(route:DriverRoute,point:NavPoint){
