@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Sparkles,Webhook} from 'lucide-react';
 import CustomerSettings from './customer-settings';
+import BookingRulesWorkspace from './booking-rules-workspace';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
 import {DispatchSettings,StripeSettings} from './operations-settings';
@@ -22,7 +23,7 @@ const sections=[
  {id:'maps',group:'Settings',title:'Maps & places',description:'Map display, MapTiler key, address autocomplete, GPS lookup and nearby places.',keywords:'map maptiler openstreetmap osm geocoding address search autocomplete gps places key',icon:Map},
  {id:'payments',group:'Settings',title:'Payments',description:'Stripe test or live mode, payment keys and webhook signing secret.',keywords:'stripe card wallet payment key secret sandbox billing',icon:CreditCard},
  {id:'identity',group:'Settings',title:'Customer sign-in',description:'Google and Apple credentials, callback URLs and SMS verification.',keywords:'google apple oauth client id secret otp login registration verification authentication',icon:KeyRound},
- {id:'bookings',group:'Settings',title:'Bookings Settings',description:'Need A Cab Plus origin marker, account IDs, payments, capabilities and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
+ {id:'bookings',group:'Settings',title:'Booking rules',description:'Separate Autocab and Need A Cab Plus booking policies, payment availability and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
  {id:'pricing',group:'Settings',title:'Fare sources',description:'Configure Autocab live fares and the Need A Cab Plus base tariff.',keywords:'pricing fare quote autocab local tariff source',icon:BadgePoundSterling},
  {id:'pricing-rules',group:'Settings',title:'Pricing rules & promotions',description:'Shared service additions, Smart Fare, membership, marketing and demand settings.',keywords:'pricing fare surcharge demand membership loyalty promotion discount smart shared rules',icon:Sparkles},
  {id:'dispatch',group:'Settings',title:'Dispatch rules',description:'Driver search, arrival buffers and the dispatch simulator.',keywords:'dispatch driver time simulation radius arrival',icon:Route},
@@ -48,7 +49,7 @@ export default function ConfigurationApp(){
  {visited.includes('identity')&&<div hidden={selected!=='identity'}><CustomerSettings section="identity"/></div>}
  {visited.includes('maps')&&<div hidden={selected!=='maps'}><MapSettings/></div>}
  {visited.includes('payments')&&<div hidden={selected!=='payments'}><StripeSettings/></div>}
- {visited.includes('bookings')&&<div hidden={selected!=='bookings'}><CustomerSettings section="bookings"/></div>}
+ {visited.includes('bookings')&&<div hidden={selected!=='bookings'}><BookingRulesWorkspace/></div>}
  {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><PricingWorkspace/></div>}
  {visited.includes('pricing-rules')&&<div hidden={selected!=='pricing-rules'} className="operations-settings pricing-workspace"><QuoteSettings embedded mode="shared"/></div>}
  {visited.includes('dispatch')&&<div hidden={selected!=='dispatch'}><DispatchSettings/></div>}

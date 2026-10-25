@@ -1,10 +1,10 @@
 import {z} from 'zod';
 import {database} from '@/lib/database';
-import {loadBookingPolicy} from '@/lib/app-configuration';
+import {loadNativeBookingPolicy} from '@/lib/native-booking-configuration';
 import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 import {nativeDispatchRulesSchema,effectiveNativeRules,startRound,type NativeState} from '@/lib/native-dispatch-engine';
 export const dynamic='force-dynamic';
-async function configuration(){const [saved,booking]=await Promise.all([database().query("SELECT settings->'nativeRules' rules FROM operations_settings WHERE id='dispatch'"),loadBookingPolicy()]);const rules=nativeDispatchRulesSchema.parse(saved.rows[0]?.rules??{});return{rules,cashEnabled:booking.cashEnabled,effectiveRules:effectiveNativeRules(rules,booking.cashEnabled),liveDeliveryReady:false}}
+async function configuration(){const [saved,booking]=await Promise.all([database().query("SELECT settings->'nativeRules' rules FROM operations_settings WHERE id='dispatch'"),loadNativeBookingPolicy()]);const rules=nativeDispatchRulesSchema.parse(saved.rows[0]?.rules??{});return{rules,cashEnabled:booking.cashEnabled,effectiveRules:effectiveNativeRules(rules,booking.cashEnabled),liveDeliveryReady:false}}
 export async function GET(){if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{return Response.json(await configuration(),{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}}
 export async function PUT(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const rules=nativeDispatchRulesSchema.parse(await request.json());await database().query("INSERT INTO operations_settings(id,settings,updated_at) VALUES('dispatch',jsonb_build_object('nativeRules',$1::jsonb),now()) ON CONFLICT(id) DO UPDATE SET settings=jsonb_set(operations_settings.settings,'{nativeRules}',$1::jsonb),updated_at=now()",[JSON.stringify(rules)]);return Response.json({ok:true,...await configuration()})}catch(e){if(e instanceof z.ZodError||e instanceof SyntaxError)return Response.json({error:'Check dispatch rule values.'},{status:400});return unavailable(e)}}
 const scenarioSchema=z.object({driverCount:z.number().int().min(1).max(20).default(5)}).strict();
