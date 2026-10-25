@@ -62,3 +62,7 @@ prevents it reappearing as an unimported reference. Original Autocab registry da
 is never deleted. The server requires an administrator, a valid request origin
 and the current zone version for deletion; stale requests cannot remove a newer
 edit. Deleted names can be reused for new zones.
+
+The zone editor now lives under Configuration at `/admin/configuration/zones`,
+next to Maps & places. `/admin/zones` redirects there for existing bookmarks.
+Dispatch contains the algorithm/rule workspace; the zone storage and APIs are unchanged.

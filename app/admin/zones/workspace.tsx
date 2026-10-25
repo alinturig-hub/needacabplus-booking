@@ -55,7 +55,7 @@ export default function ZoneWorkspace(){
  function selectOnMap(id:string){if(busy||editing)return;const zone=[...zones,...references].find(z=>z.id===id);if(zone)open(zone)}
  function toggleEdit(){if(editing&&dirty){setError('Save your draft or select another zone to discard changes before leaving edit mode.');return}setEditing(!editing);setEditor(n=>n+1)}
  return <main className="zones-workspace">
-  <header><div><span className="eyebrow">DISPATCH / ZONES</span><h1>Plot zones</h1><p>All boundaries on one map. Select a zone to inspect its details or edit its draft.</p></div><Button variant="outline" disabled={busy} onClick={()=>open(null)}>New zone</Button></header>
+  <header><div><span className="eyebrow">CONFIGURATION / ZONES</span><h1>Plot zones</h1><p>All boundaries on one map. Select a zone to inspect its details or edit its draft.</p></div><Button variant="outline" disabled={busy} onClick={()=>open(null)}>New zone</Button></header>
   <div className="zones-layout">
    <aside className="zones-sidebar">
     <section className="zones-list">
