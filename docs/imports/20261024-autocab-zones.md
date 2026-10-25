@@ -66,3 +66,7 @@ edit. Deleted names can be reused for new zones.
 The zone editor now lives under Configuration at `/admin/configuration/zones`,
 next to Maps & places. `/admin/zones` redirects there for existing bookmarks.
 Dispatch contains the algorithm/rule workspace; the zone storage and APIs are unchanged.
+
+The zone UI exposes only Operating area and Driver plot zone. Autocab system
+records and legacy pricing/dispatch/demand types remain stored for compatibility
+but are excluded from this editor's lists, filters and new-zone options.
