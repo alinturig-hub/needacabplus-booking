@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
+import {NumberInput} from '@/components/ui/number-input';
 import {simulateDispatch,type SimulationRules} from '@/lib/dispatch-simulation';
 import styles from './dispatch-simulator.module.css';
 
@@ -25,7 +25,7 @@ export function DispatchSimulator({rules}:{rules:SimulationRules}){
  return <section className={styles.panel} aria-label="Dispatch simulator">
   <header><span className={styles.badge}>SIMULATION · NO JOBS SENT</span><h3>Dispatch copilot</h3><p>Plan for arrival {rules.arrivalMinutes} minutes before pickup, with time for another driver to accept.</p></header>
   <h4>Example journey · pickup 15:00</h4><p>Editable example travel times. This is not your live fleet. Example clock: {time(start+elapsed*1000)}.</p>
-  <div className={styles.grid}>{etas.map((eta,i)=><label key={i}>Car {i+1} travel time (minutes)<Input type="number" min="0" max="120" value={eta} onChange={e=>{setEtas(etas.map((value,index)=>index===i?Number(e.target.value):value));reset()}}/></label>)}</div>
+  <div className={styles.grid}>{etas.map((eta,i)=><label key={i}>Car {i+1} travel time (minutes)<NumberInput min="0" max="120" value={eta} onValueChange={next=>{setEtas(etas.map((value,index)=>index===i?next:value));reset()}}/></label>)}</div>
   {example?<><PlanView plan={example}/><div className={styles.actions}><Button type="button" variant="outline" disabled={!example.recommended||Boolean(accepted)} onClick={()=>{if(example?.recommended){setRejected([...rejected,example.recommended.vehicleId]);setElapsed(Math.max(elapsed,((example.dispatchAt??start)-start)/1000)+rules.offerSeconds)}}}>Simulate refusal</Button><Button type="button" variant="outline" disabled={!example.recommended||Boolean(accepted)} onClick={()=>setAccepted(example?.recommended?.vehicleId)}>Simulate acceptance</Button><Button type="button" variant="outline" onClick={reset}>Reset example</Button></div></>:<p role="alert">Check the simulation rules above.</p>}
   <p>The midpoint is shown for comparison. The dispatch time also allows for the slowest selected backup, each acceptance window and your travel buffer.</p>
   <hr/><h4>Inspect a real booking</h4><p>Uses saved rules and fresh fleet positions. Checks only working, non-suspended CLEAR vehicles with no current allocation. This snapshot does not reserve cars across bookings.</p>
