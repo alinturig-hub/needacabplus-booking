@@ -18,7 +18,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => '');
   const interfaceSettings = useAdminInterface();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({reports:true});
+  const [expanded, setExpanded] = useState<{href:string;id:string|null}|null>(null);
   const currentHref = pathname + hash;
   const matchesItem=(href:string)=>href===currentHref||(!href.includes('#')&&pathname.startsWith(href+'/'));
   const currentItem = adminMenuGroups.flatMap(group => group.items).find(item => matchesItem(item.href));
@@ -26,6 +26,7 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
   const currentGroup = categoryGroup ?? adminMenuGroups.find(group => group.items.some(item => matchesItem(item.href)));
   const pageTitle = categoryGroup?.label ?? currentItem?.label ?? (pathname === '/admin' ? 'Overview' : pathname.startsWith('/admin/hackney') ? (pathname === '/admin/hackney' ? 'Hackney' : 'Hackney bookings') : pathname.startsWith('/admin/configuration/integrations') ? 'Integrations' : 'Settings');
   const sectionTitle = pathname.startsWith('/admin/hackney') ? 'Operations' : currentGroup?.label ?? 'Workspace';
+  const openGroup = expanded?.href === currentHref ? expanded.id : currentGroup?.id ?? null;
   const close = () => setMobileOpen(false);
 
   return <div className={`admin-workspace-shell theme-${interfaceSettings.theme}${interfaceSettings.density === 'compact' ? ' density-compact' : ''}${interfaceSettings.reduceMotion ? ' reduce-motion' : ''}`}>
@@ -47,13 +48,13 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
         {adminMenuGroups.map(group => {
           const Icon = group.icon;
           const groupActive = categoryGroup?.id === group.id || group.items.some(item => matchesItem(item.href));
-          const open = expanded[group.id] ?? groupActive;
+          const open = openGroup === group.id;
           return <div className="admin-workspace-group" key={group.id}>
             <div className={`admin-workspace-group-heading${groupActive ? ' active' : ''}`}>
-              <Link href={`/admin/category/${group.id}`} onClick={() => {setExpanded(current => ({...current, [group.id]: true})); close();}} aria-current={categoryGroup?.id === group.id ? 'page' : undefined}>
+              <Link href={`/admin/category/${group.id}`} onClick={() => {setExpanded({href:currentHref,id:group.id}); close();}} aria-current={categoryGroup?.id === group.id ? 'page' : undefined}>
                 <Icon size={19}/><span>{group.label}</span>
               </Link>
-              <button type="button" aria-label={`${open ? 'Collapse' : 'Expand'} ${group.label}`} aria-expanded={open} onClick={() => setExpanded(current => ({...current, [group.id]: !open}))}>
+              <button type="button" aria-label={`${open ? 'Collapse' : 'Expand'} ${group.label}`} aria-expanded={open} onClick={() => setExpanded({href:currentHref,id:open?null:group.id})}>
                 {open ? <ChevronDown size={17}/> : <ChevronRight size={17}/>}
               </button>
             </div>
@@ -61,8 +62,8 @@ export default function AdminWorkspace({children}: {children: ReactNode}) {
               {group.items.filter(item => !item.categoryOnly).map(item => {
                 const current = matchesItem(item.href);
                 return item.href.includes('#')
-                  ? <a key={item.href} href={item.href} onClick={close} aria-current={current ? 'page' : undefined}>{item.label}</a>
-                  : <Link key={item.href} href={item.href} onClick={close} aria-current={current ? 'page' : undefined}>{item.label}</Link>;
+                  ? <a key={item.href} href={item.href} onClick={()=>{setExpanded({href:currentHref,id:group.id});close()}} aria-current={current ? 'page' : undefined}>{item.label}</a>
+                  : <Link key={item.href} href={item.href} onClick={()=>{setExpanded({href:currentHref,id:group.id});close()}} aria-current={current ? 'page' : undefined}>{item.label}</Link>;
               })}
             </div>}
           </div>;
