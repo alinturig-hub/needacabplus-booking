@@ -1,3 +1,4 @@
+import AutocabOnly from '@/components/integrations/autocab-only';
 import Link from 'next/link';
 import {notFound,redirect} from 'next/navigation';
 import {isAdmin} from '@/lib/security';
@@ -12,5 +13,7 @@ export const dynamic='force-dynamic';
 export default async function IntegrationSectionPage({params}:{params:Promise<{id:string;section:string}>}){
  if(!await isAdmin())redirect('/admin-login');
  const {id,section}=await params;const integration=integrations.find(item=>item.id===id);const selected=integration?.sections.find(item=>item.id===section);if(!integration||!selected)notFound();
- return <AdminWorkspace><main className="configuration-hub"><div className="configuration-panel"><Link href={'/admin/configuration/integrations/'+id}>← {integration.name}</Link><h1>{selected.name}</h1><p>{selected.description}</p>{id==='autocab'&&section==='api'&&<ApiConnections/>}{id==='autocab'&&section==='webhooks'&&<WebhookProviders/>}{id==='taxicrm'&&section==='data'&&<TaxiCrmDatabaseSettings/>}{id==='taxicrm'&&section==='ai'&&<AssistantClient/>}</div></main></AdminWorkspace>;
+ return <AdminWorkspace><IntegrationVisibility provider={id}><main className="configuration-hub"><div className="configuration-panel"><Link href={'/admin/configuration/integrations/'+id}>← {integration.name}</Link><h1>{selected.name}</h1><p>{selected.description}</p>{id==='autocab'&&section==='api'&&<ApiConnections/>}{id==='autocab'&&section==='webhooks'&&<WebhookProviders/>}{id==='taxicrm'&&section==='data'&&<TaxiCrmDatabaseSettings/>}{id==='taxicrm'&&section==='ai'&&<AssistantClient/>}</div></main></IntegrationVisibility></AdminWorkspace>;
 }
+
+function IntegrationVisibility({provider,children}:{provider:string;children:React.ReactNode}){return provider==='autocab'?<AutocabOnly>{children}</AutocabOnly>:<>{children}</>}

@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import {bookingExternalId} from '@/lib/autocab/webhook-processing';
 import {isObject} from '@/lib/autocab/booking-mappers';
 import { Prisma } from '@/generated/prisma/client';
@@ -11,6 +12,7 @@ async function lockEvent(tx:Prisma.TransactionClient,id:string){
 // Invoked by the secret-authenticated worker only when the exclusive writer
 // flag has been enabled after TaxiCRM has stopped processing Booking events.
 export async function processCanonicalBookingEvent(webhookEventId:string):Promise<void>{
+ await requireAutocabIntegration();
  try{
   await prisma.$transaction(async tx=>{
    await lockEvent(tx,webhookEventId);

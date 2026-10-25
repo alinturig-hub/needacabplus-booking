@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import { prisma } from '@/lib/prisma';
 import { database } from '@/lib/database';
 import { handlesDriverEvent, saveDriverEvent } from '@/lib/driver-events';
@@ -7,6 +8,7 @@ import { processDriverShiftStartedEndedWebhook } from '@/lib/autocab/process-dri
 
 /** Drain the shared raw inbox for fleet events that no longer belong to TaxiCRM. */
 export async function processOperationalWebhookEvent(id: string) {
+  await requireAutocabIntegration();
   const claimed = await prisma.webhookEvent.updateMany({
     where: { id, OR: [
       { status: { in: ['RECEIVED', 'FAILED'] } },

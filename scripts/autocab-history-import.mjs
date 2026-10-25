@@ -1,3 +1,4 @@
+import {requireAutocabForJob} from './integration-guard.mjs';
 import pg from 'pg';
 import {createDecipheriv,createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
@@ -239,6 +240,7 @@ export async function run(env=process.env){
    let response;
    try{
     const window=nextWindow(state.window_from);
+    await requireAutocabForJob(env);
     response=await fetch(ENDPOINT,{method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),headers:{'Content-Type':'application/json','Accept':'application/json','Ocp-Apim-Subscription-Key':key},body:JSON.stringify({from:window.from,to:window.to,telephoneNumber:'',companyIds:[],capabilities:[],capabilityMatchType:'Any',exactMatch:false,ignorePostcode:true,ignoreTown:true,types:TYPES,...(state.continuation_token?{continuationToken:state.continuation_token}:{})})});
    }catch{
     failures++;await persistApiBackoff(db,503,null,failures);

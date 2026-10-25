@@ -1,4 +1,5 @@
 'use client';
+import{useIntegrations}from'@/components/integrations/integration-provider';
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
@@ -20,7 +21,7 @@ const zoneName=(value:string|null|undefined)=>value?.trim()||'Zone unavailable';
 const isVisibleOnLiveMap=(driver:FleetMapVehicle)=>driver.isLive&&driver.vehicleStatus.trim().toLowerCase()!=='notworking';
 const isClear=(driver:Driver)=>driver.isLive!==false&&driver.vehicleStatus.trim().toLowerCase()==='clear';
 
-export default function DispatcherWorkspace(){
+function DispatcherWorkspaceEnabled(){
  const [data,setData]=useState<DispatchData|null>(null);
  const [drivers,setDrivers]=useState<Driver[]>([]);
  const [knownZones,setKnownZones]=useState<Zone[]>([]);
@@ -154,3 +155,5 @@ export default function DispatcherWorkspace(){
   <DispatchAssistantChat bookingId={selectedBooking||undefined} driverId={selectedDriver||undefined}/>
  </div>;
 }
+
+export default function DispatcherWorkspace(){const{autocabEnabled,loading}=useIntegrations();if(loading)return <p>Loading integration status…</p>;return autocabEnabled?<DispatcherWorkspaceEnabled/>:<main style={{padding:32}}><h1>Need A Cab Plus · N+</h1><p>Autocab integration is disabled. Native live customer dispatch is not connected yet.</p><a href="https://admin.needacabplus.app/admin/dispatch-rules">Native dispatch rules</a> · <a href="https://admin.needacabplus.app/admin/configuration/integrations">Integration settings</a></main>}

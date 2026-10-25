@@ -1,4 +1,5 @@
 'use client';
+import{useIntegrations}from'@/components/integrations/integration-provider';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
@@ -14,7 +15,7 @@ const valid=(driver:Driver)=>Number.isFinite(driver.latitude)&&Number.isFinite(d
 function icon(L:typeof import('leaflet'),driver:Driver){
  return L.divIcon({className:'fleet-vehicle-div-icon',html:driverMarker(driver,driver.id).outerHTML,iconSize:[48,70],iconAnchor:[24,42],popupAnchor:[0,-38]});
 }
-export default function DriverLiveMap(){
+function DriverLiveMapEnabled(){
  const router=useRouter();
  const mapContainer=useRef<HTMLDivElement>(null);
  const mapRef=useRef<LeafletMap|null>(null);
@@ -141,3 +142,5 @@ export default function DriverLiveMap(){
   </main>
  );
 }
+
+export default function DriverLiveMap(){const{autocabEnabled,loading}=useIntegrations();if(loading)return <p>Loading integration status…</p>;return autocabEnabled?<DriverLiveMapEnabled/>:<main style={{padding:32}}><h1>Need A Cab Plus · N+</h1><p>Autocab integration is disabled. Native live customer dispatch is not connected yet.</p><a href="https://admin.needacabplus.app/admin/dispatch-rules">Native dispatch rules</a> · <a href="https://admin.needacabplus.app/admin/configuration/integrations">Integration settings</a></main>}

@@ -1,6 +1,8 @@
+import {requireAutocabForJob} from './integration-guard.mjs';
 import {setTimeout as delay} from 'node:timers/promises';
-export async function fetchAuditBooking(url,headers,{fetcher=fetch,sleep=delay}={}){
+export async function fetchAuditBooking(url,headers,{fetcher=fetch,sleep=delay,integrationCheck=requireAutocabForJob}={}){
  for(let attempt=0;attempt<3;attempt++){
+  await integrationCheck();
   try{
    const response=await fetcher(url,{headers,signal:AbortSignal.timeout(5000)});
    if([401,403].includes(response.status))throw new Error(`STOP_HTTP_${response.status}`);

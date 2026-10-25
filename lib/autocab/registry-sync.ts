@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { decryptWebhookSecret } from '@/lib/autocab/webhook-secret';
@@ -24,6 +25,7 @@ const isRecordWithId = (value: unknown): value is RecordWithId =>
   (typeof (value as Record<string, unknown>).id === 'number' || typeof (value as Record<string, unknown>).id === 'string');
 
 async function fetchRegistry(entity: RegistryEntity) {
+  await requireAutocabIntegration();
   const configuration = await prisma.autocabApiConfiguration.findUnique({ where: { provider: 'AUTOCAB' } });
   if (!configuration?.isEnabled || !configuration.apiKeyEncrypted) throw new Error('Shared Autocab API configuration is unavailable.');
   const base = new URL(configuration.baseUrl);

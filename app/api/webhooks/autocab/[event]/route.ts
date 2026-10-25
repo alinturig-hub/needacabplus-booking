@@ -1,3 +1,4 @@
+import {autocabIntegrationEnabled} from '@/lib/integration-control';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@/generated/prisma/client';
 import { bookingExternalId, webhookIdempotencyKey } from '@/lib/autocab/webhook-processing';
@@ -35,6 +36,7 @@ export async function POST(request: Request, context: { params: Promise<{ event:
   const host = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').split(',')[0].trim().split(':')[0].toLowerCase();
   if (process.env.NODE_ENV === 'production' && host !== 'webhook.needacabplus.app') return response({ error: 'NOT_FOUND' }, 404);
   if (process.env.AUTOCAB_WEBHOOK_INGEST_ENABLED !== 'true') return response({ error: 'INGEST_DISABLED' }, 503);
+  if(!await autocabIntegrationEnabled())return response({error:'AUTOCAB_DISABLED'},503);
   const { prisma } = await import('@/lib/prisma');
   let eventSlug: string;
   try { eventSlug = slug((await context.params).event); } catch { return response({ error: 'INVALID_EVENT' }, 400); }

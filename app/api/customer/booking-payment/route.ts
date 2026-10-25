@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import {checkoutErrorMessage} from '@/lib/passenger-payment';
 import {z} from 'zod';
 import {getCustomer} from '@/lib/customer-auth';
@@ -14,6 +15,7 @@ export async function POST(request:Request){
  const customer=await getCustomer();if(!customer)return Response.json({error:'Sign in before paying online.'},{status:401});
  try{
   const body=z.object({quoteToken:z.string().max(64000),paymentMethodId:z.string().regex(/^pm_[a-zA-Z0-9]+$/).optional()}).strict().parse(await request.json());
+  await requireAutocabIntegration();
   const quote=verifyQuote(body.quoteToken),[rules,policy]=await Promise.all([loadBookingPolicy(),loadQuotePolicy()]);
   validateBookingPayment(rules,'card',Boolean(quote.liveBooking));
   if(!policy.enabled||quote.paymentMethod!=='card'||quote.liveBooking)throw new Error('Request a current sandbox card fare before paying.');

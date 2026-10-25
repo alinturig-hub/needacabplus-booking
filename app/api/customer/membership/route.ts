@@ -1,10 +1,10 @@
+import{loadActiveBookingPolicy}from'@/lib/native-booking-configuration';
 import {z} from 'zod';
 import {database} from '@/lib/database';
 import {getCustomer} from '@/lib/customer-auth';
 import {sameOrigin} from '@/lib/security';
 import {membershipEntitlement,type MembershipRecord} from '@/lib/membership-entitlement';
 import {loadQuotePolicy} from '@/lib/quotes';
-import {loadBookingPolicy} from '@/lib/app-configuration';
 
 export const dynamic='force-dynamic';
 
@@ -12,7 +12,7 @@ export async function GET(){
  const customer=await getCustomer();if(!customer)return Response.json({error:'Authentication required.'},{status:401});
  const [policy,bookingPolicy,membership,loyalty,notifications]=await Promise.all([
   loadQuotePolicy(),
-  loadBookingPolicy(),
+  loadActiveBookingPolicy(),
   database().query<MembershipRecord&{renews_at:string|null;failed_payment_count:number}>(`SELECT tier_id,status,starts_at,ends_at,operator_access_until,renews_at,grace_ends_at,failed_payment_count FROM customer_memberships WHERE customer_id=$1`,[customer.id]),
   database().query<{points_balance:string;lifetime_points:string}>(`SELECT points_balance,lifetime_points FROM customer_loyalty_accounts WHERE customer_id=$1`,[customer.id]),
   database().query<{id:string;category:string;title:string;message:string;created_at:string;read_at:string|null}>(`SELECT id,category,title,message,created_at,read_at FROM customer_notifications WHERE customer_id=$1 AND channel='in_app' AND state='sent' ORDER BY created_at DESC LIMIT 10`,[customer.id]),

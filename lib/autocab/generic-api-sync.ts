@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { decryptWebhookSecret } from '@/lib/autocab/webhook-secret';
@@ -23,6 +24,7 @@ function recordsFromResponse(payload: unknown, recordKey: string | null): ApiRec
 
 /** Refresh the shared generic Autocab datasets previously maintained by TaxiCRM. */
 export async function syncAutocabGenericApi(dryRun = false) {
+  await requireAutocabIntegration();
   if (!dryRun && process.env.AUTOCAB_REGISTRY_WRITER_ENABLED !== 'true') throw new Error('Need A Cab Plus registry writer is disabled.');
   const configuration = await prisma.autocabApiConfiguration.findUnique({ where: { provider: 'AUTOCAB' } });
   if (!configuration?.isEnabled || !configuration.apiKeyEncrypted) throw new Error('Shared Autocab API configuration is unavailable.');
@@ -39,6 +41,7 @@ export async function syncAutocabGenericApi(dryRun = false) {
     try {
       const url = new URL(endpoint.url);
       if (url.protocol !== 'https:' || url.origin !== base.origin) throw new Error('Endpoint host differs from the configured Autocab host.');
+      await requireAutocabIntegration();
       const response = await fetch(url, {
         headers: { Accept: 'application/json', 'Ocp-Apim-Subscription-Key': apiKey },
         redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(60_000),

@@ -1,4 +1,5 @@
 'use client';
+import{useIntegrations}from'@/components/integrations/integration-provider';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Activity,CarFront,Clock3,Radio,ShieldCheck,ArrowRight,Settings2,LogOut} from 'lucide-react';
@@ -16,7 +17,7 @@ const waiting=(job:Job)=>!job.assigned&&['Booked','Created','Modified','Running 
 const clock=(value:string|number|null)=>value===null||!Number.isFinite(new Date(value).getTime())?'—':new Date(value).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Europe/London'});
 const dateTime=(value:string|null)=>!value||!Number.isFinite(Date.parse(value))?'Time unavailable':new Date(value).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'});
 
-export default function DispatchDashboard(){
+function DispatchDashboardEnabled(){
  const [data,setData]=useState<LiveData|null>(null),[selected,setSelected]=useState(''),[error,setError]=useState(''),[analysis,setAnalysis]=useState<Analysis|null>(null),[planError,setPlanError]=useState(''),[planning,setPlanning]=useState(false),[now,setNow]=useState(0);
  useEffect(()=>{
   const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
@@ -78,3 +79,5 @@ export function DispatchDashboardView({data,selected,onSelect,analysis,error='',
 }
 function Stat({icon,label,value}:{icon:React.ReactNode;label:string;value:number|undefined}){return <div><span>{label}{icon}</span><strong>{value??'—'}</strong></div>}
 function Step({number,title,text}:{number:string;title:string;text:string}){return <div><span>{number}</span><div><strong>{title}</strong><p>{text}</p></div></div>}
+
+export default function DispatchDashboard(){const{autocabEnabled,loading}=useIntegrations();if(loading)return <p>Loading integration status…</p>;return autocabEnabled?<DispatchDashboardEnabled/>:<main style={{padding:32}}><h1>Need A Cab Plus · N+</h1><p>Autocab integration is disabled. Native live customer dispatch is not connected yet.</p><a href="https://admin.needacabplus.app/admin/dispatch-rules">Native dispatch rules</a> · <a href="https://admin.needacabplus.app/admin/configuration/integrations">Integration settings</a></main>}

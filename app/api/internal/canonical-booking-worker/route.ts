@@ -1,3 +1,4 @@
+import {autocabIntegrationEnabled} from '@/lib/integration-control';
 import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -17,6 +18,7 @@ function authorized(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+  if(!await autocabIntegrationEnabled())return NextResponse.json({enabled:false,processed:0,reason:'AUTOCAB_DISABLED'});
   if (process.env.CANONICAL_BOOKING_WRITER_ENABLED !== 'true') {
     return NextResponse.json({ enabled: false, processed: 0, failed: 0, remaining: 0 });
   }

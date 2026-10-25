@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import {customerStripeProfile} from '@/lib/customer-stripe';
 import {assertSandboxPayment,checkoutErrorMessage} from '@/lib/passenger-payment';
 import {loadBookingPolicy} from '@/lib/app-configuration';
@@ -26,6 +27,7 @@ export async function POST(request:Request){
  let body;try{body=payload.parse(await request.json())}catch{return Response.json({error:'Check the addresses, name, phone number and booking acknowledgement.'},{status:400})}
  const stops=[body.pickup,...body.viaPoints,body.destination].map(stop=>stop.toLowerCase());if(new Set(stops).size!==stops.length)return Response.json({error:'Each stop must use a different address.'},{status:400});
  try{
+ await requireAutocabIntegration();
  const customer=await getCustomer(),guest=customer?null:await getGuestSession(),userId=customer?.id||guest?.id;if(!userId)return Response.json({error:'Sign in or continue as guest before confirming your booking.'},{status:401});
  const preview=await database().query<{user_id:string}>('SELECT user_id FROM web_booking_previews WHERE quote_id=$1',[body.id]);
  if(preview.rows[0])return preview.rows[0].user_id===userId?Response.json({id:body.id,status:'Sandbox preview',sandbox:true,pending:false}):Response.json({error:'This quote has already been used.'},{status:409});

@@ -1,3 +1,5 @@
+import {autocabIntegrationEnabled,requireAutocabIntegration} from '@/lib/integration-control';
+import {loadNativeBookingPolicy} from '@/lib/native-booking-configuration';
 import {membershipEntitlement,type MembershipRecord} from './membership-entitlement';
 import {selectPaymentMethod} from './booking-payments';
 import {loadBookingPolicy} from './app-configuration';
@@ -28,7 +30,7 @@ export async function activePaidMembership(customerId:string|null,policy:QuotePo
  const result=await database().query<MembershipRecord>(`SELECT tier_id,status,starts_at,ends_at,grace_ends_at,operator_access_until FROM customer_memberships WHERE customer_id=$1`,[customerId]);
  return membershipEntitlement(result.rows[0],policy);
 }
-export async function loadQuotePolicy(){const result=await database().query("SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");const rules=await loadBookingPolicy();return quotePolicySchema.parse({...result.rows[0]?.policy,minPrebookMinutes:rules.minPrebookMinutes})}
+export async function loadQuotePolicy(model:'autocab'|'native'='autocab'){const enabled=await autocabIntegrationEnabled();const native=model==='native'||!enabled;const result=await database().query(native?"SELECT settings->'nativeQuotes' AS policy FROM operations_settings WHERE id='pricing'":"SELECT settings->'liveQuotes' AS policy FROM operations_settings WHERE id='pricing'");const rules=native?await loadNativeBookingPolicy():await loadBookingPolicy();return quotePolicySchema.parse({...result.rows[0]?.policy,minPrebookMinutes:rules.minPrebookMinutes,...(native?{enabled:false,smartFareCapabilities:[],serviceCapabilities:{asap:[],priority:[],prebook:[],guarantee:[]}}:{})})}
 export async function demandSnapshot(policy:Awaited<ReturnType<typeof loadQuotePolicy>>){
  if(!policy.dynamicPricingEnabled)return {waiting:null,clear:null,mode:'disabled'};
  if(!dynamicScheduleActive(policy))return {waiting:null,clear:null,mode:'scheduled-off'};
@@ -79,6 +81,7 @@ export async function smartFareSnapshot(policy:Awaited<ReturnType<typeof loadQuo
  }catch{return {waiting:null,clear:null,fresh:false}}
 }
 export async function calculateQuote(input:z.infer<typeof quoteRequestSchema>,customerId:string|null=null):Promise<FareQuote>{
+ await requireAutocabIntegration();
  const policy=await loadQuotePolicy();if(!policy.enabled)throw new QuoteError('Live quotes are currently unavailable.');
  validateSchedule(input.service,input.scheduledAt,policy.minPrebookMinutes);
  const stops=[input.pickup,...input.vias,input.destination];if(new Set(stops.map(stop=>stop.text.toLowerCase())).size!==stops.length)throw new QuoteError('Choose a different address for each stop.');

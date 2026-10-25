@@ -1,4 +1,5 @@
 'use client';
+import AutocabOnly from '@/components/integrations/autocab-only';
 import Link from 'next/link';
 import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import {ArrowRight,CalendarDays,UsersRound,CarFront,MonitorSmartphone,TriangleAlert,UserRoundPlus,Settings2,CalendarPlus,Database,Radio,CreditCard,ChartNoAxesCombined,RefreshCw,LoaderCircle} from 'lucide-react';
@@ -59,7 +60,7 @@ export default function AdminDashboard(){
     {data?.bookings===null&&<p className="dashboard-unavailable">Booking data unavailable</p>}
     <div className="dashboard-outcomes"><BookingOutcome title="Completed" counts={data?.outcomes?.completed} kind="completed"/><BookingOutcome title="Cancelled" counts={data?.outcomes?.cancelled} kind="cancelled"/><BookingOutcome title="No Fare" counts={data?.outcomes?.noFare} kind="no-fare"/></div>
    </Card>
-   <Card icon={<UsersRound/>} title="Drivers online" value={data?.fleet?.online} href="/admin/drivers" action="View drivers"><div className="dashboard-driver-chips"><span><i/>{count(data?.fleet?.free)} free</span><span><i/>{count(data?.fleet?.busy)} busy</span></div><small>Autocab live feed</small></Card>
+   <AutocabOnly><Card icon={<UsersRound/>} title="Drivers online" value={data?.fleet?.online} href="/admin/drivers" action="View drivers"><div className="dashboard-driver-chips"><span><i/>{count(data?.fleet?.free)} free</span><span><i/>{count(data?.fleet?.busy)} busy</span></div><small>Autocab live feed</small></Card></AutocabOnly>
 
    <Card icon={<MonitorSmartphone/>} title="Need A Cab Plus bookings" value={data?.webapp} href="/admin/bookings" action="View bookings"><p>Need A Cab Plus · pickups today</p></Card>
    <Card icon={<UsersRound/>} title="Memberships" value={data?.memberships?.active} href="/admin/configuration#pricing-rules" action="Membership settings"><p>Members with active benefits</p><div className="dashboard-member-tiers">{data?.memberships?.tiers?.map(tier=><div key={tier.id}><span>{tier.name}</span><strong>{count(tier.active)}</strong></div>)}</div>{Boolean(data?.memberships?.test)&&<small>Includes {count(data?.memberships?.test)} operator test access</small>}</Card>
@@ -72,7 +73,7 @@ export default function AdminDashboard(){
    <Link href="/admin/configuration#bookings"><Settings2/><span>Booking rules</span></Link>
   </div></section>
   <section className="dashboard-connections" aria-label="Connection status"><h2>Connections</h2>
-   <Link href="/admin/configuration#webhooks"><Radio/><span>Autocab<small className={data?.connections.autocab==='live'?'is-good':'is-warning'}><i/>{!data?'Checking…':data.connections.autocab==='live'?'Receiving events':data.connections.autocab==='stale'?'Feed delayed':'Unavailable'}</small>{data?.connections.lastEvent&&<em>Last event {time(data.connections.lastEvent)} UK</em>}</span></Link>
+   <AutocabOnly><Link href="/admin/configuration/integrations/autocab/webhooks"><Radio/><span>Autocab<small className={data?.connections.autocab==='live'?'is-good':'is-warning'}><i/>{!data?'Checking…':data.connections.autocab==='live'?'Receiving events':data.connections.autocab==='stale'?'Feed delayed':'Unavailable'}</small>{data?.connections.lastEvent&&<em>Last event {time(data.connections.lastEvent)} UK</em>}</span></Link></AutocabOnly>
    <Link href="/admin/configuration#taxicrm"><Database/><span>Database<small className={data?.connections.database?'is-good':'is-warning'}><i/>{!data?'Checking…':data.connections.database?'Connected':'Unavailable'}</small></span></Link>
    <Link href="/admin/configuration#payments"><CreditCard/><span>Payments<small className={data?.connections.payments==='live'?'is-good':'is-warning'}><i/>{paymentLabel}</small></span></Link>
   </section>

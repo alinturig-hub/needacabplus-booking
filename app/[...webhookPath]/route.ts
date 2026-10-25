@@ -1,3 +1,4 @@
+import {autocabIntegrationEnabled} from '@/lib/integration-control';
 import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {operationKind,receiptFingerprint,sourceTimestamp,customerProfileKey,receiptCallsigns} from '@/lib/dispatch-history';
 import {dispatchObservation} from '@/lib/dispatch-observation';
@@ -29,6 +30,7 @@ export async function POST(request:Request,{params}:{params:Promise<{webhookPath
    FROM provider_webhooks w JOIN webhook_providers p ON p.id=w.provider_id
    WHERE w.event_url_suffix=$1 AND w.enabled=true AND p.enabled=true LIMIT 1`,[suffix]);
   if(!match.rowCount)return json(404,{error:'Webhook endpoint not found.'});
+  if(match.rows[0]?.provider_id==='autocab'&&!await autocabIntegrationEnabled())return json(503,{error:'Autocab integration is disabled.'});
   const item=match.rows[0] as {webhook_id:string;event_type:string;provider_id:string;api_key_header:string;api_key_encrypted:string};
   if(!item.api_key_encrypted)return json(401,{error:'Webhook API key is not configured.'});
   let credentials:Record<string,string>;try{credentials=decryptCredentials(item.api_key_encrypted)}catch{return json(401,{error:'Webhook API key is not configured.'})}const expected=credentials.token||'';

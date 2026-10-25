@@ -1,3 +1,4 @@
+import{autocabIntegrationEnabled}from'./integration-control';
 import {database} from '@/lib/database';
 import {taxiCrmLiveReadEnabled} from '@/lib/taxicrm-database';
 import {taxiCrmClearDrivers} from '@/lib/taxicrm-live';
@@ -6,6 +7,7 @@ import {taxiCrmFleetMapVehicles,type FleetMapVehicle} from '@/lib/taxicrm-fleet-
 const freshnessMinutes=()=>{const value=Number(process.env.DRIVER_LIVE_FRESHNESS_MINUTES||10);return Number.isFinite(value)&&value>0?Math.floor(value):10};
 
 export async function clearDrivers(forceLocal=false){
+ if(!await autocabIntegrationEnabled())return [];
  if(taxiCrmLiveReadEnabled()&&!forceLocal)return taxiCrmClearDrivers();
  const result=await database().query(`WITH latest AS (
   SELECT DISTINCT ON (position.driver_id) position.driver_id,position.vehicle_id,position.vehicle_callsign,position.registration,position.plate_number,position.latitude,position.longitude,position.vehicle_status,position.recorded_at,driver.callsign,driver.forename,driver.surname
@@ -19,6 +21,7 @@ export async function clearDrivers(forceLocal=false){
 }
 
 export async function fleetMapVehicles():Promise<FleetMapVehicle[]>{
+ if(!await autocabIntegrationEnabled())return [];
  if(taxiCrmLiveReadEnabled())return taxiCrmFleetMapVehicles();
  const result=await database().query<{
   driver_id:string;vehicle_id:string|null;vehicle_callsign:string|null;registration:string|null;plate_number:string|null;
@@ -50,6 +53,7 @@ export async function fleetMapVehicles():Promise<FleetMapVehicle[]>{
 }
 
 export async function publicClearVehicles(forceLocal=false){
+ if(!await autocabIntegrationEnabled())return [];
  const drivers=await clearDrivers(forceLocal);
  // Keep operational callsigns in the admin feed only. Latest sample wins when
  // several driver records refer to the same vehicle.

@@ -1,3 +1,4 @@
+import {requireAutocabForJob} from './integration-guard.mjs';
 import pg from 'pg';
 import {createHash,randomUUID} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
@@ -121,6 +122,7 @@ export async function runRegistry(env=process.env){
     const url=registryUrl(resource,progress.next_url);
     await db.query('UPDATE import_progress SET requests=requests+1,last_request_at=now() WHERE job=$1',[JOB]);requests++;
     let response;
+    await requireAutocabForJob(env);
     try{response=await fetch(url,{headers:{Accept:'application/json','Ocp-Apim-Subscription-Key':key},redirect:'error',signal:AbortSignal.timeout(30000)})}
     catch{await persistApiBackoff(db,503,null,1);console.log(JSON.stringify({event:'registry_network_retry',resource}));return}
     if(response.status===429||response.status>=500){await persistApiBackoff(db,response.status,response.headers.get('retry-after'),1);await response.body?.cancel();console.log(JSON.stringify({event:'registry_backoff',resource,status:response.status}));return}

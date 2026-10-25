@@ -1,4 +1,5 @@
 'use client';
+import{useIntegrations}from'@/components/integrations/integration-provider';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowLeft,ArrowUpRight,BadgePoundSterling,Braces,ChevronDown,ChevronRight,CreditCard,Database,KeyRound,LayoutGrid,LogOut,Map,MessageSquare,Route,Search,Settings2,ShieldCheck,Sparkles,Webhook} from 'lucide-react';
@@ -7,8 +8,7 @@ import BookingRulesWorkspace from './booking-rules-workspace';
 import ApiConnections from './api-connections';
 import WebhookProviders from './webhook-providers';
 import {DispatchSettings,StripeSettings} from './operations-settings';
-import PricingWorkspace from './pricing-workspace';
-import QuoteSettings from './quote-settings';
+import ModelFeatureWorkspace from './model-feature-workspace';
 import MapSettings from './map-settings';
 import TaxiCrmDatabaseSettings from './taxicrm-database-settings';
 import GeneralSecurity from './general-security';
@@ -25,33 +25,36 @@ const sections=[
  {id:'identity',group:'Settings',title:'Customer sign-in',description:'Google and Apple credentials, callback URLs and SMS verification.',keywords:'google apple oauth client id secret otp login registration verification authentication',icon:KeyRound},
  {id:'bookings',group:'Settings',title:'Booking rules',description:'Separate Autocab and Need A Cab Plus booking policies, payment availability and pickup timing.',keywords:'booking source origin marker reference ourReference account customerId priority guarantee prebook cash card capability minutes',icon:Settings2},
  {id:'pricing',group:'Settings',title:'Fare sources',description:'Configure Autocab live fares and the Need A Cab Plus base tariff.',keywords:'pricing fare quote autocab local tariff source',icon:BadgePoundSterling},
- {id:'pricing-rules',group:'Settings',title:'Pricing rules & promotions',description:'Shared service additions, Smart Fare, membership, marketing and demand settings.',keywords:'pricing fare surcharge demand membership loyalty promotion discount smart shared rules',icon:Sparkles},
+ {id:'pricing-rules',group:'Settings',title:'Service fares',description:'Independent service additions for Autocab and Need A Cab Plus.',keywords:'pricing fare surcharge demand membership loyalty promotion discount smart shared rules',icon:Sparkles},
  {id:'dispatch',group:'Settings',title:'Dispatch rules',description:'Driver search, arrival buffers and the dispatch simulator.',keywords:'dispatch driver time simulation radius arrival',icon:Route},
 ] as const;
 type SectionId='overview'|typeof sections[number]['id'];
 function validSection(value:string):SectionId{return sections.some(item=>item.id===value)?value as SectionId:value==='integrations'?'api':value==='overview'?'overview':'general'}
 export default function ConfigurationApp(){
+ const{autocabEnabled}=useIntegrations();
  const [selected,setSelected]=useState<SectionId>('general'),[visited,setVisited]=useState<SectionId[]>([]),[search,setSearch]=useState(''),[settingsOpen,setSettingsOpen]=useState(true);
  useEffect(()=>{const sync=()=>{const id=validSection(window.location.hash.slice(1).split('#').at(-1)||'');setSelected(id);setVisited(items=>items.includes(id)?items:[...items,id]);if(sections.some(item=>item.id===id))setSettingsOpen(true)};sync();window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync)},[]);
  function open(id:SectionId){setSelected(id);setVisited(items=>items.includes(id)?items:[...items,id]);window.location.hash=id;window.scrollTo({top:0,behavior:'smooth'})}
- const current=sections.find(item=>item.id===selected),query=search.trim().toLowerCase(),filtered=sections.filter(item=>(item.title+' '+item.description+' '+item.keywords).toLowerCase().includes(query)),settingsItems=filtered.filter(item=>item.group==='Settings');
+ const available=sections.filter(item=>autocabEnabled||!['api','webhooks'].includes(item.id));
+ const current=available.find(item=>item.id===selected),query=search.trim().toLowerCase(),filtered=available.filter(item=>(item.title+' '+item.description+' '+item.keywords).toLowerCase().includes(query)),settingsItems=filtered.filter(item=>item.group==='Settings');
  return <main className="admin-shell configuration-hub premium-admin"><header className="brandbar"><Link className="brand" href="/admin"><span className="brandmark">N<span>+</span></span><span className="admin-brand-copy">NEED A CAB <b>PLUS</b><small>Admin</small></span></Link><nav className="admin-nav" aria-label="Admin navigation"><Link href="/admin">Overview</Link><Link href="/admin/bookings">Search bookings</Link><Link prefetch={false} href="/dispatch">Open Dispatch</Link><Link className="active" href="/admin/configuration">Settings</Link></nav><Link prefetch={false} className="admin-link" href="/api/admin/logout"><LogOut size={16}/>Sign out</Link></header>
  <div className="configuration-workspace"><header className="configuration-title"><div><span className="eyebrow">WORKSPACE SETTINGS</span><h1>Settings</h1><p>General settings, security, connections and booking rules.</p></div><Link href="/admin" className="configuration-back"><ArrowLeft size={16}/>Back to Admin</Link></header>
  <div className="configuration-layout"><aside className="configuration-sidebar"><label className="configuration-search"><Search size={17}/><input type="search" aria-label="Search settings" placeholder="Find a setting…" value={search} onChange={e=>setSearch(e.target.value)}/></label><nav aria-label="Configuration sections"><button type="button" aria-current={selected==='overview'?'page':undefined} onClick={()=>open('overview')}><LayoutGrid size={18}/><span>Overview</span></button>{settingsItems.length>0&&<div className="configuration-nav-folder"><button className={`configuration-nav-parent ${current?'active':''}`} type="button" aria-expanded={Boolean(query)||settingsOpen} onClick={()=>setSettingsOpen(open=>!open)}><Settings2 size={18}/><span>Settings</span><ChevronDown size={15}/></button><div className="configuration-nav-children" hidden={!query&&!settingsOpen}>{settingsItems.map(item=><button key={item.id} type="button" aria-current={selected===item.id?'page':undefined} onClick={()=>open(item.id)}><item.icon size={17}/><span>{item.title}</span><ChevronRight size={13}/></button>)}</div></div>}{!filtered.length&&<p className="configuration-no-results">No settings found. Try “SMS”, “payments” or “booking”.</p>}</nav><div className="configuration-security"><ShieldCheck size={18}/><p>Saved secrets stay encrypted. Replace a key only when you need to update it.</p></div></aside>
  <div className="configuration-content"><div hidden={selected!=='overview'}><div className="configuration-intro"><span className="configuration-kicker">YOUR CONTROL CENTRE</span><h2>What would you like to configure?</h2><p>Manage all operational, connection and payment settings in one place.</p></div><section className="configuration-card-group"><h3>Settings</h3><div className="configuration-cards">{filtered.map(item=><button type="button" key={item.id} onClick={()=>open(item.id)}><div className="configuration-card-top"><span><item.icon size={22}/></span><ArrowUpRight size={18}/></div><strong>{item.title}</strong><p>{item.description}</p><span className="configuration-card-link">Open settings <ChevronRight size={14}/></span></button>)}</div></section>{!filtered.length&&<p className="configuration-no-results">No matching settings. Clear your search to see all sections.</p>}</div>
+ {!autocabEnabled&&['api','webhooks'].includes(selected)&&<p>Autocab integration is disabled. <Link href="/admin/configuration/integrations">Open integration controls</Link></p>}
  {current&&<header className="configuration-section-heading"><button type="button" onClick={()=>open('overview')}>Settings</button><ChevronRight size={14}/><span>{current.title}</span><p>{current.description}</p></header>}
  {/* Retain visited panels so navigating between sections does not discard unsaved edits. */}
  {visited.includes('general')&&<div hidden={selected!=='general'}><GeneralSecurity/></div>}
- {visited.includes('api')&&<div hidden={selected!=='api'} className="configuration-panel"><ApiConnections/></div>}
+ {autocabEnabled&&visited.includes('api')&&<div hidden={selected!=='api'} className="configuration-panel"><ApiConnections/></div>}
  {visited.includes('taxicrm')&&<div hidden={selected!=='taxicrm'}><TaxiCrmDatabaseSettings/></div>}
- {visited.includes('webhooks')&&<div hidden={selected!=='webhooks'} className="configuration-panel"><WebhookProviders/></div>}
+ {autocabEnabled&&visited.includes('webhooks')&&<div hidden={selected!=='webhooks'} className="configuration-panel"><WebhookProviders/></div>}
  {visited.includes('sms')&&<div hidden={selected!=='sms'}><CustomerSettings section="sms"/></div>}
  {visited.includes('identity')&&<div hidden={selected!=='identity'}><CustomerSettings section="identity"/></div>}
  {visited.includes('maps')&&<div hidden={selected!=='maps'}><MapSettings/></div>}
  {visited.includes('payments')&&<div hidden={selected!=='payments'}><StripeSettings/></div>}
  {visited.includes('bookings')&&<div hidden={selected!=='bookings'}><BookingRulesWorkspace/></div>}
- {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><PricingWorkspace/></div>}
- {visited.includes('pricing-rules')&&<div hidden={selected!=='pricing-rules'} className="operations-settings pricing-workspace"><QuoteSettings embedded mode="shared"/></div>}
+ {visited.includes('pricing')&&<div hidden={selected!=='pricing'}><ModelFeatureWorkspace feature="fares"/></div>}
+ {visited.includes('pricing-rules')&&<div hidden={selected!=='pricing-rules'} className="operations-settings pricing-workspace"><ModelFeatureWorkspace feature="services"/></div>}
  {visited.includes('dispatch')&&<div hidden={selected!=='dispatch'}><DispatchSettings/></div>}
  </div></div></div></main>
 }

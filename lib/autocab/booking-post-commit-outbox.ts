@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import { prisma } from '@/lib/prisma';
 
 type ClaimedEffect={webhookEventId:string;attemptCount:number};
@@ -30,6 +31,7 @@ async function claimEffects(limit:number):Promise<ClaimedEffect[]>{
 }
 
 export async function drainBookingPostCommitEffects(limit=10){
+ await requireAutocabIntegration();
  // Check configuration before claiming rows so a missing secret cannot strand
  // effects in PROCESSING until the lease expires.
  const {url,secret}=endpointConfiguration();
@@ -37,6 +39,7 @@ export async function drainBookingPostCommitEffects(limit=10){
  let completed=0;
  for(const effect of effects){
   try{
+   await requireAutocabIntegration();
    const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-booking-effects-secret':secret},body:JSON.stringify({webhookEventId:effect.webhookEventId}),cache:'no-store',signal:AbortSignal.timeout(30_000)});
    if(!response.ok)throw new Error(`CRM effects endpoint returned ${response.status}.`);
    await prisma.bookingPostCommitEffect.update({where:{webhookEventId:effect.webhookEventId},data:{status:'DONE',leaseUntil:null,processedAt:new Date(),lastError:null}});

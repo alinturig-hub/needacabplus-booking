@@ -1,3 +1,4 @@
+import{autocabIntegrationEnabled}from'./integration-control';
 import {database} from '@/lib/database';
 import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
 import {bookingPeriod} from '@/lib/booking-period';
@@ -19,6 +20,7 @@ async function localQuery<T extends import('pg').QueryResultRow>(text:string,val
  return database().query<T>(query);
 }
 export async function adminDashboardSummary():Promise<DashboardSummary>{
+ const autocabEnabled=await autocabIntegrationEnabled();
  const now=new Date(),day=bookingPeriod(new URLSearchParams(),now).start!;
  const freshness=Number(process.env.DRIVER_LIVE_FRESHNESS_MINUTES||10);
  const minutes=Number.isFinite(freshness)&&freshness>0?Math.floor(freshness):10;
@@ -28,7 +30,7 @@ export async function adminDashboardSummary():Promise<DashboardSummary>{
   (async()=>{
    const [members,config]=await Promise.all([
     localQuery<MembershipRecord>('SELECT tier_id,status,starts_at,ends_at,grace_ends_at,operator_access_until FROM customer_memberships'),
-    localQuery<{policy:unknown}>("SELECT settings->'liveQuotes' policy FROM operations_settings WHERE id='pricing'")
+    localQuery<{policy:unknown}>(autocabEnabled?"SELECT settings->'liveQuotes' policy FROM operations_settings WHERE id='pricing'":"SELECT settings->'nativeQuotes' policy FROM operations_settings WHERE id='pricing'")
    ]);
    const policy=quotePolicySchema.parse(config.rows[0]?.policy||{});
    const entitled=members.rows.map(r=>membershipEntitlement(r,policy,now.getTime())).filter(r=>r!==null);

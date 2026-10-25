@@ -1,4 +1,5 @@
 import {NextRequest,NextResponse} from 'next/server';
+import {autocabRoute} from '@/lib/integration-routes';
 
 const canonicalHosts:Record<string,string>={
  'www.admin.needacabplus.app':'admin.needacabplus.app',
@@ -9,11 +10,14 @@ const canonicalHosts:Record<string,string>={
  'www.inbound.needacabplus.app':'inbound.needacabplus.app'
 };
 
-export function proxy(request:NextRequest){
+export async function proxy(request:NextRequest){
  const host=(request.headers.get('x-forwarded-host')||request.headers.get('host')||'').split(',')[0].trim().split(':')[0].toLowerCase();
  const canonical=canonicalHosts[host];
  if(canonical){const url=request.nextUrl.clone();url.protocol='https:';url.hostname=canonical;url.port='';return NextResponse.redirect(url,308)}
  const path=request.nextUrl.pathname;
+ if(autocabRoute(path,request.method,request.nextUrl.searchParams.get('model'))||path.startsWith('/admin/configuration/integrations/autocab')){
+  try{const {autocabIntegrationEnabled}=await import('@/lib/integration-control');if(!await autocabIntegrationEnabled()){if(path.startsWith('/admin/'))return NextResponse.redirect(new URL('/admin/configuration/integrations',request.url));return NextResponse.json({error:'Autocab integration is disabled.',code:'AUTOCAB_DISABLED'},{status:503,headers:{'Cache-Control':'no-store'}})}}catch{return NextResponse.json({error:'Integration status unavailable.'},{status:503})}
+ }
  if(host==='drivers.needacabplus.app'&&path==='/')return NextResponse.rewrite(new URL('/driver',request.url));
  if(host==='dispatch.needacabplus.app'&&path==='/')return NextResponse.redirect(new URL('/dispatch',request.url));
  if(host==='admin.needacabplus.app'||host==='webapp.needacabplus.app'){

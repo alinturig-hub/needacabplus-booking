@@ -1,0 +1,6 @@
+import {z} from 'zod';
+import {database} from '@/lib/database';
+import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
+export const dynamic='force-dynamic';
+export async function GET(){if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const result=await database().query("SELECT enabled,version,updated_at FROM integration_controls WHERE provider='autocab'");return Response.json(result.rows[0],{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}}
+export async function PUT(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const body=z.object({enabled:z.boolean(),version:z.number().int().positive()}).strict().parse(await request.json());const result=await database().query("UPDATE integration_controls SET enabled=$1,version=version+1,updated_at=now() WHERE provider='autocab' AND version=$2 RETURNING enabled,version,updated_at",[body.enabled,body.version]);if(!result.rows.length)return Response.json({error:'Integration settings changed. Refresh before saving.'},{status:409});return Response.json(result.rows[0])}catch(e){if(e instanceof z.ZodError||e instanceof SyntaxError)return Response.json({error:'Invalid integration settings.'},{status:400});return unavailable(e)}}

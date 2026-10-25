@@ -7,7 +7,6 @@ export const adminMenuGroups:AdminMenuGroup[]=[
  ]},
  {id:'customers',label:'Customers',description:'Customer access, service eligibility and membership configuration.',icon:UsersRound,items:[
   {label:'Customer access',href:'/admin/customers/access',description:'Customer registration and sign-in methods.'},
-  {label:'Memberships & services',href:'/admin/customers/memberships',description:'Configure membership tiers, benefits and service eligibility.'},
  ]},
  {id:'reports',label:'Reports',description:'Search bookings, inspect trip history and review operational results.',icon:BookOpen,items:[
   {label:'Bookings',href:'/admin/bookings',description:'Search all booking statuses, inspect details and export filtered results.'},
@@ -23,8 +22,12 @@ export const adminMenuGroups:AdminMenuGroup[]=[
   {label:'Applications',href:'/admin/configuration/apps',description:'Passenger App and the planned Driver App, with separate access and mobile releases.'},
   {label:'Integrations',href:'/admin/configuration/integrations',description:'Independent Autocab and TaxiCRM integration workspaces.'},
   {label:'Booking rules',href:'/admin/configuration#bookings',description:'Booking sources, payment options and pickup timing.'},
-  {label:'Fare sources',href:'/admin/configuration#pricing',description:'Autocab live fares and local tariffs.'},
-  {label:'Pricing rules & promotions',href:'/admin/configuration#pricing-rules',description:'Service pricing, membership and demand rules.'},
+  {label:'Fare sources',href:'/admin/configuration/fares',description:'Autocab live fares and local tariffs.'},
+  {label:'Service fares',href:'/admin/configuration/services',description:'Independent Autocab and N+ service pricing.'},
+  {label:'Smart Fare',href:'/admin/configuration/smart',description:'Model-specific Smart Fare policy.'},
+  {label:'Memberships',href:'/admin/configuration/membership',description:'Membership plans and benefits by model.'},
+  {label:'Promotions & loyalty',href:'/admin/configuration/promotions',description:'Model-specific promotions and loyalty.'},
+  {label:'Demand & timing',href:'/admin/configuration/demand',description:'Model-specific demand rules and schedules.'},
   {label:'Payments',href:'/admin/configuration#payments',description:'Payment providers and checkout settings.'},
   {label:'Maps & places',href:'/admin/configuration#maps',description:'Maps, address search and GPS lookup.'},
   {label:'Zones — Draft & Live',href:'/admin/configuration/zones',description:'Configure the operating area and driver plot boundaries, with drafts and live versions.'},

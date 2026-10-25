@@ -1,3 +1,4 @@
+import {requireAutocabIntegration} from '@/lib/integration-control';
 import {database} from '@/lib/database';
 import {decryptCredentials} from '@/lib/credentials';
 import {bookingCreateUrl,type buildAutocabBookingRequest} from './autocab-booking-request';
@@ -27,6 +28,7 @@ function listFrom(payload:unknown,keys:string[]):JsonRecord[]{
 }
 
 async function call(actionKey:string,options?:{query?:Record<string,string|number>;body?:JsonRecord;exactBody?:boolean;readBookingId?:string;readCapabilities?:boolean}){
+ await requireAutocabIntegration();
  const result=await database().query<EndpointRow>(`SELECT connection.base_url,connection.auth_type,connection.api_key_header,connection.credentials_encrypted,endpoint.method,endpoint.path,endpoint.request_example
   FROM api_endpoints endpoint JOIN api_connections connection ON connection.id=endpoint.connection_id
   WHERE connection.provider='autocab' AND endpoint.action_key=$1 AND endpoint.enabled=true
@@ -51,6 +53,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  const init:RequestInit={method,headers,signal:controller.signal,cache:'no-store'};
  if(method!=='GET'&&method!=='HEAD'){headers.set('Content-Type','application/json');init.body=JSON.stringify(options?.exactBody?options.body:options?.body?{...record(endpoint.request_example),...options.body}:endpoint.request_example||{})}
  try{
+  await requireAutocabIntegration();
   const response=await fetch(url,init);
   if(!response.ok)throw new AutocabApiError(`Autocab returned HTTP ${response.status} for ${actionKey}. Check the endpoint path and API permissions.`,response.status);
   const contentType=response.headers.get('content-type')||'';

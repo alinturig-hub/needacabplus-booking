@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const ts=require('typescript');
-function load(path,deps={}){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>deps[id]||require(id),mod,mod.exports);return mod.exports}
+function load(path,deps={}){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>{if(deps[id])return deps[id];if(id.startsWith('.')){const local=require('node:path').resolve(require('node:path').dirname(path),id);if(fs.existsSync(local+'.ts'))return load(local+'.ts');return require(local)}return require(id)},mod,mod.exports);return mod.exports}
 const policyModule=load('lib/quote-policy.ts',{'./prebook-time.js':require('../lib/prebook-time.js')});
 const smart=load('lib/smart-fare.ts');
 const requestModule=load('lib/autocab-quote-request.ts');
@@ -11,11 +11,11 @@ const place=text=>({text,coordinate:{latitude:50.37,longitude:-4.14},zoneId:1});
 const input={pickup:place('Public station'),destination:place('Public hospital'),vias:[],vehicle:'saloon',service:'asap',paymentMethod:'cash',scheduledAt:null};
 function harness({policy={},waiting=0,cars=8,staleBookings=false,staleCars=false,discount=8,discountFails=false,signalsFail=false,signalDb=null,tierId=null}={}){
  const settings=policyModule.quotePolicySchema.parse({smartFareMode:'live',...policy});
- const rules=load('lib/booking-policy.ts').bookingPolicySchema.parse({bookingCapabilities:[7,42],priorityDelayMinutes:7,paymentMethod:'cash'});
+ const rules=load('lib/booking-policy.ts').bookingPolicySchema.parse({bookingCapabilities:[7,42],priorityDelayMinutes:7,paymentMethod:'cash',priorityRequiresPaidMembership:false,guaranteeRequiresPaidMembership:false,quietAsapRequiresPaidMembership:false});
  const calls=[];let signed;
  const db={query:async sql=>{
   if(sql.includes("settings->'liveQuotes'"))return {rows:[{policy:settings}]};
-  if(sql.includes('FROM customer_memberships'))return {rows:tierId?[{tier_id:tierId}]:[]};
+  if(sql.includes('FROM customer_memberships'))return {rows:tierId?[{tier_id:tierId,status:'active',starts_at:new Date(Date.now()-60000),ends_at:null,grace_ends_at:null}]:[]};
   if(signalDb)return signalDb.query(sql);
   if(signalsFail)throw new Error('feed unavailable');
   if(sql.includes('max(updated_at)'))return {rows:[{latest:new Date(Date.now()-(staleBookings?600000:0))}]};
@@ -23,12 +23,13 @@ function harness({policy={},waiting=0,cars=8,staleBookings=false,staleCars=false
   throw new Error('Unexpected SQL: '+sql);
  }};
  const module=load('lib/quotes.ts',{
+  '@/lib/integration-control':{autocabIntegrationEnabled:async()=>true,requireAutocabIntegration:async()=>{}},'@/lib/native-booking-configuration':{loadNativeBookingPolicy:async()=>rules},
   './booking-payments':load('lib/booking-payments.ts'),'./app-configuration':{loadBookingPolicy:async()=>rules},
   '@/lib/autocab-time.mjs':{autocabTime:Date.parse},'./autocab-quote-request':requestModule,
   './quote-presentation':load('lib/quote-presentation.ts'),'./autocab-booking-request':bookingModule,
   './quote-token':{signQuote:q=>{signed=q;return 'test-token'}},'./smart-fare':smart,
   './database':{database:()=>db},'./quote-policy':policyModule,
-  './taxicrm-database':{taxiCrmLiveReadEnabled:()=>false},
+  './taxicrm-database':{taxiCrmLiveReadEnabled:()=>false,taxiCrmBookingReadEnabled:()=>false},
   './taxicrm-live':{taxiCrmFleetFreshness:async()=>({last_track:null}),taxiCrmWaitingBookings:async()=>0},
   './live-drivers':{publicClearVehicles:async()=>Array.from({length:cars},()=>({recordedAt:new Date(Date.now()-(staleCars?600000:0)).toISOString()}))},
   './autocab-api':{bookingQuote:async request=>{calls.push(request);const lower=request.capabilities.includes(42);if(lower&&discountFails)throw new Error('Autocab unavailable');return {outward:{price:lower?discount:10,cost:lower?5:7,bookingCost:lower?4:6}}}},
@@ -72,7 +73,7 @@ test('Priority, Pre-book and Guarantee have separate capabilities and additions'
  const h=harness({policy:{serviceCapabilities:{priority:[42,9]}}});await h.module.createQuote({...input,service:'priority'});assert.deepEqual(h.calls[0].capabilities,[7,42,9]);
 });
 test('authenticated member receives the configured final addon and comparison fare',async()=>{
- const h=harness({tierId:'silver',policy:{lowPercent:20,mediumPercent:20,highPercent:20,membership:{...policyModule.defaultMembership,enabled:true,tiers:{...policyModule.defaultMembership.tiers,silver:{...policyModule.defaultMembership.tiers.silver,priorityAddonPercent:10}}}}});
+ const h=harness({tierId:'silver',policy:{lowPercent:20,mediumPercent:20,highPercent:20,membership:{...policyModule.defaultMembership,enabled:true,tiers:{...policyModule.defaultMembership.tiers,silver:{...policyModule.defaultMembership.tiers.silver,monthlyPrice:9,priorityAddonPercent:10}}}}});
  const result=await h.module.createQuote({...input,service:'priority'},'11111111-1111-4111-8111-111111111111');
  assert.equal(result.quote.totalPence,1100);assert.equal(result.quote.standardTotalPence,1200);assert.equal(result.quote.membershipTier,'Silver');assert.equal(result.quote.membershipSavingPence,100);
  assert.equal(h.signed().percent,10);assert.equal(h.signed().membership.tierId,'silver');
