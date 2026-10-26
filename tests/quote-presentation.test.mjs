@@ -23,3 +23,7 @@ test('Autocab payload preserves address coordinates, zone, via order, capability
  input.pickup.zoneId=999;assert.equal(body.pickup.address.zoneId,1);
  assert.equal('price' in body,false);assert.equal('telephoneNumber' in body,false);
 });
+test('quiet-time passenger display uses the confirmed comparison price without exposing internal quote fields',()=>{
+ const value=publicFareQuote({id:'id',vehicle:'saloon',service:'asap',scheduledAt:null,pickup:'Station',destination:'Library',vias:[],totalPence:9500,basePence:9500,upliftPence:0,percent:0,demand:'normal',currency:'GBP',expiresAt:'later',smartFare:{applied:true,normalPence:10000,candidatePence:9500,reason:'quiet',signal:{waiting:0,clear:8,fresh:true}}});
+ assert.equal(value.originalTotalPence,10000);assert.equal(value.promotionSavingPence,500);assert.equal(value.totalPence,9500);assert.equal('smartFare' in value,false);assert.equal('basePence' in value,false);
+});

@@ -1,0 +1,9 @@
+import {z} from 'zod';
+import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
+import {createTaxiVoucher,listTaxiVouchers,updateTaxiVoucher} from '@/lib/taxi-miles-store';
+import {voucherRulesSchema} from '@/lib/taxi-miles-policy';
+export const dynamic='force-dynamic';
+export async function GET(){if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{return Response.json({items:await listTaxiVouchers()},{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}}
+export async function POST(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const b=z.object({code:z.string().trim().regex(/^[A-Za-z0-9-]{3,40}$/).optional(),rules:voucherRulesSchema}).strict().parse(await request.json());return Response.json(await createTaxiVoucher(b.rules,b.code),{status:201})}catch(e){if(e instanceof z.ZodError||e instanceof SyntaxError)return Response.json({error:e instanceof z.ZodError?e.issues[0]?.message:'Invalid voucher.'},{status:400});if((e as {code?:string}).code==='23505')return Response.json({error:'This voucher code already exists.'},{status:409});return unavailable(e)}}
+
+export async function PATCH(request:Request){if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});try{const b=z.object({id:z.string().uuid(),version:z.number().int().positive(),rules:voucherRulesSchema,enabled:z.boolean()}).strict().parse(await request.json());const result=await updateTaxiVoucher(b.id,b.version,b.rules,b.enabled);return result?Response.json(result):Response.json({error:'Voucher changed or is no longer a draft. Reload before saving.'},{status:409})}catch(e){if(e instanceof z.ZodError||e instanceof SyntaxError)return Response.json({error:e instanceof z.ZodError?e.issues[0]?.message:'Invalid voucher.'},{status:400});return unavailable(e)}}
