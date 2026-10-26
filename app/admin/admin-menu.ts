@@ -27,8 +27,6 @@ export const adminMenuGroups:AdminMenuGroup[]=[
   {label:'Smart Fare',href:'/admin/configuration/smart',description:'Model-specific Smart Fare policy.'},
   {label:'Memberships',href:'/admin/configuration/membership',description:'Membership plans and benefits by model.'},
   {label:'Taxi Miles & rewards',href:'/admin/configuration/taxi-miles',description:'Mileage campaigns and configurable reward thresholds.'},
-  {label:'Discount vouchers',href:'/admin/configuration/discount-vouchers',description:'Draft discount codes, limits and eligible services.'},
-  {label:'Marketing & benefits',href:'/admin/configuration/rewards-marketing',description:'Bounded marketing rules and membership benefits.'},
   {label:'Demand & timing',href:'/admin/configuration/demand',description:'Model-specific demand rules and schedules.'},
   {label:'Payments',href:'/admin/configuration#payments',description:'Payment providers and checkout settings.'},
   {label:'Maps & places',href:'/admin/configuration#maps',description:'Maps, address search and GPS lookup.'},
