@@ -6,22 +6,23 @@ function string(value:unknown):string|null{return typeof value==='string'&&value
 function companyName(value:unknown,companyId:number|null):string|null{const raw=payload(value);return string(raw.companyName)||string(raw.company)|| (companyId===null?null:String(companyId))}
 function capabilities(value:unknown):unknown[]{return Array.isArray(value)?value:[]}
 
-export async function fleetList(resource:FleetResource,request:Request){
- const {prisma}=await import('@/lib/prisma');
+export async function fleetList(resource:FleetResource,request:Request,client?:(typeof import('@/lib/prisma'))['prisma']){
+ const prisma=client??(await import('@/lib/prisma')).prisma;
  const url=new URL(request.url),pageSize=Math.min(100,Math.max(10,Number(url.searchParams.get('pageSize'))||20)),requestedPage=Math.max(1,Number(url.searchParams.get('page'))||1),search=(url.searchParams.get('search')||'').trim(),status=(url.searchParams.get('status')||'All').trim(),company=(url.searchParams.get('company')||'All').trim();
  const companyId=company==='All'?undefined:Number(company);
  if(companyId!==undefined&&!Number.isInteger(companyId))return {items:[],total:0,page:1,pageSize,companies:[],summary:{total:0,active:0,suspended:0,archived:0,inactive:0,lastSynced:null}};
  if(resource==='drivers'){
-  const base={provider:'AUTOCAB',...(companyId!==undefined?{companyId}:{})};
-  const where={...base,...(status==='Active'?{active:true,suspended:false,archived:false}:status==='Suspended'?{suspended:true,archived:false}:status==='Archived'?{archived:true}:status==='Inactive'?{active:false,suspended:false,archived:false}:{}),...(search?{OR:[{externalId:{contains:search,mode:'insensitive' as const}},{callsign:{contains:search,mode:'insensitive' as const}},{fullName:{contains:search,mode:'insensitive' as const}},{mobile:{contains:search,mode:'insensitive' as const}},{email:{contains:search,mode:'insensitive' as const}}]}:{})};
-  const [total,summaryTotal,active,suspended,archived,inactive,last,companyRows]=await Promise.all([
-   prisma.driver.count({where}),prisma.driver.count({where:{provider:'AUTOCAB'}}),prisma.driver.count({where:{provider:'AUTOCAB',active:true,suspended:false,archived:false}}),prisma.driver.count({where:{provider:'AUTOCAB',suspended:true,archived:false}}),prisma.driver.count({where:{provider:'AUTOCAB',archived:true}}),prisma.driver.count({where:{provider:'AUTOCAB',active:false,suspended:false,archived:false}}),
-   prisma.driver.findFirst({where:{provider:'AUTOCAB',lastApiSyncAt:{not:null}},orderBy:{lastApiSyncAt:'desc'},select:{lastApiSyncAt:true}}),
-   prisma.driver.findMany({where:{provider:'AUTOCAB',companyId:{not:null}},distinct:['companyId'],select:{companyId:true}})
+  const relevant={provider:'AUTOCAB',archived:false,AND:[{OR:[{active:true},{suspended:true}]}]};
+  const base={...relevant,...(companyId!==undefined?{companyId}:{})};
+  const where={...base,...(status==='Active'?{active:true,suspended:false,archived:false}:status==='Suspended'?{suspended:true,archived:false}:{}),...(search?{OR:[{externalId:{contains:search,mode:'insensitive' as const}},{callsign:{contains:search,mode:'insensitive' as const}},{fullName:{contains:search,mode:'insensitive' as const}},{mobile:{contains:search,mode:'insensitive' as const}},{email:{contains:search,mode:'insensitive' as const}}]}:{})};
+  const [total,active,suspended,last,companyRows]=await Promise.all([
+   prisma.driver.count({where}),prisma.driver.count({where:{provider:'AUTOCAB',active:true,suspended:false,archived:false}}),prisma.driver.count({where:{provider:'AUTOCAB',suspended:true,archived:false}}),
+   prisma.driver.findFirst({where:{...relevant,lastApiSyncAt:{not:null}},orderBy:{lastApiSyncAt:'desc'},select:{lastApiSyncAt:true}}),
+   prisma.driver.findMany({where:{...relevant,companyId:{not:null}},distinct:['companyId'],select:{companyId:true}})
   ]);
   const page=Math.min(requestedPage,Math.max(1,Math.ceil(total/pageSize)));
   const rows=await prisma.driver.findMany({where,orderBy:[{archived:'asc'},{suspended:'asc'},{fullName:'asc'},{externalId:'asc'}],skip:(page-1)*pageSize,take:pageSize});
-  return {items:rows.map(row=>({external_id:row.externalId,callsign:row.callsign,first_name:row.forename,last_name:row.surname,display_name:row.fullName||[row.forename,row.surname].filter(Boolean).join(' ')||row.externalId,mobile:row.mobile,email:row.email,company:companyName(row.rawPayload,row.companyId),status:row.archived?'Archived':row.suspended?'Suspended':row.active?'Active':'Inactive',suspended:row.suspended,capabilities:capabilities(row.capabilities),raw_payload:row.rawPayload,synced_at:row.lastApiSyncAt?.toISOString()||null})),total,page,pageSize,companies:companyRows.map(row=>String(row.companyId)).sort((a,b)=>Number(a)-Number(b)),summary:{total:summaryTotal,active,suspended,archived,inactive,lastSynced:last?.lastApiSyncAt?.toISOString()||null}};
+  return {items:rows.map(row=>({external_id:row.externalId,callsign:row.callsign,first_name:row.forename,last_name:row.surname,display_name:row.fullName||[row.forename,row.surname].filter(Boolean).join(' ')||row.externalId,mobile:row.mobile,email:row.email,company:companyName(row.rawPayload,row.companyId),status:row.archived?'Archived':row.suspended?'Suspended':row.active?'Active':'Inactive',suspended:row.suspended,capabilities:capabilities(row.capabilities),raw_payload:row.rawPayload,synced_at:row.lastApiSyncAt?.toISOString()||null})),total,page,pageSize,companies:companyRows.map(row=>String(row.companyId)).sort((a,b)=>Number(a)-Number(b)),summary:{total:active+suspended,active,suspended,archived:0,inactive:0,lastSynced:last?.lastApiSyncAt?.toISOString()||null}};
  }
  const base={provider:'AUTOCAB',...(companyId!==undefined?{companyId}:{})};
  const where={...base,...(status==='Active'?{isActive:true,isSuspended:false}:status==='Suspended'?{isSuspended:true}:{}),...(search?{OR:[{externalId:{contains:search,mode:'insensitive' as const}},{callsign:{contains:search,mode:'insensitive' as const}},{registration:{contains:search,mode:'insensitive' as const}},{make:{contains:search,mode:'insensitive' as const}},{model:{contains:search,mode:'insensitive' as const}}]}:{})};
