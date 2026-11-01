@@ -1,3 +1,4 @@
+import {fleetLifecycleJoins,fleetLiveEligibility} from './fleet-lifecycle';
 import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
 
 const freshnessMinutes=()=>{const value=Number(process.env.DRIVER_LIVE_FRESHNESS_MINUTES||10);return Number.isFinite(value)&&value>0?Math.floor(value):10};
@@ -10,10 +11,11 @@ async function taxiCrmDrivers(clearOnly:boolean){
   }>(`SELECT driver."externalId" driver_id,vehicle."externalId" vehicle_id,vehicle.callsign vehicle_callsign,vehicle.registration,vehicle."plateNumber" plate_number,
    driver.callsign,driver.forename,driver.surname,vehicle."currentLatitude" latitude,vehicle."currentLongitude" longitude,
    COALESCE(NULLIF(to_jsonb(vehicle)->>'currentZoneName',''),NULLIF(to_jsonb(vehicle)->>'plotZoneName',''),NULLIF(to_jsonb(vehicle)->>'zoneName',''),NULLIF(to_jsonb(vehicle)->>'currentZone',''),NULLIF(to_jsonb(vehicle)->>'zone',''),NULLIF(to_jsonb(vehicle)->>'currentZoneId','')) zone,
-   vehicle."currentStatus" vehicle_status,vehicle."lastSeenAt" recorded_at,driver.mobile phone
+   fleet_state.status vehicle_status,vehicle."lastSeenAt" recorded_at,driver.mobile phone
    FROM public."Vehicle" vehicle LEFT JOIN public."Driver" driver ON driver.id=vehicle."currentDriverId"
-   WHERE vehicle."lastSeenAt">=now()-make_interval(mins=>$1) AND vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL
-    AND ($2::boolean IS FALSE OR lower(trim(vehicle."currentStatus"))='clear') AND lower(trim(COALESCE(vehicle."currentStatus",'')))<>'notworking' AND vehicle."isActive" IS DISTINCT FROM false AND vehicle."isSuspended" IS DISTINCT FROM true
+   ${fleetLifecycleJoins}
+   WHERE vehicle.provider='AUTOCAB' AND ${fleetLiveEligibility} AND vehicle."lastSeenAt">=now()-make_interval(mins=>$1) AND vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL
+    AND ($2::boolean IS FALSE OR fleet_state.status='Clear') AND fleet_state.status<>'NotWorking' AND vehicle."isActive" IS DISTINCT FROM false AND vehicle."isSuspended" IS DISTINCT FROM true
    ORDER BY vehicle."lastSeenAt" DESC LIMIT 1000`,[minutes,clearOnly]);
   return result.rows.map(row=>({driverId:row.driver_id||row.vehicle_id,vehicleId:row.vehicle_id,vehicleCallsign:row.vehicle_callsign,registration:row.registration,plateNumber:row.plate_number,callsign:row.callsign,name:[row.forename,row.surname].filter(Boolean).join(' ')||null,phone:row.phone,latitude:Number(row.latitude),longitude:Number(row.longitude),vehicleStatus:row.vehicle_status,recordedAt:new Date(row.recorded_at).toISOString(),zone:row.zone||null}));
  });
@@ -31,8 +33,9 @@ export async function taxiCrmZones(){
 
 export async function taxiCrmFleetFreshness(){
  return withTaxiCrmReadOnly(async client=>{
-  const result=await client.query<{clear:number;last_track:Date|string|null}>(`SELECT count(*) FILTER(WHERE lower(trim("currentStatus"))='clear' AND "lastSeenAt">=now()-interval '2 minutes')::int clear,
-   max("lastSeenAt") FILTER(WHERE "lastSeenAt"<=now()+interval '30 seconds') last_track FROM public."Vehicle"`);
+  const result=await client.query<{clear:number;last_track:Date|string|null}>(`SELECT count(*) FILTER(WHERE vehicle.provider='AUTOCAB' AND ${fleetLiveEligibility} AND fleet_state.status='Clear' AND vehicle."lastSeenAt">=now()-interval '2 minutes')::int clear,
+   max(vehicle."lastSeenAt") FILTER(WHERE vehicle."lastSeenAt"<=now()+interval '30 seconds') last_track FROM public."Vehicle" vehicle
+   LEFT JOIN public."Driver" driver ON driver.id=vehicle."currentDriverId" ${fleetLifecycleJoins}`);
   return {clear:Number(result.rows[0]?.clear||0),last_track:result.rows[0]?.last_track?new Date(result.rows[0].last_track).toISOString():null};
  });
 }

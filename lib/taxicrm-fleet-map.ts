@@ -1,6 +1,7 @@
+import {fleetLifecycleJoins,fleetLiveEligibility} from './fleet-lifecycle';
 import {withTaxiCrmReadOnly} from '@/lib/taxicrm-database';
 
-type VehicleRow={id:string;external_id:string;callsign:string|null;registration:string|null;plate_number:string|null;status:string|null;booking_id:number|null;latitude:string|number;longitude:string|number;recorded_at:Date|string;driver_external_id:string|null;driver_callsign:string|null;forename:string|null;surname:string|null};
+type VehicleRow={id:string;external_id:string;callsign:string|null;registration:string|null;plate_number:string|null;status:string|null;on_shift:boolean;booking_id:number|null;latitude:string|number;longitude:string|number;recorded_at:Date|string;driver_external_id:string|null;driver_callsign:string|null;forename:string|null;surname:string|null};
 type BookingRow={external_id:string;status:string;pickup:string|null;destination:string|null};
 type RevenueRow={driver_id:string;status:string;completed_at:Date|string|null;no_fare_at:Date|string|null;arrived_at:Date|string|null;price:string|number|null;cost:string|number|null;account_id:string|null;waiting_chargeable:boolean|null;waiting_rate:string|number|null};
 
@@ -13,6 +14,7 @@ const londonDay=()=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',ye
 
 function operationalStatus(vehicleStatus:string|null,bookingStatus:string|undefined):FleetMapVehicle['operationalStatus']{
  if(vehicleStatus==='NotWorking')return 'OFFLINE';
+ if(vehicleStatus==='Arrived')return 'DAP';
  if(bookingStatus==='POB')return 'POB';
  if(bookingStatus==='ARRIVED')return 'DAP';
  if(['BusyMeterOnFromClear','BusyMeterOnFromMeterOffCash','BusyMeterOnFromMeterOffAccount'].includes(vehicleStatus||''))return 'POB';
@@ -36,10 +38,11 @@ function bookingRevenue(row:RevenueRow){
 export async function taxiCrmFleetMapVehicles():Promise<FleetMapVehicle[]>{
  return withTaxiCrmReadOnly(async client=>{
   const vehicles=(await client.query<VehicleRow>(`SELECT vehicle.id,vehicle."externalId" external_id,vehicle.callsign,vehicle.registration,vehicle."plateNumber" plate_number,
-    vehicle."currentStatus" status,vehicle."currentBookingId" booking_id,vehicle."currentLatitude" latitude,vehicle."currentLongitude" longitude,vehicle."lastSeenAt" recorded_at,
+    fleet_state.status status,(${fleetLiveEligibility}) AS on_shift,fleet_state.booking_id booking_id,vehicle."currentLatitude" latitude,vehicle."currentLongitude" longitude,vehicle."lastSeenAt" recorded_at,
     driver."externalId" driver_external_id,driver.callsign driver_callsign,driver.forename,driver.surname
     FROM public."Vehicle" vehicle LEFT JOIN public."Driver" driver ON driver.id=vehicle."currentDriverId"
-    WHERE vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL AND vehicle."lastSeenAt" IS NOT NULL
+    ${fleetLifecycleJoins}
+    WHERE vehicle.provider='AUTOCAB' AND vehicle."currentLatitude" IS NOT NULL AND vehicle."currentLongitude" IS NOT NULL AND vehicle."lastSeenAt" IS NOT NULL
     ORDER BY vehicle."lastSeenAt" DESC,vehicle.callsign ASC`)).rows;
   const bookingIds=[...new Set(vehicles.map(vehicle=>vehicle.booking_id).filter((id):id is number=>id!==null&&id>0).map(String))];
   const currentBookings=bookingIds.length?(await client.query<BookingRow>(`SELECT booking."externalId" external_id,booking.status,
@@ -87,7 +90,7 @@ export async function taxiCrmFleetMapVehicles():Promise<FleetMapVehicle[]>{
    const ageSeconds=Math.max(0,Math.floor((now-new Date(recordedAt).getTime())/1000));
    return [{id:vehicle.id,driverId:vehicle.driver_external_id,callsign:vehicle.driver_callsign||vehicle.callsign,
     name:[vehicle.forename,vehicle.surname].filter(Boolean).join(' ')||null,latitude,longitude,
-    vehicleStatus:vehicle.status||'Unknown',operationalStatus:operationalStatus(vehicle.status,booking?.status),recordedAt,isLive:ageSeconds<=120,
+    vehicleStatus:vehicle.status||'Unknown',operationalStatus:operationalStatus(vehicle.status,undefined),recordedAt,isLive:vehicle.on_shift&&ageSeconds<=120,
     registration:vehicle.registration||vehicle.plate_number||vehicle.callsign||vehicle.external_id,
     bookingId:vehicle.booking_id&&vehicle.booking_id>0?vehicle.booking_id:null,pickupAddress:booking?.pickup||null,destinationAddress:booking?.destination||null,
     todayRevenue:vehicle.driver_external_id&&revenue.available?(revenue.byDriver.get(vehicle.driver_external_id)||0):null}];
