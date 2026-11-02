@@ -1,0 +1,45 @@
+# Configurable eBookers
+
+This module adds independently configured public booking links at `/ebooker/<slug>` and an administrator workspace at `/admin/configuration/ebookers` (Configuration → eBookers, also linked from Applications). There is no application-level limit on the number of configurations.
+
+Each eBooker has its own immutable public link, display name, optional HTTPS logo, support telephone, enabled/draft state, passenger limit and pickup mode:
+
+- Customer chooses: no preset address.
+- Preset: start with the configured address and let the customer change it.
+- Fixed: enforce the configured pickup on the server as well as making the input read-only.
+
+The customer interface follows the supplied cream/black/yellow references: destination entry, Now/Schedule, optional intermediate stops, passenger details, a UK-time calendar, route map, fare review, cash confirmation, booking reference lookup and status refresh. Discounts come from the existing quote engine automatically; there is no promo-code entry.
+
+## Initial scope and existing booking rules
+
+The existing quote engine currently accepts Saloon quoting only. eBookers therefore support 1–4 passengers, standard ASAP/prebook and cash only. This is explicit in configuration; the page does not advertise unsupported larger vehicles or card checkout. The existing payment, quote expiry, membership eligibility, live/sandbox and Autocab integration controls remain authoritative. Sandbox results are explicitly labelled as previews with no driver requested.
+
+Guest sessions use the existing signed HTTP-only guest cookie. Missing guest email is omitted from the Autocab request, rather than inventing an email address. Existing valid customer email handling is unchanged.
+
+Quotes include encrypted, authenticated eBooker attribution, configuration revision and passenger count. A changed/disabled eBooker, changed passenger count or an invalid fixed pickup rejects confirmation. Quote creation also requires the revision shown to the client, preventing a mid-flow configuration change from silently substituting a different pickup. Changing a configuration requires its expected revision, and slugs cannot be renamed after creation.
+
+Submission uses the existing `/api/bookings` and idempotent `web_booking_attempts` workflow. The existing `NAC-<quote UUID>` reference is preserved for canonical webhook reconciliation. The eBooker name and ID are added to the documented Autocab office note; no guessed provider source fields are introduced. `ebooker_booking_origins` stores the source and session/account owner without copying bookings or passenger PII. Its administrator counter is **booking requests**, including preview or rejected requests, not a count of confirmed journeys.
+
+Manage booking accepts an internal UUID, its NAC-prefixed form or an external numeric reference. It requires the original guest session or the signed-in account that submitted the request, and checks both customer ownership and eBooker ownership before reading a booking. It never exposes an arbitrary reservation by booking number alone. Disabled eBookers still permit existing owners to check their bookings. Guest sessions expire after the existing 24-hour window; cross-device guest verification, self-service changes and cancellation are not implemented. Support is available through the configured telephone. Existing signed-in-account tracking works across devices.
+
+## Database and rollout
+
+The two new Need A Cab Plus-owned tables are defined in `scripts/migrations/20261102_ebookers.sql` and included in local `db/init.sql`. Apply that additive SQL through the shared database owner's migration process before deployment. It grants SELECT/INSERT/UPDATE to `needacabplus_shared_app` when that role exists. It does not alter canonical bookings, Driver/Vehicle or TaxiCRM tables, and does not grant public access. Existing configurations and provenance cannot be deleted through this UI.
+
+On the current shared production database, `DATABASE_SCHEMA_MANAGED_EXTERNALLY=true` means startup will not apply this migration. Do not run the full historical database bootstrap or role-provisioning migration against production to add these tables. This feature has not applied any production migration or created any real Autocab bookings.
+
+After applying the migration and deploying:
+
+1. Open Configuration → eBookers and create a disabled draft.
+2. Choose the public link name once, branding, support telephone and pickup behaviour. Select a resolved Autocab pickup when required.
+3. Use Preview to review the layout. Admin preview disables booking submission and is not available to unauthenticated visitors for disabled links.
+4. Enable the public link when ready. Copy the displayed webapp link and share it or encode it in a QR code.
+5. Verify an approved test reservation through the real quote/booking settings. Public links start no live work on their own.
+
+## Validation
+
+- `npx tsx --test tests/ebooker.test.ts tests/autocab-booking-request.test.mjs tests/booking-payments.test.mjs tests/live-cash-booking.test.cjs`
+- `EBOOKER_ARTIFACT_DIR=/absolute/output node tests/ebooker-browser.mjs` (Playwright available in the QA environment, Chromium at `/usr/bin/chromium` or set `CHROMIUM_PATH`). This browser harness builds the actual client components with esbuild and uses synthetic API responses; it does not replace real server integration testing. It covers mobile/desktop layout, fixed/editable pickup, calendar, passenger data, confirmation, status lookup and admin creation. All external traffic is intercepted.
+- TypeScript, ESLint and the production Next build.
+
+Database tests execute the additive SQL in isolated PGlite and test source ownership, duplicate claims and revision conflicts. No production data or external messages are used by these tests. Example screenshots are marked as synthetic design previews.

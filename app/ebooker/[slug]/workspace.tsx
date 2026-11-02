@@ -1,0 +1,71 @@
+'use client';
+/* eslint-disable @next/next/no-img-element -- Each eBooker supplies its own HTTPS logo host. */
+import {useEffect,useState} from 'react';
+import {CarFront,Search,Phone,Plus,Minus,ArrowLeft,ArrowRight,Clock3,X,CheckCircle2,MapPin,LockKeyhole} from 'lucide-react';
+import type {EbookerConfig,EbookerInput} from '@/lib/ebooker-policy';
+import type {PublicFareQuote} from '@/lib/quote-presentation';
+import EbookerAddress from '../../ebooker-address';
+import CustomerLiveMap from '../../customer-live-map';
+import Schedule from './schedule';
+
+type Stop=NonNullable<EbookerInput['pickup']>;
+type Result={id:string;status:string;externalBookingId?:string|null;pending?:boolean;sandbox?:boolean;rejected?:boolean;tracking?:{status?:string}};
+const pounds=(pence:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(pence/100);
+const clock=(value:string)=>new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(value));
+export default function Ebooker({config,preview}:{config:EbookerConfig;preview:boolean}){
+ const [step,setStep]=useState<'home'|'journey'|'review'|'result'|'manage'>('home');
+ const [pickup,setPickup]=useState<Stop|null>(config.pickupMode==='none'?null:config.pickup),[destination,setDestination]=useState<Stop|null>(null),[vias,setVias]=useState<{id:string;stop:Stop|null}[]>([]);
+ const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState('+44'),[passengers,setPassengers]=useState(1),[note,setNote]=useState('');
+ const [scheduledAt,setScheduledAt]=useState<string|null>(null),[calendar,setCalendar]=useState(false),[minimum,setMinimum]=useState(15),[cashAvailable,setCashAvailable]=useState(false),[settingsReady,setSettingsReady]=useState(false);
+ const [fare,setFare]=useState<{quote:PublicFareQuote;token:string}|null>(null),[result,setResult]=useState<Result|null>(null),[reference,setReference]=useState(''),[acknowledged,setAcknowledged]=useState(false);
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[now,setNow]=useState(Date.now);
+ const api='/api/ebookers/'+encodeURIComponent(config.slug);
+ useEffect(()=>{const controller=new AbortController();void fetch('/api/quotes',{signal:controller.signal,cache:'no-store'}).then(async r=>{const data=await r.json() as {error?:string;enabled?:boolean;paymentMethods?:string[];minPrebookMinutes?:number};if(!r.ok)throw Error(data.error||'Booking settings are unavailable.');setCashAvailable(Boolean(data.enabled&&data.paymentMethods?.includes('cash')));setMinimum(data.minPrebookMinutes??15);setSettingsReady(true)}).catch(e=>{if(!controller.signal.aborted)setError(e.message)});return()=>controller.abort()},[]);
+ useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
+ async function post<T=Record<string,unknown>>(path:string,body:unknown){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json() as T&{error?:string;rejected?:boolean};if(!response.ok&&!data.rejected)throw Error(data.error||'Please try again.');return data}
+ useEffect(()=>{
+  if(!result?.pending)return;
+  const timer=setInterval(()=>{void fetch(api+'/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:result.id})}).then(async r=>{const data=await r.json() as Result;if(r.ok){setResult(data);setError('')}}).catch(()=>{})},5000);
+  return()=>clearInterval(timer);
+ },[result?.pending,result?.id,api]);
+ function move(next:typeof step){setError('');setStep(next)}
+ async function quote(event:React.FormEvent){
+  event.preventDefault();setBusy(true);setError('');
+  try{
+   if(!pickup||!destination||vias.some(value=>!value.stop))throw Error('Choose every stop from the address search results.');
+   if(!name.trim()||!/^[+0-9 ()-]{7,25}$/.test(phone))throw Error('Enter your name and a valid phone number.');
+   if(!cashAvailable)throw Error('Cash booking is currently unavailable. Please contact support.');
+   await post(api+'/session',{});
+   const data=await post<{quote:PublicFareQuote;token:string}>(api+'/quote',{journey:{pickup,destination,vias:vias.map(value=>value.stop),vehicle:'saloon',service:scheduledAt?'prebook':'asap',paymentMethod:'cash',scheduledAt},passengers,revision:config.revision});
+   setFare(data);setAcknowledged(false);move('review');
+  }catch(e){setError(e instanceof Error?e.message:'Unable to get a fare.')}finally{setBusy(false)}
+ }
+ async function book(){
+  if(!fare||preview)return;setBusy(true);setError('');
+  try{const normalized=phone.trim().startsWith('+')?phone.trim():phone.trim().startsWith('00')?'+'+phone.trim().slice(2):country+phone.replace(/[ ()-]/g,'').replace(/^0/,'');const q=fare.quote;
+   const data=await post<Result>('/api/bookings',{id:q.id,quoteToken:fare.token,name:name.trim(),phone:normalized,pickup:q.pickup,destination:q.destination,viaPoints:q.vias,pickupNote:note,vehicle:q.vehicle,passengers,luggage:0,acknowledged});
+   setResult(data);setReference(data.externalBookingId||data.id);move('result');
+  }catch(e){setError(e instanceof Error?e.message:'Unable to confirm.')}finally{setBusy(false)}
+ }
+ async function track(event:React.FormEvent){event.preventDefault();setBusy(true);setError('');try{setResult(await post<Result>(api+'/track',{reference}));move('result')}catch(e){setError(e instanceof Error?e.message:'Unable to find booking.')}finally{setBusy(false)}}
+ async function refresh(){if(!result)return;setBusy(true);setError('');try{setResult(await post<Result>(api+'/track',{reference:result.id}))}catch(e){setError(e instanceof Error?e.message:'Unable to refresh booking.')}finally{setBusy(false)}}
+ const expired=Boolean(fare&&now>=Date.parse(fare.quote.expiresAt));
+ const logo=<div className="eb-brand"><span><CarFront size={18}/>{config.name}</span>{config.logoUrl?<img src={config.logoUrl} alt={config.name} className="eb-logo"/>:<b className="eb-logo eb-monogram">N<span>+</span></b>}</div>;
+ const support=<a className="eb-button eb-outline" href={'tel:'+config.supportPhone.replace(/[ ()-]/g,'')}><Phone size={21}/>Contact support</a>;
+ return <main className="eb-root"><div className="eb-shell">{preview&&<p className="eb-preview" role="status">Admin preview · booking confirmation is disabled</p>}
+  {error&&<p className="eb-error" role="alert">{error}</p>}
+  {step==='home'&&<><section className="eb-card eb-welcome">{logo}<h1>Where to?</h1><p>Begin with your destination to continue setting up your trip.</p><button className="eb-destination" onClick={()=>move('journey')}><Search/><span>Enter destination</span><ArrowRight/></button>{pickup?<p className="eb-pickup-line"><MapPin size={15}/><span>Pickup: {pickup.text}{config.pickupMode==='fixed'?' · Fixed pickup':''}</span></p>:<p className="eb-pickup-line">Choose your pickup and destination.</p>}</section><p className="eb-divider">Quick actions</p><button className="eb-button eb-yellow" onClick={()=>move('manage')}><Search/>Manage booking</button>{support}</>}
+  {step==='journey'&&<><header className="eb-heading"><h1>Where to?</h1><button className="eb-round" aria-label="Close journey" onClick={()=>move('home')}><X/></button></header><div className="eb-timing"><button className={!scheduledAt?'eb-selected':''} onClick={()=>setScheduledAt(null)}>ϟ Now</button><button className={scheduledAt?'eb-selected':''} onClick={()=>setCalendar(true)}><Clock3 size={20}/>{scheduledAt?'Change time':'Schedule'}</button></div>{scheduledAt&&<p className="eb-schedule-label">{clock(scheduledAt)} · UK time</p>}
+   <form onSubmit={quote} className="eb-form"><section className="eb-card eb-stops"><EbookerAddress label="Pickup" value={pickup} onChange={setPickup} disabled={config.pickupMode==='fixed'}/>{config.pickupMode==='fixed'&&<small className="eb-fixed"><LockKeyhole size={13}/>Pickup is set by {config.name}</small>}{vias.map(({id,stop:value},index)=><div className="eb-via" key={id}><EbookerAddress label={`Stop ${index+1}`} value={value} onChange={next=>setVias(all=>all.map(item=>item.id===id?{...item,stop:next}:item))}/><button type="button" className="eb-round" aria-label={`Remove stop ${index+1}`} onClick={()=>setVias(all=>all.filter(item=>item.id!==id))}><X size={18}/></button></div>)}<EbookerAddress label="Destination" value={destination} onChange={setDestination}/>{vias.length<3&&<button type="button" className="eb-add-stop" onClick={()=>setVias(all=>[...all,{id:crypto.randomUUID(),stop:null}])}><Plus size={17}/>Add a stop</button>}</section>
+    <section className="eb-card"><h2>Passenger details</h2><label>Full name<input required minLength={2} maxLength={100} placeholder="Full name *" value={name} onChange={e=>setName(e.target.value)}/></label><div className="eb-phone"><label>Country<select aria-label="Telephone country code" value={country} onChange={e=>setCountry(e.target.value)}><option value="+44">🇬🇧 +44</option><option value="+353">🇮🇪 +353</option><option value="+40">🇷🇴 +40</option><option value="+1">+1</option></select></label><label>Phone number<input type="tel" required maxLength={25} placeholder="Phone number *" value={phone} onChange={e=>setPhone(e.target.value)}/></label></div><label>Pickup note <span>(optional)</span><input maxLength={300} value={note} placeholder="Entrance, luggage or pickup instructions" onChange={e=>setNote(e.target.value)}/></label></section>
+    <section className="eb-card eb-passengers"><h2>Passengers</h2><div><button type="button" aria-label="Fewer passengers" disabled={passengers<=1} onClick={()=>setPassengers(v=>v-1)}><Minus/></button><strong>{passengers}</strong><button type="button" aria-label="More passengers" disabled={passengers>=config.maxPassengers} onClick={()=>setPassengers(v=>v+1)}><Plus/></button></div></section>
+    {!cashAvailable&&settingsReady&&<p className="eb-error">Cash booking is unavailable. Please contact support.</p>}<button className="eb-button eb-black" disabled={busy||!settingsReady||!cashAvailable||preview}>{busy?'Getting your fare…':'Proceed to booking'}<ArrowRight size={20}/></button>
+   </form></>}
+  {step==='review'&&fare&&<><header className="eb-heading"><h1>Your journey</h1><button className="eb-round" aria-label="Edit journey" onClick={()=>{setFare(null);move('journey')}}><X/></button></header><div className="eb-map"><CustomerLiveMap pickup={pickup?.coordinate||null} destination={destination?.coordinate||null} waypoints={vias.flatMap(({stop})=>stop?[stop.coordinate]:[])} showRoute routeTopPadding={35} routeBottomRatio={.08} scheduled={Boolean(scheduledAt)} scheduledAt={scheduledAt}/></div><section className="eb-card eb-route"><p><i/>{fare.quote.pickup}</p>{fare.quote.vias.map((stop,i)=><p key={i}><i/>{stop}</p>)}<p><i/>{fare.quote.destination}</p><div className="eb-chips"><span>{scheduledAt?clock(scheduledAt):'Now'}</span><span>{passengers} {passengers===1?'passenger':'passengers'}</span></div></section>
+    <section className="eb-card eb-price">{fare.quote.promotionSavingPence!==undefined&&<p>Automatic saving <strong>−{pounds(fare.quote.promotionSavingPence)}</strong></p>}<p>Total <strong>{pounds(fare.quote.totalPence)}</strong></p><small>Cash payment · pay the driver</small></section>
+    {!fare.quote.liveBooking&&<p className="eb-preview">Preview only · no driver will be requested.</p>}{expired&&<p className="eb-error">Your fare has expired. Go back to refresh it.</p>}<label className="eb-ack"><input type="checkbox" checked={acknowledged} onChange={e=>setAcknowledged(e.target.checked)}/>I confirm the addresses, pickup time, passenger details and fare.</label><div className="eb-actions"><button className="eb-button eb-outline" onClick={()=>{setFare(null);move('journey')}}><ArrowLeft size={18}/>Back</button><button className="eb-button eb-black" onClick={()=>void book()} disabled={!acknowledged||busy||expired||preview}>{busy?'Confirming…':fare.quote.liveBooking?'Book now':'Save preview'}</button></div></>}
+  {step==='manage'&&<><section className="eb-card eb-welcome">{logo}<h1>Manage your booking</h1><p>Enter your reference using the same device or signed-in account that made the booking.</p><form onSubmit={track}><label>Booking reference<input required maxLength={80} placeholder="Booking reference" value={reference} onChange={e=>setReference(e.target.value)}/></label><button className="eb-button eb-black" disabled={busy}><Search/>{busy?'Checking…':'Find booking'}</button></form></section><p className="eb-divider">Need help?</p><button className="eb-button eb-yellow" onClick={()=>move('journey')}><CarFront/>Book now</button>{support}</>}
+  {step==='result'&&result&&<><section className="eb-card eb-welcome eb-result"><CheckCircle2 size={42}/><h1>{result.sandbox?'Booking preview':result.pending?'Awaiting confirmation':result.rejected?'Booking not accepted':result.tracking?.status||result.status}</h1><p>{result.sandbox?'No driver has been requested.':result.pending?'Please wait. Your request is being checked; do not make another booking.':result.rejected?'Please contact support before trying again.':'Keep your reference to check this booking.'}</p><label>Reference<strong className="eb-reference">{result.externalBookingId||result.id}</strong></label><p className="eb-request-id">Request reference: {result.id}</p></section>{!result.sandbox&&!result.rejected&&<button className="eb-button eb-outline" disabled={busy} onClick={()=>void refresh()}>{busy?'Checking…':'Refresh status'}</button>}{!result.pending&&<button className="eb-button eb-yellow" onClick={()=>{setFare(null);setResult(null);move('home')}}>Back to home</button>}{support}</>}
+  <footer className="eb-footer">Powered by Need A Cab Plus</footer>
+ </div>{calendar&&<Schedule value={scheduledAt} minimum={minimum} onClose={()=>setCalendar(false)} onApply={value=>{setScheduledAt(value);setCalendar(false)}}/>}</main>;
+}

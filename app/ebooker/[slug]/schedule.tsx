@@ -1,0 +1,13 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {ChevronLeft,ChevronRight} from 'lucide-react';
+import {defaultPickupFields,londonFields,londonPickupIso,MAX_PICKUP_DAYS} from '@/lib/pickup-schedule';
+export default function Schedule({value,minimum,onClose,onApply}:{value:string|null;minimum:number;onClose:()=>void;onApply:(value:string)=>void}){
+ const dialog=useRef<HTMLDialogElement>(null),[openedAt]=useState(Date.now),[initial]=useState(()=>value?londonFields(Date.parse(value)):defaultPickupFields(minimum));
+ const [date,setDate]=useState(initial.date),[time,setTime]=useState(initial.time),[month,setMonth]=useState(initial.date.slice(0,7)),[error,setError]=useState('');
+ useEffect(()=>{dialog.current?.showModal()},[]);
+ const start=new Date(month+'-01T00:00:00Z'),offset=start.getUTCDay(),days=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+1,0)).getUTCDate();
+ const min=londonFields(openedAt).date,max=londonFields(openedAt+MAX_PICKUP_DAYS*86400000).date;
+ function changeMonth(amount:number){const next=new Date(start);next.setUTCMonth(next.getUTCMonth()+amount);setMonth(next.toISOString().slice(0,7))}
+ return <dialog ref={dialog} className="eb-calendar" aria-labelledby="eb-calendar-title" onCancel={event=>{event.preventDefault();onClose()}}><h2 id="eb-calendar-title">Choose pickup time</h2><p>Select your pickup date and time. UK time.</p><section className="eb-calendar-grid"><header><strong>{new Intl.DateTimeFormat('en-GB',{month:'long',year:'numeric',timeZone:'UTC'}).format(start)}</strong><button aria-label="Previous month" disabled={month<=min.slice(0,7)} onClick={()=>changeMonth(-1)}><ChevronLeft/></button><button aria-label="Next month" disabled={month>=max.slice(0,7)} onClick={()=>changeMonth(1)}><ChevronRight/></button></header><div>{['S','M','T','W','T','F','S'].map((day,index)=><span key={'heading'+index}>{day}</span>)}{Array.from({length:Math.ceil((offset+days)/7)*7},(_,index)=>{const day=index-offset+1;if(day<1||day>days)return <span key={index}/>;const iso=month+'-'+String(day).padStart(2,'0');return <button key={index} aria-label={iso} aria-pressed={date===iso} disabled={iso<min||iso>max} onClick={()=>{setDate(iso);setError('')}}>{day}</button>})}</div></section><label className="eb-time-label">Pickup time<input type="time" step={300} value={time} onChange={e=>setTime(e.target.value)}/></label>{error&&<p className="eb-error" role="alert">{error}</p>}<footer><button className="eb-button eb-outline" onClick={onClose}>Cancel</button><button className="eb-button eb-black" onClick={()=>{try{onApply(londonPickupIso(date,time,minimum))}catch(e){setError(e instanceof Error?e.message:'Choose a valid time.')}}}>OK</button></footer></dialog>;
+}

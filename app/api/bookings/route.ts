@@ -35,6 +35,12 @@ export async function POST(request:Request){
  const existingLive=await readLiveAttempt(attemptsDb,body.id,userId);if(existingLive)return Response.json(existingLive,{status:existingLive.rejected?422:existingLive.pending?202:200});
  let quote;try{quote=verifyQuote(body.quoteToken);const [policy,rules]=await Promise.all([loadQuotePolicy(),loadBookingPolicy()]);if(!policy.enabled)throw new Error('Live quotes are currently unavailable.');const paidMember=Boolean(await activePaidMembership(customer?.id||null,policy)),access=bookingServiceAccess(rules,paidMember);if(!access[quote.service]||(quote.smartFare?.applied&&!access.quietAsap)||quote.membership&&!paidMember)throw new Error('Your membership benefits changed. Request a new fare.');validateSchedule(quote.service,quote.scheduledAt,policy.minPrebookMinutes);validateBookingPayment(rules,quote.paymentMethod||'card',Boolean(quote.liveBooking))}catch(error){return Response.json({error:error instanceof Error?error.message:'Request a new fare.'},{status:409})}
  if(body.id!==quote.id||body.vehicle!==quote.vehicle||body.pickup!==quote.pickup||body.destination!==quote.destination||JSON.stringify(body.viaPoints)!==JSON.stringify(quote.vias))return Response.json({error:'The journey changed. Request a new quote.'},{status:409});
+ if(quote.ebooker){
+  const [{loadEbooker,claimEbookerRequest},{validateEbookerClaim}]=await Promise.all([import('@/lib/ebookers'),import('@/lib/ebooker-policy')]);
+  const config=await loadEbooker(quote.ebooker.slug,true);
+  try{validateEbookerClaim(config,quote.ebooker,body.pickup,body.passengers)}catch(error){return Response.json({error:error instanceof Error?error.message:'Request a new fare.'},{status:409})}
+  await claimEbookerRequest(quote.ebooker,quote.id,userId);
+ }
  const db=database();const existing=await db.query<{id:string;status:string}>('SELECT id,status FROM bookings WHERE id=$1 AND user_id=$2',[body.id,userId]);if(existing.rows[0])return Response.json(existing.rows[0]);
  if(quote.liveBooking){
  const uncertain=await attemptsDb.query("SELECT quote_id FROM web_booking_attempts WHERE user_id=$1 AND state IN ('sending','unknown') LIMIT 1",[userId]);

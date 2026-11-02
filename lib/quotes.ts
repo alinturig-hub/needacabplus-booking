@@ -14,6 +14,7 @@ import {signQuote} from './quote-token';
 import {serviceCapabilities,smartFareDecision,type SmartSignal} from './smart-fare';
 export {verifyQuote} from './quote-token';
 import {z} from 'zod';
+import type {EbookerClaim} from './ebooker-policy';
 import {database} from './database';
 import {bookingQuote} from './autocab-api';
 import {publicClearVehicles} from './live-drivers';
@@ -23,7 +24,7 @@ import {QuoteError,quotePolicySchema,dynamicScheduleActive,fareAdjustment,member
 
 const address=z.object({text:z.string().trim().min(5).max(250),coordinate:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).passthrough(),zoneId:z.number().int().nonnegative()}).passthrough();
 export const quoteRequestSchema=z.object({pickup:address,destination:address,vias:z.array(address).max(3),vehicle:z.enum(['saloon','estate','xl']),service:z.enum(['asap','priority','prebook','guarantee']),paymentMethod:z.enum(['cash','card']).optional(),scheduledAt:z.string().datetime().nullable()}).strict();
-export type FareQuote={id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;fixedPence?:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';liveBooking?:boolean;bookingRules?:BookingPolicy;paymentMethod?:'card'|'cash';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number};smartFare?:{applied:boolean;reason:string;normalPence:number;candidatePence?:number;signal:SmartSignal};membership?:ActiveMembership&{standardTotalPence:number;savingPence:number}};
+export type FareQuote={ebooker?:EbookerClaim;id:string;vehicle:string;service:Service;scheduledAt:string|null;pickup:string;destination:string;vias:string[];basePence:number;upliftPence:number;fixedPence?:number;totalPence:number;percent:number;demand:string;expiresAt:string;currency:'GBP';liveBooking?:boolean;bookingRules?:BookingPolicy;paymentMethod?:'card'|'cash';autocabRequest?:ReturnType<typeof buildAutocabQuoteRequest>;autocabCosts?:{cost:number;bookingCost:number};smartFare?:{applied:boolean;reason:string;normalPence:number;candidatePence?:number;signal:SmartSignal};membership?:ActiveMembership&{standardTotalPence:number;savingPence:number}};
 type ActiveMembership={tierId:MembershipTierId;tierName:string;testAccessUntil?:string};
 export async function activePaidMembership(customerId:string|null,policy:QuotePolicy):Promise<ActiveMembership|null>{
  if(!customerId)return null;
