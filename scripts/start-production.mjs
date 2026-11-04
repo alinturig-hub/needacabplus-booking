@@ -86,3 +86,13 @@ if(process.env.AUTOCAB_REGISTRY_WRITER_ENABLED==='true'){
 }
 child.on('exit',(code,signal)=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);clearInterval(registryTimer);clearTimeout(registryStartTimer);audit?.kill();reconciliation?.kill();if(signal)process.kill(process.pid,signal);else process.exit(code??1)});
 for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{closing=true;clearTimeout(retryTimer);clearTimeout(reconciliationTimer);clearInterval(bookingWriterTimer);clearInterval(registryTimer);clearTimeout(registryStartTimer);audit?.kill(signal);reconciliation?.kill(signal);child.kill(signal)});
+
+// Shared WhatsApp jobs are opt-in and never enable Meta sending.
+if(process.env.WHATSAPP_SHARED_ENABLED==='true'&&process.env.WHATSAPP_WORKER_SECRET?.length>=32){
+ let whatsappBusy=false;
+ const pollWhatsApp=async()=>{if(whatsappBusy)return;whatsappBusy=true;try{
+ const result=await fetch(`http://127.0.0.1:${process.env.PORT||'3000'}/api/internal/whatsapp/v1/worker`,{method:'POST',headers:{'x-whatsapp-worker-secret':process.env.WHATSAPP_WORKER_SECRET},signal:AbortSignal.timeout(180000)});
+ if(!result.ok)console.error('WHATSAPP_SHARED_JOB_UNAVAILABLE',result.status);
+ }catch{console.error('WHATSAPP_SHARED_JOB_UNAVAILABLE');}finally{whatsappBusy=false;}};
+ setInterval(pollWhatsApp,60000).unref();setTimeout(pollWhatsApp,15000).unref();
+}
