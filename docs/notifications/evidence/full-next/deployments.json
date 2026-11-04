@@ -1,0 +1,16 @@
+{
+  "environment": "notifications-full-next-staging",
+  "database": "private isolated PostgreSQL 17, synthetic data only",
+  "tested_code": {
+    "nac": {
+      "commit": "aab02bcc5e77ce7d2306f20f721c5e91acefa353",
+      "origin": "https://tfz8ctgb0xupjw69vku1b7zl.144.76.63.11.sslip.io"
+    },
+    "crm": {
+      "commit": "8fb9cadf2ae3cdb2221e1c4b60d2ef39598b886f",
+      "origin": "https://eqcd0c860djikhvkinzmtbpi.144.76.63.11.sslip.io"
+    }
+  },
+  "production_changes": false,
+  "provider_calls": 0
+}

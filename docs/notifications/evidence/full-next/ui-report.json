@@ -1,0 +1,202 @@
+{
+  "passed": true,
+  "authentication": "real admin login, real session cookie",
+  "apiResponses": "real Next endpoints, no mocked API data",
+  "transport": "verified-node-https-bridge",
+  "horizontalOverflow": false,
+  "pageErrors": [],
+  "results": [
+    {
+      "event": "booking.confirmed",
+      "booking_id": "SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a",
+      "decision": {
+        "mode": "DRY_RUN",
+        "event": "booking.confirmed",
+        "issues": [],
+        "reason": "PREVIEW_READY",
+        "result": "ready",
+        "ruleId": "booking-confirmed",
+        "channel": "whatsapp",
+        "content": "Hello Demo Passenger, booking SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a is confirmed. From Example pickup, Plymouth to Example destination, Plymouth, 04 Nov 2026, 22:30 GMT.",
+        "bookingId": "SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a",
+        "decidedAt": "2026-11-04T23:17:25.145Z",
+        "wouldSend": true,
+        "windowOpen": false,
+        "contentMode": "template",
+        "ruleVersion": 2,
+        "buttonValues": [],
+        "eventRevision": 1,
+        "mappingValues": [
+          {
+            "value": "Demo Passenger",
+            "source": "customer_name",
+            "variable": "1"
+          },
+          {
+            "value": "SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a",
+            "source": "booking_id",
+            "variable": "2"
+          },
+          {
+            "value": "Example pickup, Plymouth",
+            "source": "pickup_address",
+            "variable": "3"
+          },
+          {
+            "value": "Example destination, Plymouth",
+            "source": "dropoff_address",
+            "variable": "4"
+          },
+          {
+            "value": "04 Nov 2026, 22:30 GMT",
+            "source": "pickup_time",
+            "variable": "5"
+          }
+        ],
+        "conversationId": "SYNTHETIC-CONVERSATION",
+        "idempotencyKey": "autocab:SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a:booking.confirmed:+447700900001:1",
+        "providerStatus": "NONE"
+      },
+      "gateway_result": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 34,
+        "checked_at": "2026-11-04T23:17:25.145Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, booking SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a is confirmed. From Example pickup, Plymouth to Example destination, Plymouth, 04 Nov 2026, 22:30 GMT.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-cf181397-f8f2-4d2c-97e2-8670d1f3067a"
+          },
+          {
+            "variable": "3",
+            "source": "pickup_address",
+            "value": "Example pickup, Plymouth"
+          },
+          {
+            "variable": "4",
+            "source": "dropoff_address",
+            "value": "Example destination, Plymouth"
+          },
+          {
+            "variable": "5",
+            "source": "pickup_time",
+            "value": "04 Nov 2026, 22:30 GMT"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      }
+    },
+    {
+      "event": "driver.dispatched",
+      "booking_id": "SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9",
+      "decision": {
+        "mode": "DRY_RUN",
+        "event": "driver.dispatched",
+        "issues": [],
+        "reason": "PREVIEW_READY",
+        "result": "ready",
+        "ruleId": "driver-dispatched",
+        "channel": "whatsapp",
+        "content": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9.",
+        "bookingId": "SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9",
+        "decidedAt": "2026-11-04T23:17:25.895Z",
+        "wouldSend": true,
+        "windowOpen": false,
+        "contentMode": "template",
+        "ruleVersion": 2,
+        "buttonValues": [],
+        "eventRevision": 1793834244876,
+        "mappingValues": [
+          {
+            "value": "Demo Passenger",
+            "source": "customer_name",
+            "variable": "1"
+          },
+          {
+            "value": "SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9",
+            "source": "booking_id",
+            "variable": "2"
+          },
+          {
+            "value": "Demo Driver",
+            "source": "driver_name",
+            "variable": "3"
+          },
+          {
+            "value": "DEMO 001",
+            "source": "vehicle_registration",
+            "variable": "4"
+          }
+        ],
+        "conversationId": "SYNTHETIC-CONVERSATION",
+        "idempotencyKey": "autocab:SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9:driver.assigned:+447700900001:1793834244876",
+        "providerStatus": "NONE"
+      },
+      "gateway_result": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9:driver.assigned:+447700900001:1793834244876",
+        "booking_id": "autocab:SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 34,
+        "checked_at": "2026-11-04T23:17:25.895Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-f8cf7d4f-2dcc-422e-bff1-52a49ffa33b9"
+          },
+          {
+            "variable": "3",
+            "source": "driver_name",
+            "value": "Demo Driver"
+          },
+          {
+            "variable": "4",
+            "source": "vehicle_registration",
+            "value": "DEMO 001"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      }
+    }
+  ]
+}

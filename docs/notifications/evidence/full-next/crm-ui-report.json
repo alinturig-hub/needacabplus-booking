@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "authentication": "existing NextAuth credentials provider, real session cookie and existing RBAC",
+  "api": "existing dashboard conversation/history/handoff routes",
+  "takeoverDecision": {
+    "schema_version": "2.0",
+    "mode": "DRY_RUN",
+    "idempotency_key": "autocab:SYNTHETIC-c6737ce2-12e7-4682-ac56-2b7b59b94f43:booking.confirmed:+447700900001:1",
+    "booking_id": "autocab:SYNTHETIC-c6737ce2-12e7-4682-ac56-2b7b59b94f43",
+    "rule": {
+      "id": "booking-confirmed",
+      "version": 2
+    },
+    "conversation_id": "SYNTHETIC-CONVERSATION",
+    "conversation_revision": 81,
+    "checked_at": "2026-11-04T23:31:52.797Z",
+    "result": "blocked",
+    "reason": "OPERATOR_TAKEOVER",
+    "channel": "none",
+    "provider_status": "NONE",
+    "provider_called": false
+  },
+  "providerCalls": 0,
+  "pageErrors": []
+}

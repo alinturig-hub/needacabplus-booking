@@ -1,0 +1,446 @@
+{
+  "passed": true,
+  "routes": "real Next application handlers",
+  "database": "isolated PostgreSQL",
+  "transport": "SIMULATED",
+  "providerCalls": 0,
+  "checks": [
+    {
+      "event": "booking.confirmed",
+      "case": "closed",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-4577ab43-ea80-4136-9ccb-8e91c61a123d:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-4577ab43-ea80-4136-9ccb-8e91c61a123d",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 50,
+        "checked_at": "2026-11-04T23:30:12.995Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, booking SYNTHETIC-4577ab43-ea80-4136-9ccb-8e91c61a123d is confirmed. From Example pickup, Plymouth to Example destination, Plymouth, 04 Nov 2026, 22:30 GMT.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-4577ab43-ea80-4136-9ccb-8e91c61a123d"
+          },
+          {
+            "variable": "3",
+            "source": "pickup_address",
+            "value": "Example pickup, Plymouth"
+          },
+          {
+            "variable": "4",
+            "source": "dropoff_address",
+            "value": "Example destination, Plymouth"
+          },
+          {
+            "variable": "5",
+            "source": "pickup_time",
+            "value": "04 Nov 2026, 22:30 GMT"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "open",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-daeffe30-f2b5-472d-926f-f1d69f1defc8:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-daeffe30-f2b5-472d-926f-f1d69f1defc8",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 51,
+        "checked_at": "2026-11-04T23:30:14.930Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "text",
+        "rendered_text": "Hello Demo Passenger, booking SYNTHETIC-daeffe30-f2b5-472d-926f-f1d69f1defc8 is confirmed. From Example pickup, Plymouth to Example destination, Plymouth, 04 Nov 2026, 22:30 GMT.",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "app-account",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-7cde44af-6a9b-4eb9-9627-3235d5baf63e:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-7cde44af-6a9b-4eb9-9627-3235d5baf63e",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 52,
+        "checked_at": "2026-11-04T23:30:16.638Z",
+        "result": "omitted",
+        "reason": "APP_NOTIFICATION_FLOW_SELECTED",
+        "explanations": [],
+        "channel": "app",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "cancelled",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-a819ca90-6cf3-472e-80a8-bcb1c080bc08:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-a819ca90-6cf3-472e-80a8-bcb1c080bc08",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 53,
+        "checked_at": "2026-11-04T23:30:17.716Z",
+        "result": "blocked",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "expired",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-69b648f5-68c0-4995-b0ec-27ce6f2249ff:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-69b648f5-68c0-4995-b0ec-27ce6f2249ff",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 54,
+        "checked_at": "2026-11-04T23:30:18.943Z",
+        "result": "blocked",
+        "reason": "NOTIFICATION_EXPIRED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "unapproved",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-9e2debb3-94d4-43f0-abaa-4bb87c8afcf0:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-9e2debb3-94d4-43f0-abaa-4bb87c8afcf0",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 55,
+        "checked_at": "2026-11-04T23:30:20.425Z",
+        "result": "blocked",
+        "reason": "TEMPLATE_NOT_APPROVED",
+        "explanations": [],
+        "channel": "none",
+        "content_mode": "template",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "missing-field",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-0d253300-0cda-4d6d-907d-74facbfa3c67:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-0d253300-0cda-4d6d-907d-74facbfa3c67",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 56,
+        "checked_at": "2026-11-04T23:30:22.148Z",
+        "result": "blocked",
+        "reason": "REQUIRED_BOOKING_FIELD_MISSING",
+        "explanations": [
+          "Missing customer_name"
+        ],
+        "channel": "none",
+        "content_mode": "template",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "no-grant",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-64401cf5-7b5c-42cd-8841-c2b6ea681dfd:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-64401cf5-7b5c-42cd-8841-c2b6ea681dfd",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 57,
+        "checked_at": "2026-11-04T23:30:23.594Z",
+        "result": "blocked",
+        "reason": "SERVICE_PERMISSION_REQUIRED",
+        "explanations": [],
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "suppressed",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-9d5e280d-bfa6-4b61-9c43-b5142d7696d9:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-9d5e280d-bfa6-4b61-9c43-b5142d7696d9",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 58,
+        "checked_at": "2026-11-04T23:30:24.529Z",
+        "result": "blocked",
+        "reason": "RECIPIENT_SUPPRESSED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "12-concurrent-duplicates",
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "cancel-during-simulation",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-6b9bacb6-e5ab-48e1-aeab-b9de36c33b25:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-6b9bacb6-e5ab-48e1-aeab-b9de36c33b25",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 60,
+        "checked_at": "2026-11-04T23:30:29.429Z",
+        "result": "blocked",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "dispatch-first-handoff-waits",
+      "waiters": 1,
+      "previous": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-f93270cb-8e7f-47a2-92d5-6b45997ee121:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-f93270cb-8e7f-47a2-92d5-6b45997ee121",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 61,
+        "checked_at": "2026-11-04T23:30:30.582Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, booking SYNTHETIC-f93270cb-8e7f-47a2-92d5-6b45997ee121 is confirmed. From Example pickup, Plymouth to Example destination, Plymouth, 04 Nov 2026, 22:30 GMT.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-f93270cb-8e7f-47a2-92d5-6b45997ee121"
+          },
+          {
+            "variable": "3",
+            "source": "pickup_address",
+            "value": "Example pickup, Plymouth"
+          },
+          {
+            "variable": "4",
+            "source": "dropoff_address",
+            "value": "Example destination, Plymouth"
+          },
+          {
+            "variable": "5",
+            "source": "pickup_time",
+            "value": "04 Nov 2026, 22:30 GMT"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "after_ack": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-e72cf492-ee67-4a56-a152-28be69d7205b:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-e72cf492-ee67-4a56-a152-28be69d7205b",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 62,
+        "checked_at": "2026-11-04T23:30:35.187Z",
+        "result": "blocked",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      }
+    },
+    {
+      "event": "booking.confirmed",
+      "case": "handoff-first-dispatch-blocks",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-e9b97b3c-9927-4244-8e4e-dbc003565cd6:booking.confirmed:+447700900001:1",
+        "booking_id": "autocab:SYNTHETIC-e9b97b3c-9927-4244-8e4e-dbc003565cd6",
+        "rule": {
+          "id": "booking-confirmed",
+          "version": 2
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 64,
+        "checked_at": "2026-11-04T23:30:37.878Z",
+        "result": "blocked",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "advisoryWaiters": 1
+    }
+  ]
+}
