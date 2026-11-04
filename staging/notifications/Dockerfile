@@ -8,7 +8,7 @@ COPY staging/notifications ./staging/notifications
 RUN ln -s /build-tools/node_modules node_modules && /build-tools/node_modules/.bin/esbuild staging/notifications/server.ts --bundle --platform=node --format=esm --outfile=/compiled/server.mjs --external:node:*
 FROM node:24-bookworm-slim
 ENV NODE_ENV=production PORT=3000
-RUN mkdir /stage-data && chown node:node /stage-data
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && mkdir /stage-data && chown node:node /stage-data
 COPY --from=build /compiled/server.mjs /server.mjs
 USER node
 EXPOSE 3000
