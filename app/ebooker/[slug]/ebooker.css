@@ -34,3 +34,32 @@
 }
 @media(max-width:350px){.eb-account .eb-wordmark{font-size:10px;letter-spacing:.03em}.eb-account{font-size:10px}.eb-progress{gap:14px}.eb-phone{grid-template-columns:96px minmax(0,1fr)}.eb-calendar-grid header>strong{font-size:14px}.eb-calendar{padding:12px}.eb-calendar-grid{padding:8px}}
 @media(max-height:500px) and (max-width:959px){.eb-location-map{height:140px}.eb-calendar{max-height:calc(100dvh - 16px);overflow:auto}}
+/* Reuse the webapp's nac-theme preference and document theme, including maps. */
+.eb-account{justify-content:initial}.eb-account>.eb-wordmark{margin-right:auto}.eb-theme{position:relative;display:flex!important;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;color:#294963;border:1px solid #cdd9e4;border-radius:10px;background:white}.eb-root .eb-theme select{position:absolute;inset:0;width:100%;height:100%;min-height:44px;margin:0!important;padding:0!important;border:0;border-radius:10px;appearance:none;background:transparent;color:transparent;cursor:pointer;font-size:16px}.eb-theme select option{color:#172b43;background:white}.eb-theme>svg{pointer-events:none;flex-shrink:0}.eb-theme select:focus-visible{outline:3px solid #168e95;outline-offset:3px}
+@media(max-width:759px){.eb-account{gap:6px}.eb-account .eb-wordmark{min-width:75px;flex-shrink:1;font-size:11px}.eb-account>a:not(.eb-wordmark){max-width:46%;font-size:10px}.eb-account .eb-identity{font-size:10px;min-width:0;max-width:46%}.eb-theme{flex-shrink:0}}
+html[data-theme=dark] .eb-root{--eb-paper:#0d1724;--eb-ink:#e5edf7;--eb-yellow:#e5edf7;color-scheme:dark;background:#0d1724;color:#e5edf7}
+html[data-theme=dark] .eb-root .eb-card{background:#152334;border-color:#34475e;box-shadow:0 3px 14px #0001}
+html[data-theme=dark] .eb-root .eb-welcome{background:#152334}
+html[data-theme=dark] .eb-root .eb-account,html[data-theme=dark] .eb-root .eb-brand>span,html[data-theme=dark] .eb-root .eb-welcome>p,html[data-theme=dark] .eb-root .eb-pickup-line,html[data-theme=dark] .eb-root .eb-fixed,html[data-theme=dark] .eb-root .eb-schedule-label,html[data-theme=dark] .eb-root label>span{color:#b4c5d7}
+html[data-theme=dark] .eb-root .eb-account a{color:#d5e5f5}html[data-theme=dark] .eb-root .eb-wordmark b{color:#72d5d4}
+html[data-theme=dark] .eb-root .eb-logo{background:#244c69;color:#f1f7ff}
+html[data-theme=dark] .eb-root .eb-progress{color:#b4c5d7}html[data-theme=dark] .eb-root .eb-progress li>span{background:#24364b;color:#bccde0}html[data-theme=dark] .eb-root .eb-progress li[aria-current]{color:#8ce1df}html[data-theme=dark] .eb-root .eb-progress li[aria-current]>span{background:#236e76;color:#fff}
+html[data-theme=dark] .eb-root input:not([type=checkbox]),html[data-theme=dark] .eb-root select{background:#101e2e;border-color:#52677f;color:#edf3fa}
+html[data-theme=dark] .eb-root input::placeholder{color:#a9bbcf;opacity:1}html[data-theme=dark] .eb-root input[readonly]{background:#223246;color:#c4d4e6}html[data-theme=dark] .eb-root input[type=checkbox]{accent-color:#75d4d3}
+html[data-theme=dark] .eb-root .eb-destination{background:#101e2e;border-color:#52677f;color:#ccdaea}
+html[data-theme=dark] .eb-root .eb-outline,html[data-theme=dark] .eb-root .eb-round,html[data-theme=dark] .eb-root .eb-timing>button,html[data-theme=dark] .eb-root .eb-passengers button{background:#1b2c40;border-color:#52677f;color:#d6e7f6}
+html[data-theme=dark] .eb-root .eb-yellow,html[data-theme=dark] .eb-root .eb-black{background:#80dbd8;border-color:#80dbd8;color:#102c37}
+html[data-theme=dark] .eb-root .eb-timing>button.eb-selected{background:#214b53;border-color:#68b8be;color:#a1ece8}
+html[data-theme=dark] .eb-root .eb-add-stop{background:#21434d;border-color:#54939e;color:#a1ece8}html[data-theme=dark] .eb-root .eb-map-link,html[data-theme=dark] .eb-root .eb-notes summary{color:#90dedf}
+html[data-theme=dark] .eb-root .eb-passengers>div{border-color:#34475e}
+html[data-theme=dark] .eb-root .eb-suggestions{background:#182a3d;border-color:#52677f;box-shadow:0 15px 30px #0006}html[data-theme=dark] .eb-root .eb-suggestions button{color:#e4effa;border-color:#34475e}html[data-theme=dark] .eb-root .eb-suggestions button:hover{background:#284357}
+html[data-theme=dark] .eb-root .eb-map,html[data-theme=dark] .eb-location-map{background:#172b3b;border-color:#34475e}
+html[data-theme=dark] .eb-root .eb-chips>span{background:#293e54;color:#d3e4f4}
+html[data-theme=dark] .eb-root .eb-price{background:#173b43;border-color:#3c7781}html[data-theme=dark] .eb-root .eb-price small{color:#b4d9dd}html[data-theme=dark] .eb-root .eb-price>p:not(:last-of-type){border-color:#3c7781}
+html[data-theme=dark] .eb-root .eb-ack{color:#c0d0e1}html[data-theme=dark] .eb-root .eb-result>svg{color:#90dedf}
+html[data-theme=dark] .eb-root .eb-divider,html[data-theme=dark] .eb-root .eb-footer{color:#b1c3d7}html[data-theme=dark] .eb-root .eb-divider:before,html[data-theme=dark] .eb-root .eb-divider:after{background:#34475e}
+html[data-theme=dark] .eb-root .eb-preview{background:#423a1d;border-color:#897631;color:#ffe6a0}html[data-theme=dark] .eb-root .eb-error{background:#492c32;border-color:#a76772;color:#ffced4}
+html[data-theme=dark] .eb-calendar{--eb-yellow:#fff;color-scheme:dark;background:#152334;color:#e5edf7;border-color:#52677f;box-shadow:0 25px 80px #0009}html[data-theme=dark] .eb-calendar::backdrop{background:#020810ba}html[data-theme=dark] .eb-calendar>p{color:#bdcddd}
+html[data-theme=dark] .eb-calendar-grid,html[data-theme=dark] .eb-time-label{background:#101e2e;border-color:#34475e;color:#b4c5d7}html[data-theme=dark] .eb-calendar-grid button{color:#e5edf7}html[data-theme=dark] .eb-calendar-grid>div>span{color:#b4c5d7}html[data-theme=dark] .eb-calendar-grid button[aria-pressed=true]{background:#80dbd8;color:#102c37}html[data-theme=dark] .eb-time-selects select{background:#1b2c40;color:#edf3fa;border-color:#52677f}
+html[data-theme=dark] .eb-calendar footer,html[data-theme=dark] .eb-root .eb-review .eb-actions{background:#152334}html[data-theme=dark] .eb-nearby{background:#21434d;color:#bceceb}
+html[data-theme=dark] .eb-root .eb-theme{background:#1b2c40;border-color:#52677f;color:#d6e7f6}html[data-theme=dark] .eb-root .eb-theme select{background:transparent;color:transparent}html[data-theme=dark] .eb-theme select option{background:#1b2c40;color:#edf3fa}

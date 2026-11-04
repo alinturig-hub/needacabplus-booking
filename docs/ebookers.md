@@ -10,6 +10,8 @@ Each eBooker has its own immutable public link, display name, optional HTTPS log
 
 The customer interface uses a compact navy, white and teal enterprise theme with a single-page workflow: destination entry, Now/Schedule, optional intermediate stops, passenger details, a UK-time calendar, route map, fare review, cash confirmation, booking reference lookup and status refresh. Discounts come from the existing quote engine automatically; there is no promo-code entry.
 
+The theme control offers Light, Dark and System. It reuses the existing `nac-theme` browser preference and root `data-theme` attribute, so the eBooker and passenger webapp share the choice. The existing root layout initializes the theme before hydration; System mode follows device changes, and storage events synchronize other tabs. If browser storage is unavailable, theme selection still works for the current visit. Dark styling covers forms, dropdowns, suggestions, fare panels, errors, calendar and map-picker dialogs; the shared map already observes the root theme. The browser harness checks persistence, system changes and 4.5:1 contrast for representative card text, inputs, fixed-pickup text and the primary action.
+
 ## Initial scope and existing booking rules
 
 The existing quote engine currently accepts Saloon quoting only. eBookers therefore support 1–4 passengers, standard ASAP/prebook and cash only. This is explicit in configuration; the page does not advertise unsupported larger vehicles or card checkout. The existing payment, quote expiry, membership eligibility, live/sandbox and Autocab integration controls remain authoritative. Sandbox results are explicitly labelled as previews with no driver requested.
