@@ -66,11 +66,14 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   map.on('movestart',event=>{if(event.originalEvent){gesture=true;if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
   map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
   map.on('click',event=>{if(callbacks.current.picker){callbacks.current.onPickerStart?.();map.jumpTo({center:event.lngLat});callbacks.current.onPickerMove?.({latitude:event.lngLat.lat,longitude:event.lngLat.lng})}});
+  let mounted=true;
   let activeStyle='openstreetmap',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
   const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
   const syncTheme=()=>{const next=styleUrls?(darkTheme()?styleUrls.darkStyleUrl:styleUrls.lightStyleUrl):null;if(next&&next!==activeStyle){activeStyle=next;map.setStyle(next);map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
+  const onStyleError=(event:unknown)=>{const issue=event as {sourceId?:string;error?:{url?:string}};if(!mounted||activeStyle==='openstreetmap'||issue.sourceId==='osm'||issue.error?.url?.startsWith('https://tile.openstreetmap.org/'))return;styleUrls=null;activeStyle='openstreetmap';map.once('style.load',restoreStyle);map.setStyle(openStreetMapStyle)};
+  map.on('error',onStyleError);
   const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
-  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(data.provider==='maptiler'&&data.lightStyleUrl&&data.darkStyleUrl){styleUrls={lightStyleUrl:data.lightStyleUrl,darkStyleUrl:data.darkStyleUrl};syncTheme()}}).catch(()=>{});
+  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(mounted&&data.provider==='maptiler'&&data.lightStyleUrl&&data.darkStyleUrl){styleUrls={lightStyleUrl:data.lightStyleUrl,darkStyleUrl:data.darkStyleUrl};syncTheme()}}).catch(()=>{});
   const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   let resizeFrame:number|null=null;
   const observer=new ResizeObserver(()=>{
@@ -78,7 +81,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;map.resize();if(routeCoordinates.current&&!callbacks.current.picker)fitRoute(map,routeCoordinates.current,0,routeBottomRatioRef.current,routeTopPaddingRef.current)});
   });observer.observe(container.current);
   const cars=markers.current;
-  return()=>{observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
+  return()=>{mounted=false;observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);map.off('error',onStyleError);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
  },[]);
  useEffect(()=>{
   let active=true,receivedStream=false;
