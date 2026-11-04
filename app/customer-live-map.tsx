@@ -65,6 +65,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   let gesture=false;
   map.on('movestart',event=>{if(event.originalEvent){gesture=true;if(callbacks.current.picker)callbacks.current.onPickerStart?.()}});
   map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
+  map.on('click',event=>{if(callbacks.current.picker){callbacks.current.onPickerStart?.();map.jumpTo({center:event.lngLat});callbacks.current.onPickerMove?.({latitude:event.lngLat.lat,longitude:event.lngLat.lng})}});
   let activeStyle='openstreetmap',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
   const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
   const syncTheme=()=>{const next=styleUrls?(darkTheme()?styleUrls.darkStyleUrl:styleUrls.lightStyleUrl):null;if(next&&next!==activeStyle){activeStyle=next;map.setStyle(next);map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
