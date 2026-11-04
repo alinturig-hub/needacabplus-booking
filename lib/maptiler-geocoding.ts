@@ -22,7 +22,7 @@ async function mapTilerRequest(path:string,apiKey:string,parameters:Record<strin
 }
 
 export async function searchMapTiler(query:string,apiKey:string,options:{country:string;language:string;longitude:number;latitude:number},signal?:AbortSignal){return mapTilerRequest(encodeURIComponent(query),apiKey,{autocomplete:true,fuzzyMatch:true,limit:8,country:options.country,language:options.language,proximity:`${options.longitude},${options.latitude}`},signal)}
-export async function reverseMapTiler(latitude:number,longitude:number,apiKey:string,options:{country:string;language:string},signal?:AbortSignal){return mapTilerRequest(`${longitude},${latitude}`,apiKey,{limit:10,country:options.country,language:options.language},signal)}
+export async function reverseMapTiler(latitude:number,longitude:number,apiKey:string,options:{country:string;language:string},signal?:AbortSignal){return mapTilerRequest(`${longitude},${latitude}`,apiKey,{country:options.country,language:options.language},signal)}
 
 const nonPlaceTypes=new Set(['address','street','postcode','postal_code','neighbourhood','locality','municipality','county','region','country']);
 export function nearestMapTilerPlace(features:MapTilerFeature[],latitude:number,longitude:number,maxDistance:number){
