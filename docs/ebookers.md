@@ -1,6 +1,6 @@
 # Configurable eBookers
 
-This module adds independently configured public booking links at `/ebooker/<slug>` and an administrator workspace at `/admin/configuration/ebookers` (Operations → eBookers, also linked from Applications). There is no application-level limit on the number of configurations.
+This module adds independently configured public booking links at `https://eb.needacabplus.app/ebooker/<slug>` and an administrator workspace at `/admin/configuration/ebookers` (Operations → eBookers, also linked from Applications). The dedicated domain root serves the `needacabplus` eBooker without changing its URL, preserving campaign query parameters. There is no application-level limit on the number of configurations. Existing `webapp.needacabplus.app/ebooker/<slug>` links continue to work on their original host so existing guest-session tracking remains available.
 
 Each eBooker has its own immutable public link, display name, optional HTTPS logo, support telephone, enabled/draft state, passenger limit and pickup mode:
 
@@ -34,9 +34,9 @@ The separate five-digit guest checkout OTP, expanded driver/trip sheet, secure s
 
 ## Database and rollout
 
-The two new Need A Cab Plus-owned tables are defined in `scripts/migrations/20261102_ebookers.sql` and included in local `db/init.sql`. Apply that additive SQL through the shared database owner's migration process before deployment. It grants SELECT/INSERT/UPDATE to `needacabplus_shared_app` when that role exists. It does not alter canonical bookings, Driver/Vehicle or TaxiCRM tables, and does not grant public access. Existing configurations and provenance cannot be deleted through this UI.
+The two new Need A Cab Plus-owned tables are defined in `scripts/migrations/20261102_ebookers.sql` and included in local `db/init.sql`. Apply that additive SQL through the shared database owner's migration process before deployment. It grants SELECT/INSERT/UPDATE to `needacabplus_shared_app` when that role exists. It does not alter canonical bookings, Driver/Vehicle or TaxiCRM tables, and does not grant public access. The additive migration was applied to production on 4 November 2026 and app-role access was verified. Existing configurations and provenance cannot be deleted through this UI.
 
-On the current shared production database, `DATABASE_SCHEMA_MANAGED_EXTERNALLY=true` means startup will not apply this migration. Do not run the full historical database bootstrap or role-provisioning migration against production to add these tables. This feature has not applied any production migration or created any real Autocab bookings.
+On the current shared production database, `DATABASE_SCHEMA_MANAGED_EXTERNALLY=true` means startup will not apply this migration. Do not run the full historical database bootstrap or role-provisioning migration against production to add these tables. No real Autocab bookings were created during deployment validation.
 
 After applying the migration and deploying:
 
@@ -53,3 +53,11 @@ After applying the migration and deploying:
 - TypeScript, ESLint and the production Next build.
 
 Database tests execute the additive SQL in isolated PGlite and test source ownership, duplicate claims and revision conflicts. No production data or external messages are used by these tests. Example screenshots are marked as synthetic design previews.
+
+## Dedicated domain
+
+Keep all existing Coolify application domains and add `https://eb.needacabplus.app` to the same application. Cloudflare needs a DNS-only A record `eb` → `144.76.63.11` (TTL Auto); public DNS must resolve before the HTTPS certificate can be verified. Do not change the webapp customer origin or OAuth callback configuration. Existing customer sessions use Domain `.needacabplus.app`, so the same account and session are available to both hosts. Guest cookies stay on their original host. Admin pages route to `admin.needacabplus.app`; admin previews remain on that host.
+
+The admin Copy link action uses the new public origin, while localhost development continues to use its local origin. Customer login and JSON APIs remain on the current host. Browser GPS permission and local theme storage are per origin, so the new domain may ask for location permission again.
+
+MapTiler origin setup is separate from DNS: add `https://eb.needacabplus.app` to the existing key’s Allowed HTTP origins while preserving the webapp origin. A preflight request confirmed HTTP 200 for webapp and HTTP 403 for eb before this external allowlist change. Do not rotate or expose the key to add a domain.
