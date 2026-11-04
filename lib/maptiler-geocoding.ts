@@ -24,6 +24,8 @@ async function mapTilerRequest(path:string,apiKey:string,parameters:Record<strin
 export async function searchMapTiler(query:string,apiKey:string,options:{country:string;language:string;longitude:number;latitude:number},signal?:AbortSignal){return mapTilerRequest(encodeURIComponent(query),apiKey,{autocomplete:true,fuzzyMatch:true,limit:8,country:options.country,language:options.language,proximity:`${options.longitude},${options.latitude}`},signal)}
 export async function reverseMapTiler(latitude:number,longitude:number,apiKey:string,options:{country:string;language:string},signal?:AbortSignal){return mapTilerRequest(`${longitude},${latitude}`,apiKey,{country:options.country,language:options.language},signal)}
 
+export async function reverseMapTilerPlaces(latitude:number,longitude:number,apiKey:string,options:{country:string;language:string},signal?:AbortSignal){return mapTilerRequest(`${longitude},${latitude}`,apiKey,{country:options.country,language:options.language,types:'poi',limit:10},signal)}
+
 const nonPlaceTypes=new Set(['address','street','postcode','postal_code','neighbourhood','locality','municipality','county','region','country']);
 export function nearestMapTilerPlace(features:MapTilerFeature[],latitude:number,longitude:number,maxDistance:number){
  const candidates=features.flatMap(feature=>{const isPlace=feature.types.some(type=>type==='poi'||type==='poi.landmark')||Boolean(feature.category&&!nonPlaceTypes.has(feature.category));if(!isPlace||!feature.name||/^\d/.test(feature.name))return[];const distance=distanceMetres({latitude,longitude},feature);return distance<=maxDistance?[{name:feature.name,type:feature.category||feature.types[0]||'place',latitude:feature.latitude,longitude:feature.longitude,distanceMetres:distance}]:[]});

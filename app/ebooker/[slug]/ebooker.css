@@ -72,3 +72,7 @@ html[data-theme=dark] .eb-pickup-confirm{background:#152334;color:#e5edf7}html[d
 @media(max-width:350px){.eb-pickup-confirm{padding:18px}.eb-pickup-heading{gap:10px}.eb-pickup-confirm h2{font-size:18px}.eb-pickup-icon{width:40px;height:44px}.eb-pickup-confirm footer{gap:8px}.eb-pickup-confirm .eb-button{font-size:12px!important;gap:5px}}
 
 html[data-theme=dark] .eb-pickup-confirm .eb-nearby{background:transparent;color:#b4c5d7}
+
+/* Explicit margins keep native dialogs centred after the app's CSS reset. */
+.eb-calendar.eb-location{position:fixed;inset:0;margin:auto;transform:none;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px)}.eb-nearby-places{display:grid;gap:6px;margin:12px 0}.eb-nearby-places>span{font-size:11px;color:#657174}.eb-nearby-places>button{min-height:44px;text-align:left;border:1px solid #d4dddd;border-radius:9px;background:#f5f7f5;color:#213737;padding:8px 10px;font-size:13px}.eb-nearby-places>button[aria-pressed=true]{border-color:#168e95;background:#e5f3f2}html[data-theme=dark] .eb-nearby-places>span{color:#b4c5d7}html[data-theme=dark] .eb-nearby-places>button{background:#101e2e;color:#e5edf7;border-color:#52677f}html[data-theme=dark] .eb-nearby-places>button[aria-pressed=true]{background:#214b53;border-color:#68b8be}
+.eb-root .eb-stops>.eb-add-stop{position:static;margin:4px 0 0;min-height:44px}.eb-root .eb-address-field>input{min-height:48px}.eb-root .eb-address-actions .eb-field-action{font-size:14px!important}
