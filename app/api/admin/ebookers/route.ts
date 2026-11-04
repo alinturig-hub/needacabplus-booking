@@ -6,7 +6,7 @@ import {ebookerFromRow,type EbookerRow} from '@/lib/ebookers';
 export const dynamic='force-dynamic';
 export async function GET(){
  if(!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
- try{const result=await database().query<EbookerRow&{requests:number}>('SELECT e.*, (SELECT count(*)::int FROM ebooker_booking_origins o WHERE o.ebooker_id=e.id) AS requests FROM ebookers e ORDER BY e.created_at DESC');return Response.json({items:result.rows.map(row=>({...ebookerFromRow(row),requests:row.requests}))},{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}
+ try{const result=await database().query<EbookerRow&{requests:number}>(`SELECT e.*, (SELECT count(*)::int FROM ebooker_booking_origins o WHERE o.ebooker_id=e.id) AS requests FROM ebookers e WHERE NOT(e.settings ? '_deletedAt') ORDER BY e.created_at DESC`);return Response.json({items:result.rows.map(row=>({...ebookerFromRow(row),requests:row.requests}))},{headers:{'Cache-Control':'no-store'}})}catch(e){return unavailable(e)}
 }
 export async function POST(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});

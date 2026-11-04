@@ -4,7 +4,7 @@ export type EbookerRow={id:string;slug:string;settings:unknown;revision:number;e
 export function ebookerFromRow(row:EbookerRow):EbookerConfig{return {...ebookerInputSchema.parse(row.settings),id:row.id,slug:row.slug,enabled:row.enabled,revision:row.revision}}
 export async function loadEbooker(slug:string,includeDisabled=false){
  if(!/^[a-z0-9-]{3,80}$/.test(slug))return null;
- const result=await database().query<EbookerRow>('SELECT id,slug,settings,enabled,revision FROM ebookers WHERE slug=$1 AND ($2::boolean OR enabled)',[slug,includeDisabled]);
+ const result=await database().query<EbookerRow>(`SELECT id,slug,settings,enabled,revision FROM ebookers WHERE slug=$1 AND ($2::boolean OR enabled) AND NOT(settings ? '_deletedAt')`,[slug,includeDisabled]);
  return result.rows[0]?ebookerFromRow(result.rows[0]):null;
 }
 export async function claimEbookerRequest(claim:EbookerClaim,quoteId:string,userId:string,db:Pick<ReturnType<typeof database>,'query'>=database()){
