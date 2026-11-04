@@ -20,7 +20,7 @@ if(process.argv.includes('--before-restart')){
  writeFileSync(resolve(output,'restart-packets.private.json'),JSON.stringify(packets),{mode:0o600});console.log('Restart checkpoints prepared for both isolated roles.');
 }else if(process.argv.includes('--after-restart')){
  const packets=JSON.parse(readFileSync(resolve(output,'restart-packets.private.json'),'utf8')) as {target:Target;payload:unknown;headers:Record<string,string>;instance:string}[];
- for(const p of packets){assert.ok([config.nac.uuid,config.crm.uuid].includes(p.target.uuid));assert.equal((await post(p.target,'/internal/staging/control',p.payload,config.control,p.headers)).status,401);const fresh=await control(p.target,{action:'stats'});assert.equal(fresh.instance,p.instance)}
+ for(const p of packets){assert.ok(Date.now()/1000-Number(p.headers['x-wa-timestamp'])<240,'Restart replay proof must still be inside the signature validity window');assert.ok([config.nac.uuid,config.crm.uuid].includes(p.target.uuid));assert.equal((await post(p.target,'/internal/staging/control',p.payload,config.control,p.headers)).status,401);const fresh=await control(p.target,{action:'stats'});assert.equal(fresh.instance,p.instance)}
  writeFileSync(resolve(output,'durable-replay-report.json'),JSON.stringify({passed:true,roles:2,replayRejectedAfterRestart:true,storageInstancePreserved:true,providerCalls:0},null,2));console.log('Both roles rejected replay after restart; durable storage preserved.');
 }else{
  const results=[];let calls=0;
