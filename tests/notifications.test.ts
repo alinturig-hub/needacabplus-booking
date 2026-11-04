@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
 import type {Pool} from 'pg';
 import {sampleRule,fixture,scenarios} from '../lib/notifications/fixtures';
+import {ruleSchema,nextButtonIndex} from '../lib/notifications/model';
 import {decide,londonTime} from '../lib/notifications/engine';
 import {canonicalNotificationBooking,type CanonicalRow} from '../lib/notifications/canonical';
 import {saveRule,rules,history,recordDecision} from '../lib/notifications/store';
@@ -16,7 +17,7 @@ test('two complete synthetic lifecycle previews and all safeguard scenarios',()=
 test('24h boundary uses only an eligible inbound timestamp; future inbound never opens a window',()=>{const r=active(),c=fixture(r);c.conversation.lastEligibleInboundAt='2026-11-03T12:00:00Z';assert.equal(decide(r,c).windowOpen,false);c.conversation.lastEligibleInboundAt='2026-11-03T12:00:00.001Z';assert.equal(decide(r,c).windowOpen,true);c.conversation.lastEligibleInboundAt='2026-11-04T12:01:00Z';assert.equal(decide(r,c).windowOpen,false)});
 test('provider acceptance, delivery, read, failure and uncertainty remain distinct',()=>{for(const outcome of ['ACCEPTED','DELIVERED','READ','REJECTED','FAILED','UNKNOWN'] as const){const r={...active(),sms:'confirmed_unavailable' as const},c=fixture(r);c.provider.outcome=outcome;const d=decide(r,c);assert.equal(d.providerStatus,outcome);assert.equal(d.wouldSend,false);assert.notEqual(d.channel,'sms')}});
 test('current dispatcher capability gates rich templates and open-window free text',()=>{const r=active(),c=fixture(r,'gateway-current');c.conversation.lastEligibleInboundAt='2026-11-04T11:00:00Z';assert.equal(decide(r,c).reason,'FREE_TEXT_ADAPTER_UNAVAILABLE');c.conversation.lastEligibleInboundAt=null;c.capabilities.parameterSources=['booking_id','customer_name','pickup_address','dropoff_address','pickup_time'];c.template.format='NAMED';assert.equal(decide(r,c).reason,'NAMED_PARAMETER_ADAPTER_UNAVAILABLE');c.template.format='POSITIONAL';c.template.hasHeader=true;assert.equal(decide(r,c).reason,'HEADER_ADAPTER_UNAVAILABLE')});
-test('template drift, duplicate mappings, missing buttons and missing booking-specific links block',()=>{const r=active(),c=fixture(r);c.template.fingerprint='changed';assert.equal(decide(r,c).reason,'TEMPLATE_MAPPING_MISMATCH');c.template.fingerprint=r.template.fingerprint;r.bodyMappings[1]={...r.bodyMappings[1],variable:'1'};assert.equal(decide(r,c).reason,'TEMPLATE_MAPPING_MISMATCH');const r2={...active(),buttonMappings:[{index:0,source:'track_driver_url' as const}]},c2=fixture(r2);c2.template.buttons=[{index:0,kind:'URL',dynamic:true}];assert.equal(decide(r2,c2).reason,'REQUIRED_BOOKING_FIELD_MISSING');c2.booking.fields.track_driver_url='http://unsafe.invalid/';assert.equal(decide(r2,c2).reason,'INVALID_SECURE_BOOKING_LINK')});
+test('template drift, duplicate mappings, missing buttons and missing booking-specific links block',()=>{const r=active(),c=fixture(r);c.template.fingerprint='changed';assert.equal(decide(r,c).reason,'TEMPLATE_MAPPING_MISMATCH');c.template.fingerprint=r.template.fingerprint;r.bodyMappings[1]={...r.bodyMappings[1],variable:'1'};assert.throws(()=>decide(r,c),/Duplicate body variable/);const r2={...active(),buttonMappings:[{index:0,source:'track_driver_url' as const}]},c2=fixture(r2);c2.template.buttons=[{index:0,kind:'URL',dynamic:true}];assert.equal(decide(r2,c2).reason,'REQUIRED_BOOKING_FIELD_MISSING');c2.booking.fields.track_driver_url='http://unsafe.invalid/';assert.equal(decide(r2,c2).reason,'INVALID_SECURE_BOOKING_LINK')});
 test('named operational mapping is distinct from template approval examples',()=>{const r=active();r.bodyMappings=[{variable:'customer_name',source:'customer_name'},{variable:'booking_id',source:'booking_id'}];r.freeText='Hello {{customer_name}}: {{booking_id}}';const c=fixture(r);c.capabilities.parameterSources=['booking_id','customer_name','pickup_address','dropoff_address','pickup_time'];c.template.format='NAMED';assert.equal(decide(r,c).content,'Hello Demo Passenger: SYNTHETIC-1001')});
 test('missing referenced fields block; unused fields are optional; malformed placeholders block',()=>{const r=active(),c=fixture(r);delete c.booking.fields.driver_name;assert.equal(decide(r,c).reason,'PREVIEW_READY');delete c.booking.fields.pickup_address;assert.equal(decide(r,c).reason,'REQUIRED_BOOKING_FIELD_MISSING');const x=fixture(r,'other-open');r.freeText='Unresolved {customer_name}';assert.equal(decide(r,x).reason,'REQUIRED_BOOKING_FIELD_MISSING')});
 test('London daylight saving transitions preserve the instant',()=>{assert.match(londonTime('2026-03-29T00:30:00Z'),/00:30 GMT/);assert.match(londonTime('2026-03-29T01:30:00Z'),/02:30 BST/);assert.match(londonTime('2026-10-25T00:30:00Z'),/01:30 BST/);assert.match(londonTime('2026-10-25T01:30:00Z'),/01:30 GMT/)});
@@ -30,11 +31,33 @@ test('actual development SQL: save is draft, activation separate, optimistic con
 
  test('canonical adapter uses verified booking ownership, not customer contact matching',async()=>{
  const row:CanonicalRow={externalId:'SYNTHETIC-1001',customerName:'Demo',pickupDueTime:'2026-11-04T13:00:00Z',driverForename:'Demo Driver',vehicleRegistration:'DEMO',cancelledAt:null,status:'ACTIVE',acceptedAt:'2026-11-04T11:59:00Z',ourReference:null,bookingSource:null,pickup:'Example pickup',destination:'Example destination'};
- let attempts:{user_id:string}[]=[],account:{id:string}|undefined;let accountReads=0;const readers={booking:async()=>row,attempts:async()=>attempts,account:async()=>{accountReads++;return account}};
+ let attempts:{user_id:string}[]=[],account:{id:string}|undefined=undefined;let accountReads=0;const readers={booking:async()=>row,attempts:async()=>attempts,account:async()=>{accountReads++;return account}};
  assert.equal((await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers))?.source,'other');
  attempts=[{user_id:'account-1'}];let result=await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers);assert.equal(result?.accountLinkVerified,false);
  account={id:'account-1'};result=await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers);assert.equal(result?.appAccountId,'account-1');assert.equal(result?.accountLinkVerified,true);assert.equal(result?.fields.track_driver_url,undefined);
  const before=accountReads;attempts=[{user_id:'guest:1'}];result=await canonicalNotificationBooking(row.externalId,'driver.dispatched',readers);assert.equal(accountReads,before);assert.equal(result?.appAccountId,null);assert.equal(result?.accountLinkVerified,true);assert.equal(result?.revision,Date.parse('2026-11-04T11:59:00Z'));
  attempts=[];row.ourReference='NAC-00000000-0000-4000-8000-000000000001';result=await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers);assert.equal(result?.source,'webapp');assert.equal(result?.accountLinkVerified,false);
  attempts=[{user_id:'a'},{user_id:'b'}];await assert.rejects(canonicalNotificationBooking(row.externalId,'booking.confirmed',readers),/AMBIGUOUS/);
+ });
+
+ test('rendered free text is bounded after mapping, including exact limit',()=>{
+ const r={...active(),freeText:'X'.repeat(4088)+'{{1}}',bodyMappings:[{variable:'1',source:'customer_name' as const}]},c=fixture(r,'other-open');
+ c.booking.fields.customer_name='A'.repeat(8);assert.equal(decide(r,c).content?.length,4096);assert.equal(decide(r,c).wouldSend,true);
+ c.booking.fields.customer_name='A'.repeat(9);const d=decide(r,c);assert.equal(d.reason,'MESSAGE_LENGTH_EXCEEDED');assert.equal(d.wouldSend,false);assert.equal(d.content,undefined);
+ });
+ test('template parameter limits and rendered SMS limits are checked separately',()=>{
+ const r={...active(),sms:'confirmed_unavailable' as const,smsText:'{{1}}'},c=fixture(r);c.booking.fields.customer_name='A'.repeat(1025);assert.equal(decide(r,c).reason,'INVALID_TEMPLATE_PARAMETER');
+ c.provider.definitivelyUnavailable=true;c.booking.fields.customer_name='A'.repeat(1000);assert.equal(decide(r,c).content?.length,1000);c.booking.fields.customer_name='A'.repeat(1001);assert.equal(decide(r,c).reason,'MESSAGE_LENGTH_EXCEEDED');
+ });
+ test('open-window text explicitly discloses omitted template actions; required interactive never downgrades',()=>{
+ const r={...active(),buttonMappings:[{index:0,source:'track_driver_url' as const}]},c=fixture(r,'other-open');c.template.buttons=[{index:0,kind:'URL',dynamic:true}];
+ const plain=decide(r,c);assert.equal(plain.contentMode,'text');assert.equal(plain.wouldSend,true);assert.ok(plain.issues.some(s=>s.startsWith('TEXT_ONLY_MODE')));
+ const interactive=decide({...r,openWindowMode:'interactive'},c);assert.equal(interactive.reason,'INTERACTIVE_ADAPTER_UNAVAILABLE');assert.equal(interactive.wouldSend,false);
+ });
+ test('button slot allocation reuses free indices and saved rules reject duplicate mappings',()=>{
+ const mappings=[{index:1,source:'track_driver_url' as const}],index=nextButtonIndex(mappings);assert.equal(index,0);
+ assert.doesNotThrow(()=>ruleSchema.parse({...active(),buttonMappings:[...mappings,{index:index!,source:'manage_booking_url'}]}));
+ assert.throws(()=>ruleSchema.parse({...active(),buttonMappings:[...mappings,...mappings]}),/Duplicate button index/);
+ assert.throws(()=>ruleSchema.parse({...active(),bodyMappings:[{variable:'1',source:'customer_name'},{variable:'1',source:'booking_id'}]}),/Duplicate body variable/);
+ assert.equal(nextButtonIndex(Array.from({length:10},(_,index)=>({index}))),null);
  });

@@ -32,11 +32,19 @@ export function decide(input:Rule,c:Context):Decision{
  let text:string;
  if(c.provider.definitivelyUnavailable){
   if(r.sms!=='confirmed_unavailable'||!c.capabilities.sms)return stop('WHATSAPP_DEFINITIVELY_UNAVAILABLE');
-  d.channel='sms';text=r.smsText;if(!text.trim())return stop('SMS_MESSAGE_NOT_CONFIGURED');
+  d.channel='sms';d.contentMode='sms';text=r.smsText;if(!text.trim())return stop('SMS_MESSAGE_NOT_CONFIGURED');
  }else if(c.provider.outcome==='REJECTED'||c.provider.outcome==='FAILED')return stop('PROVIDER_FAILURE_REQUIRES_REVIEW');
- else if(windowOpen){d.channel='whatsapp';if(!c.capabilities.freeText)return stop('FREE_TEXT_ADAPTER_UNAVAILABLE');text=r.freeText;}
+ else if(windowOpen){
+  d.channel='whatsapp';d.contentMode=r.openWindowMode||'text';
+  // Stage one has no interactive sender. Never silently downgrade a required action.
+  if(d.contentMode==='interactive')return stop('INTERACTIVE_ADAPTER_UNAVAILABLE');
+  if(!c.capabilities.freeText)return stop('FREE_TEXT_ADAPTER_UNAVAILABLE');
+  if(r.buttonMappings.length||c.template.buttons.length)d.issues.push('TEXT_ONLY_MODE: template buttons do not apply to this open-window message. Select interactive mode if actions are required; its adapter is not implemented yet.');
+  text=r.freeText;
+ }
+
  else {
-  const t=c.template;d.channel='whatsapp';d.templateId=t.id;
+  const t=c.template;d.channel='whatsapp';d.contentMode='template';d.templateId=t.id;
   if(t.id!==r.template.id||t.name!==r.template.name||t.language!==r.template.language||t.fingerprint!==r.template.fingerprint)return stop('TEMPLATE_MAPPING_MISMATCH');
   if(t.status!=='APPROVED')return stop('TEMPLATE_NOT_APPROVED');
   if(t.category!=='UTILITY')return stop('TEMPLATE_CATEGORY_NOT_OPERATIONAL');
@@ -44,7 +52,8 @@ export function decide(input:Rule,c:Context):Decision{
   if(r.bodyMappings.some(m=>!c.capabilities.parameterSources.includes(m.source)))return stop('BOOKING_FIELD_ADAPTER_UNAVAILABLE');
   if(t.format==='NAMED'&&!c.capabilities.named)return stop('NAMED_PARAMETER_ADAPTER_UNAVAILABLE');
   let variables:string[];try{variables=parameterKeys(t.text,t.format)}catch{return stop('TEMPLATE_MAPPING_MISMATCH')}
-  if(variables.length!==r.bodyMappings.length||new Set(r.bodyMappings.map(m=>m.variable)).size!==r.bodyMappings.length||variables.some(v=>!r.bodyMappings.some(m=>m.variable===v)))return stop('TEMPLATE_MAPPING_MISMATCH');
+  if(variables.length!==r.bodyMappings.length||variables.some(v=>!r.bodyMappings.some(m=>m.variable===v)))return stop('TEMPLATE_MAPPING_MISMATCH');
+  if(r.bodyMappings.some(m=>{const value=values[m.source];return typeof value==='string'&&(value.length>1024||/[\x00-\x1f]/.test(value))}))return stop('INVALID_TEMPLATE_PARAMETER');
   if(t.buttons.some(b=>b.kind==='QUICK_REPLY'||b.kind==='FLOW'))return stop('BUTTON_BEHAVIOUR_NOT_IMPLEMENTED');
   const dynamic=t.buttons.filter(b=>b.dynamic);
   if(dynamic.length!==r.buttonMappings.length||new Set(r.buttonMappings.map(b=>b.index)).size!==r.buttonMappings.length||dynamic.some(b=>!r.buttonMappings.some(m=>m.index===b.index)))return stop('TEMPLATE_MAPPING_MISMATCH');
@@ -53,6 +62,8 @@ export function decide(input:Rule,c:Context):Decision{
   text=t.text;
  }
  const rendered=render(text);if(rendered===null)return stop('REQUIRED_BOOKING_FIELD_MISSING');
+ const maxLength=d.channel==='sms'?1000:d.contentMode==='text'?4096:undefined;
+ if(maxLength!==undefined&&rendered.length>maxLength){d.issues.push(`Rendered ${d.contentMode} message exceeds the ${maxLength}-character adapter limit.`);return stop('MESSAGE_LENGTH_EXCEEDED');}
  d.mappingValues=r.bodyMappings.map(m=>({variable:m.variable,source:m.source as Field,value:values[m.source]||''}));
  return {...d,result:'ready',reason:c.provider.definitivelyUnavailable?'SMS_FALLBACK_PREVIEW':'PREVIEW_READY',wouldSend:true,content:rendered};
 }
