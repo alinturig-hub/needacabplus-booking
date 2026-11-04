@@ -12,7 +12,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "prisma:generate": "prisma generate",
-    "test:canonical-writer": "tsx tests/canonical-booking-handler.integration.ts"
+    "test:canonical-writer": "tsx tests/canonical-booking-handler.integration.ts",
+    "test:notifications:v2": "tsx --test tests/notifications-v2.integration.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

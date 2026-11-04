@@ -111,3 +111,7 @@ Attempted all five requested official URLs on 2026-11-04 through the web tool; e
 - https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/template-management/
 - https://developers.facebook.com/docs/graph-api/guides/upload
 - https://developers.facebook.com/documentation/business-messaging/whatsapp/flows/guides/sendingaflow
+
+## Follow-up review integration
+
+Review fixes from `4840a9a` are integrated on PR31 (cherry-pick `beb11de`). See `REVIEW_FIXES.md` and `SHARED_GATEWAY_V2.md` for the strict no-send v2 contract and executable two-application staging rehearsal. The earlier stage-one results above describe that original baseline; the follow-up verification is recorded separately. No production activation has occurred.

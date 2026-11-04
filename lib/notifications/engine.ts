@@ -57,7 +57,7 @@ export function decide(input:Rule,c:Context):Decision{
   if(t.buttons.some(b=>b.kind==='QUICK_REPLY'||b.kind==='FLOW'))return stop('BUTTON_BEHAVIOUR_NOT_IMPLEMENTED');
   const dynamic=t.buttons.filter(b=>b.dynamic);
   if(dynamic.length!==r.buttonMappings.length||new Set(r.buttonMappings.map(b=>b.index)).size!==r.buttonMappings.length||dynamic.some(b=>!r.buttonMappings.some(m=>m.index===b.index)))return stop('TEMPLATE_MAPPING_MISMATCH');
-  if(dynamic.length&&!c.capabilities.dynamicButtons)return stop('BUTTON_ADAPTER_UNAVAILABLE');
+  if(t.buttons.length&&!c.capabilities.dynamicButtons)return stop('BUTTON_ADAPTER_UNAVAILABLE');
   d.buttonValues=[];for(const b of r.buttonMappings){const value=values[b.source];if(!value)return stop('REQUIRED_BOOKING_FIELD_MISSING');try{const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password)throw Error()}catch{return stop('INVALID_SECURE_BOOKING_LINK')}d.buttonValues.push({index:b.index,value});}
   text=t.text;
  }

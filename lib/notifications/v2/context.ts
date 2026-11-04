@@ -1,0 +1,16 @@
+import {decide} from '../engine';
+import type {Rule,Context} from '../model';
+import {previewIntent} from './producer';
+import {parseIntent,parseState,stable,type GatewayState,type IntentV2,type ResultV2} from './contract';
+export type ContextLoader=(intent:IntentV2)=>Promise<{rule:Rule;context:Context;canonicalRecipient:string|null}>;
+/** Server resolves the saved rule + fresh canonical booking; caller cannot supply booking values. */
+export async function evaluateContext(input:unknown,workspace:string,load:ContextLoader):Promise<ResultV2>{
+ if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['intent','gateway_state'].includes(k)))throw Error('INVALID_V2_CONTEXT_REQUEST');
+ const request=input as {intent:unknown;gateway_state:unknown},intent=parseIntent(request.intent,workspace),s=parseState(request.gateway_state);
+ const {rule,context,canonicalRecipient}=await load(intent);
+ if(!canonicalRecipient||canonicalRecipient!==intent.recipient)throw Error('CANONICAL_RECIPIENT_CONFLICT');if(!context.synthetic||intent.booking_id!=='autocab:'+context.booking.id)throw Error('SYNTHETIC_ONLY');
+ if(rule.id!==intent.rule.id||rule.version!==intent.rule.version||stable(previewIntent(rule,context,workspace,intent.recipient))!==stable(intent))throw Error('V2_RULE_OR_BOOKING_CONFLICT');
+ const c:Context={...context,conversation:{id:s.conversation_id,operator:s.operator,lastEligibleInboundAt:s.last_eligible_inbound_at},recipient:{verified:s.recipient_verified,servicePermission:s.service_allowed,suppressed:s.suppressed},provider:{outcome:s.provider_status,definitivelyUnavailable:s.definitively_unavailable},seen:s.seen,highestRevision:s.highest_booking_revision,capabilities:{parameterSources:s.capabilities.parameter_sources,freeText:s.capabilities.text,named:s.capabilities.named,dynamicButtons:s.capabilities.dynamic_buttons,media:s.capabilities.media,sms:s.capabilities.sms}};
+ const d=decide(rule,c);return {schema_version:'2.0',mode:'DRY_RUN',idempotency_key:intent.idempotency_key,booking_id:intent.booking_id,rule:intent.rule,conversation_id:s.conversation_id,conversation_revision:s.conversation_revision,checked_at:c.now,result:d.result,reason:d.reason,explanations:d.issues,channel:d.channel,...(d.contentMode?{content_mode:d.contentMode}:{}),...(d.result==='ready'?{rendered_text:d.content,...(d.contentMode==='template'?{body_parameters:d.mappingValues,button_parameters:d.buttonValues}:{})}:{}),provider_status:s.provider_status,provider_called:false};
+}
+export function gatewayState(c:Context):GatewayState{return {conversation_id:c.conversation.id,conversation_revision:1,operator:c.conversation.operator,last_eligible_inbound_at:c.conversation.lastEligibleInboundAt,recipient_verified:c.recipient.verified,service_allowed:c.recipient.servicePermission,suppressed:c.recipient.suppressed,provider_status:c.provider.outcome,definitively_unavailable:c.provider.definitivelyUnavailable,seen:c.seen,highest_booking_revision:c.highestRevision,capabilities:{parameter_sources:[...c.capabilities.parameterSources],text:c.capabilities.freeText,named:c.capabilities.named,dynamic_buttons:c.capabilities.dynamicButtons,media:c.capabilities.media,sms:c.capabilities.sms}}}
