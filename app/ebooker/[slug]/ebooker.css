@@ -12,3 +12,25 @@
 @media(max-width:380px){.eb-root{padding:10px 12px}.eb-account .eb-wordmark{font-size:11px}.eb-phone{grid-template-columns:100px 1fr;gap:8px}.eb-progress{gap:14px}}
 .eb-map-link{display:block;background:none;border:0;color:#11777c;padding:0 0 10px;font-size:11px!important;text-align:left;text-decoration:underline;text-underline-offset:3px}.eb-location{width:min(540px,calc(100% - 24px))}.eb-location-map{height:min(36dvh,320px);position:relative;border-radius:12px;overflow:hidden;background:#e1eaf0}.eb-location-map>div{height:100%;min-height:0}.eb-location-map .customer-map-live{display:none}.eb-location-address{display:flex;align-items:flex-start;gap:8px;font-size:13px!important;text-align:left!important;margin:10px 0!important;min-height:38px}.eb-location-address svg{flex-shrink:0}.eb-nearby{font-size:12px!important;background:#e5f3f2;padding:10px;border-radius:8px}.eb-location button:disabled{opacity:.45;cursor:not-allowed}.eb-location .eb-button{font-size:13px!important;min-height:44px}
 .eb-map .customer-map-live{display:none}@media(min-width:760px){.eb-review{display:grid;grid-template-columns:1.1fr 1fr;gap:0 20px;align-items:start}.eb-review>.eb-heading,.eb-review>.eb-actions{grid-column:1 / -1}.eb-review>.eb-map{grid-column:1;grid-row:2 / span 5;height:420px}.eb-review>:not(.eb-heading):not(.eb-map):not(.eb-actions){grid-column:2}.eb-review>.eb-card{margin-top:0}.eb-review>.eb-actions{max-width:440px;justify-self:end;width:100%}}
+/* Mobile controls retain finger-sized targets without enlarging the whole form. */
+.eb-root input,.eb-root select{min-width:0}.eb-phone>label,.eb-stops,.eb-passenger-details{min-width:0}
+@media(max-width:759px){
+ .eb-root{padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px))}
+ .eb-account{min-height:44px;margin-bottom:8px;gap:8px}.eb-account>a:not(.eb-wordmark){min-height:44px;max-width:55%;text-align:right;justify-content:flex-end}
+ .eb-progress{margin:0 0 12px;gap:20px;font-size:11px}.eb-progress li>span{width:20px;height:20px}
+ .eb-heading{margin-bottom:10px}.eb-heading h1{font-size:23px}.eb-round,.eb-passengers button{width:44px;height:44px}
+ .eb-timing>button{min-height:44px}.eb-card,.eb-form>.eb-card{margin:10px 0;padding:14px}
+ .eb-stops{position:relative}.eb-stops>h2{display:none}.eb-root input:not([type=checkbox]),.eb-root select{min-height:44px;margin:4px 0 8px;padding:10px 12px;font-size:16px}
+ .eb-root .eb-address input{font-size:16px!important}.eb-fixed{margin:0 0 10px;font-size:10px}.eb-map-link{min-height:44px;padding:8px 0;font-size:12px!important;line-height:1.4}
+ .eb-stops>.eb-add-stop{position:absolute;right:14px;bottom:14px;min-height:44px;margin:0;padding:8px 11px}.eb-stops>.eb-address:last-of-type .eb-map-link{padding-right:114px}
+ .eb-notes summary{min-height:44px;display:flex;align-items:center;padding:8px 0}.eb-notes summary:before{content:'＋';margin-right:6px}.eb-notes[open] summary:before{content:'−'}
+ .eb-passengers{padding:8px 14px!important}.eb-passengers>div{border:0;padding:0;gap:14px}.eb-passengers h2{font-size:14px}
+ .eb-proceed{min-height:50px;bottom:calc(8px + env(safe-area-inset-bottom,0px));margin:10px 0}
+ .eb-root input{scroll-margin-top:18px;scroll-margin-bottom:95px}.eb-suggestions{max-height:min(220px,35dvh)}.eb-suggestions button{min-height:44px;overflow-wrap:anywhere}
+ .eb-review .eb-map{height:clamp(170px,27dvh,250px)}.eb-review .eb-route p{margin:8px 0;font-size:13px}.eb-chips{margin-top:10px}.eb-review .eb-price strong{font-size:28px}.eb-review .eb-actions{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:10;background:#f2f5f9eF;padding-top:5px;gap:10px}.eb-review .eb-actions>.eb-button{margin:5px 0}
+ .eb-footer{font-size:10px;margin:14px 0 4px}.eb-root .eb-ack{min-height:44px;font-size:12px}
+ .eb-calendar{box-sizing:border-box;padding:16px;max-height:calc(100dvh - 24px);width:min(460px,calc(100% - 20px));overflow:auto;overscroll-behavior:contain}.eb-calendar>p{margin:8px 0 14px}.eb-calendar-grid{padding:12px}.eb-calendar-grid header{gap:8px;margin-bottom:8px}.eb-calendar-grid header>button{min-height:44px;min-width:44px}.eb-calendar-grid>div{gap:2px}.eb-calendar-grid>div>button{max-height:none;min-height:36px;aspect-ratio:auto}.eb-calendar-grid>div>span{min-height:24px}
+ .eb-calendar footer{position:sticky;bottom:-16px;background:#f7f9fc;padding:8px 0;gap:10px}.eb-calendar .eb-button,.eb-time-selects select{min-height:44px}.eb-location-map{height:clamp(150px,30dvh,280px)}
+}
+@media(max-width:350px){.eb-account .eb-wordmark{font-size:10px;letter-spacing:.03em}.eb-account{font-size:10px}.eb-progress{gap:14px}.eb-phone{grid-template-columns:96px minmax(0,1fr)}.eb-calendar-grid header>strong{font-size:14px}.eb-calendar{padding:12px}.eb-calendar-grid{padding:8px}}
+@media(max-height:500px) and (max-width:959px){.eb-location-map{height:140px}.eb-calendar{max-height:calc(100dvh - 16px);overflow:auto}}
