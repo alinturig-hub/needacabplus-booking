@@ -1,0 +1,425 @@
+{
+  "remote-staging-report": {
+    "passed": true,
+    "mode": "DRY_RUN",
+    "transport": "remote HTTPS, certificate verification enabled",
+    "targets": {
+      "nac": "https://g0hxzyhvzlogdilcr04jmieq.144.76.63.11.sslip.io",
+      "crm": "https://n44gnzeyv0v2viz3j7ivswpu.144.76.63.11.sslip.io"
+    },
+    "scenarioCount": 44,
+    "providerCalls": 0,
+    "forbiddenEgress": 0,
+    "replayRejected": true,
+    "stats": {
+      "nac": {
+        "role": "nac",
+        "mode": "DRY_RUN",
+        "provider_enabled": false,
+        "instance": "c978f3c4-3104-4bf9-8dc8-15d30369943c",
+        "revision": 44,
+        "nonces": 89,
+        "counters": {
+          "protocol_requests": 44
+        }
+      },
+      "crm": {
+        "role": "crm",
+        "mode": "DRY_RUN",
+        "provider_enabled": false,
+        "instance": "6ac4175b-a386-4b8e-a5af-539314d0e2f9",
+        "revision": 46,
+        "nonces": 89,
+        "counters": {
+          "protocol_requests": 88,
+          "context_requests": 44
+        }
+      }
+    },
+    "results": [
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-closed",
+        "variant": "plain",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "template"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-open",
+        "variant": "plain",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "text"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "app-account",
+        "variant": "plain",
+        "reason": "APP_NOTIFICATION_FLOW_SELECTED",
+        "channel": "app"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "unknown-outcome",
+        "variant": "plain",
+        "reason": "SEND_OUTCOME_UNKNOWN",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "whatsapp-unavailable",
+        "variant": "plain",
+        "reason": "SMS_FALLBACK_PREVIEW",
+        "channel": "sms",
+        "mode": "sms"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "missing-field",
+        "variant": "plain",
+        "reason": "REQUIRED_BOOKING_FIELD_MISSING",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "unapproved-template",
+        "variant": "plain",
+        "reason": "TEMPLATE_NOT_APPROVED",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "duplicate",
+        "variant": "plain",
+        "reason": "DUPLICATE_EVENT",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "expired",
+        "variant": "plain",
+        "reason": "NOTIFICATION_EXPIRED",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "cancelled",
+        "variant": "plain",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "out-of-order",
+        "variant": "plain",
+        "reason": "STALE_EVENT",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "operator-takeover",
+        "variant": "plain",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "suppressed",
+        "variant": "plain",
+        "reason": "RECIPIENT_SUPPRESSED",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "no-recipient",
+        "variant": "plain",
+        "reason": "NO_VERIFIED_RECIPIENT",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "takeover-during-context",
+        "variant": "plain",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "cancel-after-intent",
+        "variant": "plain",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-closed",
+        "variant": "named",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "template"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-closed",
+        "variant": "dynamic",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "template"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-closed",
+        "variant": "missing-link",
+        "reason": "REQUIRED_BOOKING_FIELD_MISSING",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-open",
+        "variant": "interactive",
+        "reason": "INTERACTIVE_ADAPTER_UNAVAILABLE",
+        "channel": "none",
+        "mode": "interactive"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "other-open",
+        "variant": "oversized",
+        "reason": "MESSAGE_LENGTH_EXCEEDED",
+        "channel": "none",
+        "mode": "text"
+      },
+      {
+        "event": "booking.confirmed",
+        "scenario": "gateway-current",
+        "variant": "plain",
+        "reason": "BOOKING_FIELD_ADAPTER_UNAVAILABLE",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-closed",
+        "variant": "plain",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-open",
+        "variant": "plain",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "text"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "app-account",
+        "variant": "plain",
+        "reason": "APP_NOTIFICATION_FLOW_SELECTED",
+        "channel": "app"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "unknown-outcome",
+        "variant": "plain",
+        "reason": "SEND_OUTCOME_UNKNOWN",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "whatsapp-unavailable",
+        "variant": "plain",
+        "reason": "SMS_FALLBACK_PREVIEW",
+        "channel": "sms",
+        "mode": "sms"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "missing-field",
+        "variant": "plain",
+        "reason": "REQUIRED_BOOKING_FIELD_MISSING",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "unapproved-template",
+        "variant": "plain",
+        "reason": "TEMPLATE_NOT_APPROVED",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "duplicate",
+        "variant": "plain",
+        "reason": "DUPLICATE_EVENT",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "expired",
+        "variant": "plain",
+        "reason": "NOTIFICATION_EXPIRED",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "cancelled",
+        "variant": "plain",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "out-of-order",
+        "variant": "plain",
+        "reason": "STALE_EVENT",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "operator-takeover",
+        "variant": "plain",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "suppressed",
+        "variant": "plain",
+        "reason": "RECIPIENT_SUPPRESSED",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "no-recipient",
+        "variant": "plain",
+        "reason": "NO_VERIFIED_RECIPIENT",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "takeover-during-context",
+        "variant": "plain",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "cancel-after-intent",
+        "variant": "plain",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-closed",
+        "variant": "named",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-closed",
+        "variant": "dynamic",
+        "reason": "PREVIEW_READY",
+        "channel": "whatsapp",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-closed",
+        "variant": "missing-link",
+        "reason": "REQUIRED_BOOKING_FIELD_MISSING",
+        "channel": "none",
+        "mode": "template"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-open",
+        "variant": "interactive",
+        "reason": "INTERACTIVE_ADAPTER_UNAVAILABLE",
+        "channel": "none",
+        "mode": "interactive"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "other-open",
+        "variant": "oversized",
+        "reason": "MESSAGE_LENGTH_EXCEEDED",
+        "channel": "none",
+        "mode": "text"
+      },
+      {
+        "event": "driver.dispatched",
+        "scenario": "gateway-current",
+        "variant": "plain",
+        "reason": "BOOKING_FIELD_ADAPTER_UNAVAILABLE",
+        "channel": "none",
+        "mode": "template"
+      }
+    ]
+  },
+  "durable-replay-report": {
+    "passed": true,
+    "roles": 2,
+    "replayRejectedAfterRestart": true,
+    "storageInstancePreserved": true,
+    "providerCalls": 0
+  },
+  "isolation-report": {
+    "environment_uuid": "zksywni9q4jncqvorrw3qyjl",
+    "tested_commit": "50a73e508a4556554df93b2aa0850925ca49bfd4",
+    "roles": {
+      "nac": {
+        "uuid": "g0hxzyhvzlogdilcr04jmieq",
+        "origin": "https://g0hxzyhvzlogdilcr04jmieq.144.76.63.11.sslip.io",
+        "status": "running:healthy",
+        "branch": "codex/notifications-stage-one",
+        "environment_id": 10,
+        "restart_deployment_uuid": "chpdb2ecewwu6f5g6zxeplqs",
+        "restart_status": "finished",
+        "no_send_flag": true,
+        "provider_credentials_absent": true,
+        "persistent_mounts": [
+          "/stage-data"
+        ]
+      },
+      "crm": {
+        "uuid": "n44gnzeyv0v2viz3j7ivswpu",
+        "origin": "https://n44gnzeyv0v2viz3j7ivswpu.144.76.63.11.sslip.io",
+        "status": "running:healthy",
+        "branch": "codex/notifications-stage-one",
+        "environment_id": 10,
+        "restart_deployment_uuid": "rzou7hhfmtpvypyz9lz6dckz",
+        "restart_status": "finished",
+        "no_send_flag": true,
+        "provider_credentials_absent": true,
+        "persistent_mounts": [
+          "/stage-data"
+        ]
+      }
+    },
+    "production_read_only_status": {
+      "needacabplus": {
+        "status": "running:healthy",
+        "branch": "main",
+        "modified_by_this_task": false
+      },
+      "taxicrm": {
+        "status": "running:healthy",
+        "branch": "codex/taxicrm",
+        "modified_by_this_task": false
+      }
+    }
+  }
+}

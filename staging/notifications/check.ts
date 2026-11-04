@@ -1,7 +1,7 @@
 /** Run only against the two isolated services, using freshly provisioned staging identities. */
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {resolve,dirname} from 'node:path';
 import {signedHeaders} from '../../lib/whatsapp-service-auth';
 import {previewIntent} from '../../lib/notifications/v2/producer';
 import {buildFixture,type Selection} from './fixtures';
@@ -17,9 +17,9 @@ const control=async(target:Target,payload:unknown)=>{const r=await post(target,'
 for(const [role,target] of [['nac',config.nac],['crm',config.crm]] as const){const r=await fetch(new URL('/health',target.origin),{redirect:'error',signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);const h=await r.json() as {role:string;mode:string;provider_enabled:boolean};assert.equal(h.role,role);assert.equal(h.mode,'DRY_RUN');assert.equal(h.provider_enabled,false)}
 if(process.argv.includes('--before-restart')){
  const packets=[];for(const target of [config.nac,config.crm]){const path='/internal/staging/control',payload={action:'stats'},body=JSON.stringify(payload),headers={'Content-Type':'application/json',...signedHeaders('POST',path,body,config.control.keyId,config.control.secret)},r=await post(target,path,payload,config.control,headers);assert.equal(r.status,200);const stats=await r.json() as {instance:string};packets.push({target,payload,headers,instance:stats.instance})}
- writeFileSync(resolve(output,'restart-packets.private.json'),JSON.stringify(packets),{mode:0o600});console.log('Restart checkpoints prepared for both isolated roles.');
+ writeFileSync(resolve(dirname(configPath),'restart-packets.private.json'),JSON.stringify(packets),{mode:0o600});console.log('Restart checkpoints prepared for both isolated roles.');
 }else if(process.argv.includes('--after-restart')){
- const packets=JSON.parse(readFileSync(resolve(output,'restart-packets.private.json'),'utf8')) as {target:Target;payload:unknown;headers:Record<string,string>;instance:string}[];
+ const packets=JSON.parse(readFileSync(resolve(dirname(configPath),'restart-packets.private.json'),'utf8')) as {target:Target;payload:unknown;headers:Record<string,string>;instance:string}[];
  for(const p of packets){assert.ok(Date.now()/1000-Number(p.headers['x-wa-timestamp'])<240,'Restart replay proof must still be inside the signature validity window');assert.ok([config.nac.uuid,config.crm.uuid].includes(p.target.uuid));assert.equal((await post(p.target,'/internal/staging/control',p.payload,config.control,p.headers)).status,401);const fresh=await control(p.target,{action:'stats'});assert.equal(fresh.instance,p.instance)}
  writeFileSync(resolve(output,'durable-replay-report.json'),JSON.stringify({passed:true,roles:2,replayRejectedAfterRestart:true,storageInstancePreserved:true,providerCalls:0},null,2));console.log('Both roles rejected replay after restart; durable storage preserved.');
 }else{

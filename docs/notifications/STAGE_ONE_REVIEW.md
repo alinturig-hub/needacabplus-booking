@@ -115,3 +115,7 @@ Attempted all five requested official URLs on 2026-11-04 through the web tool; e
 ## Follow-up review integration
 
 Review fixes from `4840a9a` are integrated on PR31 (cherry-pick `beb11de`). See `REVIEW_FIXES.md` and `SHARED_GATEWAY_V2.md` for the strict no-send v2 contract and executable two-application staging rehearsal. The earlier stage-one results above describe that original baseline; the follow-up verification is recorded separately. No production activation has occurred.
+
+## Remote staging lab verification
+
+The owner subsequently authorized the isolated staging test. The v2 protocol lab passed 44 HTTPS scenarios plus durable replay rejection after restart, using fresh staging identities and per-role SQLite volumes. See `SHARED_GATEWAY_V2.md` and `evidence/remote-staging-20261104.json` for execution details and the remaining full-application/production limitations. No production configuration or sender activation occurred.

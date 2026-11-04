@@ -1,6 +1,6 @@
 # Notifications shared gateway v2 — development contract and staging rehearsal
 
-Status: **review proposal with executable no-send cross-application tests**. Extends PR31 and TaxiCRM PR8. No production route is mounted; handler factories are exercised by two isolated HTTP servers. No sender, migration, deployment, runtime flag, Meta template or webhook was changed. Existing v1 intents/callbacks remain strict and untouched.
+Status: **review proposal with executable no-send cross-application tests**. Extends PR31 and TaxiCRM PR8. No production route is mounted; handler factories are exercised by two isolated HTTP servers and now by the dedicated remote staging lab described below. No sender, migration, deployment, runtime flag, Meta template or webhook was changed. Existing v1 intents/callbacks remain strict and untouched.
 
 ## Integrated review corrections
 
@@ -16,7 +16,7 @@ During v2 review an additional conservative capability correction was made: the 
 - All v2 requests currently require `mode=DRY_RUN`, origin `operational_notification`, synthetic booking identity and the expected workspace. Campaign/operator origins cannot use the operational intent endpoint. Actual send capability is absent.
 - Preserve current Meta webhook `https://taxicrm.plymhub.ai/api/webhooks/whatsapp/meta` and server-held credentials. No Meta credentials are passed between these applications.
 
-## Proposed routes, implemented as unmounted handler factories
+## Routes, implemented as handler factories (isolated staging only)
 
 ### NAC → TaxiCRM
 
@@ -94,7 +94,7 @@ Optional `NOTIFICATIONS_TEST_ARTIFACT_DIR=/path/to/artifacts` saves a JSON repor
 
 Covered: both lifecycle events, open/closed windows, associated app account, recipient/service/suppression checks, named fields, body and separate dynamic button values, missing link, current sender limits, text-only buttons/interactive refusal, unknown/SMS policy, duplicate/stale/expiry, cancel-after-intent, takeover-during-context, expiry-during-context, DST, signed replay/body tampering, scope/version/mode/origin/extra fields, canonical-recipient/rule revision conflict, response correlation/freshness, provider status transitions and a no-retry context timeout. These are actual HTTP exchanges between both repository implementations, **not an assertion that remote staging has passed**.
 
-## Remote staging plan — not executed
+## Remote staging procedure and remaining full-application checks
 
 1. Review both PRs and this contract. Select isolated staging deployments and dedicated synthetic fixture loaders; do not attach real bookings or provider transports.
 2. Mount the handler factories at the proposed paths only on staging, behind existing durable HMAC auth/nonce reservation. Keep production routes and all sender flags untouched. Deployment/configuration is a separate reviewed action; none performed here.
@@ -103,13 +103,26 @@ Covered: both lifecycle events, open/closed windows, associated app account, rec
 5. Exercise real PostgreSQL operator/claim barrier races separately in an isolated existing test database. Loopback/in-memory tests do not prove distributed locks, real deployment routing or runtime grants.
 6. Only after this passes prepare the separate owner-approved controlled-send packet. This contract review does not authorize sends, migrations, Meta writes or publication live. No new SQL migration is required by this v2 rehearsal.
 
-## Verification recorded for this revision
+## Verification before remote staging installation
 
 - 20 NAC notification/gateway/lifecycle tests passed after integration of review fixes.
 - Two new cross-application tests passed: 28 lifecycle/scenario combinations plus security, mapping, race, timeout, freshness and receipt assertions. Latest run exchanged 44 signed NAC context requests between real loopback HTTP servers; zero provider calls.
 - 26 existing relevant TaxiCRM template/shared gateway/dispatcher tests passed.
 - TypeScript passed in both repositories; targeted NAC ESLint passed; both Next application builds passed with synthetic unavailable database URLs. Local Prisma generation is not a database migration.
 - Shared protocol byte-parity check passed. Existing v1 validation/callbacks, live dispatcher, operator barrier and canonical ingest are unchanged.
-- The original regression SQL tests use isolated PGlite only. The new v2 integration harness uses no database and applies no migration. No production/staging configuration was changed, no remote staging installation was exercised, and no real SMS/WhatsApp or Meta template mutation occurred.
+- The original regression SQL tests use isolated PGlite only. The new v2 integration harness uses no database and applies no migration. At that earlier verification step, no production/staging configuration had been changed and remote staging had not yet been exercised. No real SMS/WhatsApp or Meta template mutation occurred.
 
 Local evidence: `/workspace/artifacts/notifications-v2/cross-application-report.json`. The report contains synthetic scenario reasons and counts, not service credentials, raw webhooks or real customer details.
+
+## Remote isolated staging execution — 2026-11-04
+
+Owner-authorized execution is complete in a separate Coolify `notifications-v2-staging` environment. Two small, separate role services mount the NAC and pinned CRM v2 handler code. They do not run the full Next applications, booking ingestion, scheduled workers or provider adapters. Production apps and Meta webhook are unchanged.
+
+- Tested deployment commit: `50a73e508a4556554df93b2aa0850925ca49bfd4`.
+- 44 event/scenario combinations passed over verified HTTPS between the role services.
+- Both services rejected replay after full Coolify restart while the signatures were still valid; fresh requests succeeded with their persistent storage identities preserved.
+- Per-role named volumes persist SQLite WAL nonce/fixture/counter state. This proves durable staging anti-replay, **not** production PostgreSQL distributed handoff/dispatch locking.
+- Runtime audit: staging-only identities; no production DB/provider credentials; no-send flag set; provider endpoints absent; egress restricted to the NAC context-preview peer route.
+- No WhatsApp/SMS messages, actual booking changes, production migrations or live application publication. Production application read-only health checks remained healthy.
+
+Evidence is versioned in `evidence/remote-staging-20261104.json`. Runtime setup, commands and isolation limits are documented in `staging/notifications/README.md`. Full Next route/middleware integration, real canonical account/grant resolution, secure live link issuance, Meta sender adapters and isolated PostgreSQL race tests remain pending. No controlled real send is authorized by these staging results.
