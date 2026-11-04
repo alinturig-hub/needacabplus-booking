@@ -41,7 +41,7 @@ export async function fullStageControlPOST(request:Request){try{
  if(input.action==='history'){
   if(typeof input.booking_id!=='string'||!input.booking_id.startsWith('SYNTHETIC-'))throw Error('INVALID_STAGE_BOOKING');
   const events=(await db.query('SELECT result FROM notification_stage_delivery WHERE scope=$1 AND operation_key LIKE $2',[scope,'autocab:'+input.booking_id+':%'])).rows;
-  return Response.json({mode:'DRY_RUN',notification_decisions:(await db.query('SELECT decision FROM notification_decisions WHERE booking_id=$1',[input.booking_id])).rows,events:events.map(r=>r.result),messages:(await db.query(`SELECT content,status,"providerMessageId" FROM "WhatsAppMessage" WHERE scope=$1 AND content->>'booking_id'=$2`,[scope,input.booking_id])).rows,shared_events:(await db.query(`SELECT type,payload FROM "WhatsAppSharedEvent" WHERE scope=$1 AND payload->>'booking_id'=$2`,[scope,input.booking_id])).rows});
+  return Response.json({mode:'DRY_RUN',real_queued_intents:Number((await db.query(`SELECT count(*) AS n FROM "WhatsAppServiceIntent" WHERE scope=$1 AND status IN ('HELD','SENDING')`,[scope])).rows[0].n),notification_decisions:(await db.query('SELECT decision FROM notification_decisions WHERE booking_id=$1',[input.booking_id])).rows,events:events.map(r=>r.result),messages:(await db.query(`SELECT content,status,"providerMessageId" FROM "WhatsAppMessage" WHERE scope=$1 AND content->>'booking_id'=$2`,[scope,input.booking_id])).rows,shared_events:(await db.query(`SELECT type,payload FROM "WhatsAppSharedEvent" WHERE scope=$1 AND payload->>'booking_id'=$2`,[scope,input.booking_id])).rows});
  }
  throw Error('INVALID_STAGE_ACTION');
  }catch(e){return v2Error(e)}}
