@@ -1,3 +1,4 @@
+import {fullStageGuard} from '@/lib/notifications/full/guard';
 import {isAdmin,sameOrigin} from '@/lib/security';
 import {database} from '@/lib/database';
 import {boundedBody} from '@/lib/whatsapp-service-auth';
@@ -6,11 +7,11 @@ import {rules,saveRule,history,recordDecision} from '@/lib/notifications/store';
 import {fixture,scenarios,type Scenario} from '@/lib/notifications/fixtures';
 import {decide} from '@/lib/notifications/engine';
 export const dynamic='force-dynamic';
-function enabled(){return process.env.NOTIFICATIONS_DEVELOPMENT_ENABLED==='true'&&process.env.NODE_ENV!=='production'}
+function enabled(){if(process.env.NOTIFICATIONS_FULL_STAGE==='true'){fullStageGuard();return true}return process.env.NOTIFICATIONS_DEVELOPMENT_ENABLED==='true'&&process.env.NODE_ENV!=='production'}
 export async function GET(request:Request){
  if(!await isAdmin())return Response.json({error:'Admin access required.'},{status:403});
  if(!enabled())return Response.json({enabled:false,mode:'DRY_RUN',rules:[],history:{items:[],nextCursor:null},notice:'Development workspace is not enabled. No sending is available.'});
- try{const p=new URL(request.url).searchParams;return Response.json({enabled:true,mode:'DRY_RUN',rules:await rules(database()),history:await history(database(),{booking:p.get('booking')||undefined,event:p.get('event')||undefined,channel:p.get('channel')||undefined,rule:p.get('rule')||undefined,result:p.get('result')||undefined,before:p.get('before')||undefined})},{headers:{'Cache-Control':'no-store'}})}catch{return Response.json({error:'Development notification storage is unavailable. Apply the development migration first.'},{status:503})}
+ try{const p=new URL(request.url).searchParams;return Response.json({enabled:true,fullStage:process.env.NOTIFICATIONS_FULL_STAGE==='true',mode:'DRY_RUN',rules:await rules(database()),history:await history(database(),{booking:p.get('booking')||undefined,event:p.get('event')||undefined,channel:p.get('channel')||undefined,rule:p.get('rule')||undefined,result:p.get('result')||undefined,before:p.get('before')||undefined})},{headers:{'Cache-Control':'no-store'}})}catch{return Response.json({error:'Development notification storage is unavailable. Apply the development migration first.'},{status:503})}
 }
 export async function POST(request:Request){
  if(!await isAdmin()||!sameOrigin(request))return Response.json({error:'Admin access required.'},{status:403});
