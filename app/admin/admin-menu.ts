@@ -16,6 +16,7 @@ export const adminMenuGroups:AdminMenuGroup[]=[
  {id:'operations',label:'Operations',description:'Manage the fleet, Hackney services and operational resources.',icon:CarFront,items:[
   {label:'Fleet — Drivers',href:'/admin/drivers',description:'Driver records and synchronization status.'},
   {label:'Fleet — Vehicles',href:'/admin/vehicles',description:'Vehicle types, fleet records and documents.'},
+  {label:'eBookers',href:'/admin/configuration/ebookers',description:'Create partner booking links with preset or fixed pickup locations.'},
   {label:'Hackney',href:'/admin/hackney',description:'Hackney booking groups, activity and classification settings.'},
  ]},
  {id:'configuration',label:'Configuration',description:'Configure integrations, booking rules, fares and operational services.',icon:SlidersHorizontal,items:[

@@ -4,7 +4,7 @@ import type {FareQuote} from './quotes';
 const amount=z.number().finite().nonnegative().max(100000);
 export const passengerDetailsSchema=z.object({
  name:z.string().trim().min(2).max(100),telephoneNumber:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),
- customerEmail:z.string().email().max(250),passengers:z.number().int().min(1).max(6),luggage:z.number().int().min(0).max(20),
+ customerEmail:z.union([z.string().email().max(250),z.literal('')]),passengers:z.number().int().min(1).max(6),luggage:z.number().int().min(0).max(20),
  driverNote:z.string().trim().max(300).default(''),
 }).strict();
 
@@ -31,7 +31,7 @@ export function buildAutocabBookingRequest(quote:FareQuote,details:z.infer<typeo
  // Whitelist the documented fields; quote examples and account/return IDs must not leak in.
  return {
   companyId:source.companyId,...(source.customerId?{customerId:source.customerId,yourReferences:{yourReference1:reference}}:{}),capabilities:[...source.capabilities],bookingSource:'ThirdPartyWebsite',
-  ...passenger,officeNote:`WebApp payment method: ${quote.paymentMethod||'card'}. Payment is not confirmed by this request.`,passengers:String(passenger.passengers),ourReference:reference,
+  ...passenger,...(!passenger.customerEmail?{customerEmail:undefined}:{}),officeNote:`WebApp payment method: ${quote.paymentMethod||'card'}. Payment is not confirmed by this request.`,passengers:String(passenger.passengers),ourReference:reference,
   pickup:structuredClone(source.pickup),destination:structuredClone(source.destination),vias:structuredClone(source.vias),
   driverConstraints:structuredClone(source.driverConstraints),vehicleConstraints:structuredClone(source.vehicleConstraints),
   pickupDueTime:due,pickupDueTimeUtc:due,
@@ -50,5 +50,5 @@ export function bookingCreateUrl(baseUrl:string,path:string,method:string){
 
 export function buildLiveCashBookingRequest(quote:FareQuote,details:z.infer<typeof passengerDetailsSchema>,now=new Date()){
  if(quote.paymentMethod!=='cash'||!quote.liveBooking)throw new Error('A live cash quote is required.');
- return {...buildAutocabBookingRequest(quote,details,now),hold:false,officeNote:'WebApp cash booking. Customer pays the driver.'};
+ return {...buildAutocabBookingRequest(quote,details,now),hold:false,officeNote:quote.ebooker?`eBooker ${quote.ebooker.name} [${quote.ebooker.id}]. Cash booking. Customer pays the driver.`:'WebApp cash booking. Customer pays the driver.'};
 }
