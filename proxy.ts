@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {autocabRoute} from '@/lib/integration-routes';
+import {EBOOKER_HOST,DEFAULT_EBOOKER_SLUG} from '@/lib/ebooker-links';
 
 const canonicalHosts:Record<string,string>={
  'www.admin.needacabplus.app':'admin.needacabplus.app',
@@ -15,12 +16,13 @@ export async function proxy(request:NextRequest){
  const canonical=canonicalHosts[host];
  if(canonical){const url=request.nextUrl.clone();url.protocol='https:';url.hostname=canonical;url.port='';return NextResponse.redirect(url,308)}
  const path=request.nextUrl.pathname;
+ if(host===EBOOKER_HOST&&path==='/'){const url=request.nextUrl.clone();url.pathname='/ebooker/'+DEFAULT_EBOOKER_SLUG;return NextResponse.rewrite(url)}
  if(autocabRoute(path,request.method,request.nextUrl.searchParams.get('model'))||path.startsWith('/admin/configuration/integrations/autocab')){
   try{const {autocabIntegrationEnabled}=await import('@/lib/integration-control');if(!await autocabIntegrationEnabled()){if(path.startsWith('/admin/'))return NextResponse.redirect(new URL('/admin/configuration/integrations',request.url));return NextResponse.json({error:'Autocab integration is disabled.',code:'AUTOCAB_DISABLED'},{status:503,headers:{'Cache-Control':'no-store'}})}}catch{return NextResponse.json({error:'Integration status unavailable.'},{status:503})}
  }
  if(host==='drivers.needacabplus.app'&&path==='/')return NextResponse.rewrite(new URL('/driver',request.url));
  if(host==='dispatch.needacabplus.app'&&path==='/')return NextResponse.redirect(new URL('/dispatch',request.url));
- if(host==='admin.needacabplus.app'||host==='webapp.needacabplus.app'){
+ if(host==='admin.needacabplus.app'||host==='webapp.needacabplus.app'||host===EBOOKER_HOST){
   const destination=path==='/admin/dispatcher'?'/dispatch':path==='/admin/dispatch'?'/dispatch/analysis':path==='/admin/live-map'?'/dispatch/map':path==='/dispatch'||path.startsWith('/dispatch/')?path:null;
   if(destination){
    const dispatchHostReady=process.env.DISPATCH_DOMAIN_ENABLED==='true';
@@ -29,7 +31,7 @@ export async function proxy(request:NextRequest){
    return NextResponse.redirect(url,308);
   }
  }
- if((host==='dispatch.needacabplus.app'||host==='drivers.needacabplus.app')&&(path==='/admin-login'||path==='/admin'||path.startsWith('/admin/'))||host==='webapp.needacabplus.app'&&(path==='/admin-login'||path==='/admin'||path.startsWith('/admin/'))){
+ if((host==='dispatch.needacabplus.app'||host==='drivers.needacabplus.app')&&(path==='/admin-login'||path==='/admin'||path.startsWith('/admin/'))||(host==='webapp.needacabplus.app'||host===EBOOKER_HOST)&&(path==='/admin-login'||path==='/admin'||path.startsWith('/admin/'))){
   const url=request.nextUrl.clone();url.protocol='https:';url.hostname='admin.needacabplus.app';url.port='';return NextResponse.redirect(url,308);
  }
  return NextResponse.next();
