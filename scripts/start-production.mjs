@@ -17,6 +17,7 @@ try{
  if(!externalSchema){
   await pool.query(await readFile(new URL('../db/init.sql',import.meta.url),'utf8'));
  }
+ try{const {normalizeApiConnections}=await import('./normalize-api-connections.mjs');console.log('API connection normalization',await normalizeApiConnections(pool))}catch(error){console.error('API connection normalization skipped',typeof error?.code==='string'?error.code:'configuration-error')}
  if(retainPositions){
   await pool.query('DELETE FROM driver_positions WHERE COALESCE(recorded_at,received_at)<now()-make_interval(days=>$1)',[retentionDays()]);
  }

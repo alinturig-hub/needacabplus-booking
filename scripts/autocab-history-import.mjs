@@ -1,3 +1,4 @@
+import {historyConnectionLookup} from './normalize-api-connections.mjs';
 import {requireAutocabForJob} from './integration-guard.mjs';
 import pg from 'pg';
 import {createDecipheriv,createHash} from 'node:crypto';
@@ -146,7 +147,7 @@ export async function apiKey(env){
  const source=new pg.Client({connectionString:env.DATABASE_URL,connectionTimeoutMillis:10000});
  try{
   await source.connect();await source.query('BEGIN READ ONLY');
-  const {rows}=await source.query(`SELECT auth_type,api_key_header,credentials_encrypted FROM api_connections WHERE provider='autocab' AND base_url LIKE 'https://autocab-api.azure-api.net%' AND id=$1::uuid LIMIT 1`,[env.AUTOCAB_HISTORY_CONNECTION_ID]);
+  const {rows}=await source.query(historyConnectionLookup,[env.AUTOCAB_HISTORY_CONNECTION_ID]);
   await source.query('ROLLBACK');const r=rows[0];
   if(r?.auth_type!=='api_key'||r.api_key_header?.toLowerCase()!=='ocp-apim-subscription-key')throw new Error('A direct Autocab subscription-key connection is required');
   const secret=env.CREDENTIALS_ENCRYPTION_KEY||env.ADMIN_SESSION_SECRET;
