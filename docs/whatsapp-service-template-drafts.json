@@ -1,0 +1,84 @@
+[
+  {
+    "milestone": "booking.confirmed",
+    "name": "nac_booking_confirmation_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "text": "Your Need A Cab Plus booking {{1}} is confirmed. Please contact our team if your journey details change.",
+    "parameterKeys": [
+      "booking_id"
+    ],
+    "samples": [
+      "100"
+    ]
+  },
+  {
+    "milestone": "driver.assigned",
+    "name": "nac_driver_on_the_way_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "text": "Your driver is on the way for booking {{1}}. Driver: {{2}}. Vehicle registration: {{3}}. Please be ready at your agreed pickup point.",
+    "parameterKeys": [
+      "booking_id",
+      "driver_name",
+      "vehicle_registration"
+    ],
+    "samples": [
+      "100",
+      "Alex",
+      "AB12 CDE"
+    ]
+  },
+  {
+    "milestone": "driver.arrived",
+    "name": "nac_driver_arrived_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "text": "Your driver has arrived for booking {{1}}. Please meet your driver at your agreed pickup point.",
+    "parameterKeys": [
+      "booking_id"
+    ],
+    "samples": [
+      "100"
+    ]
+  },
+  {
+    "milestone": "journey.started",
+    "name": "nac_journey_started_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "text": "Your journey for booking {{1}} has started.",
+    "parameterKeys": [
+      "booking_id"
+    ],
+    "samples": [
+      "100"
+    ]
+  },
+  {
+    "milestone": "journey.completed",
+    "name": "nac_journey_completed_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "text": "Your journey for booking {{1}} is complete. Thank you for travelling with Need A Cab Plus.",
+    "parameterKeys": [
+      "booking_id"
+    ],
+    "samples": [
+      "100"
+    ]
+  },
+  {
+    "milestone": "booking.cancelled",
+    "name": "nac_booking_cancelled_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "text": "Your Need A Cab Plus booking {{1}} has been cancelled. Please contact our team if you need help with this booking.",
+    "parameterKeys": [
+      "booking_id"
+    ],
+    "samples": [
+      "100"
+    ]
+  }
+]
