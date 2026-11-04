@@ -1,3 +1,4 @@
+import {apiOriginSchema} from '@/lib/api-workspace-policy';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {database} from '@/lib/database';
@@ -7,14 +8,14 @@ import {isAdmin,sameOrigin,unavailable} from '@/lib/security';
 export const dynamic='force-dynamic';
 
 const connectionSchema=z.object({
- type:z.literal('connection'),name:z.string().trim().min(2).max(80),baseUrl:z.string().url().max(500).refine(value=>new URL(value).protocol==='https:','Use an HTTPS URL'),authType:z.enum(['none','api_key','bearer','basic']),apiKeyHeader:z.string().trim().min(1).max(100).default('x-api-key'),token:z.string().max(2000).default(''),username:z.string().max(250).default(''),password:z.string().max(1000).default('')
+ type:z.literal('connection'),name:z.string().trim().min(2).max(80),baseUrl:apiOriginSchema,authType:z.enum(['none','api_key','bearer','basic']),apiKeyHeader:z.string().trim().min(1).max(100).default('x-api-key'),token:z.string().max(2000).default(''),username:z.string().max(250).default(''),password:z.string().max(1000).default('')
 }).strict().superRefine((value,context)=>{if(value.authType==='api_key'||value.authType==='bearer'){if(!value.token)context.addIssue({code:'custom',message:'A token or API key is required',path:['token']})}if(value.authType==='basic'&&(!value.username||!value.password))context.addIssue({code:'custom',message:'Username and password are required',path:['username']})});
 
 const endpointSchema=z.object({
  type:z.literal('endpoint'),connectionId:z.string().uuid(),name:z.string().trim().min(2).max(100),actionKey:z.string().trim().regex(/^[a-z][a-z0-9_.-]{2,79}$/),method:z.enum(['GET','POST','PUT','PATCH','DELETE']),path:z.string().trim().min(1).max(500).refine(value=>value.startsWith('/')&&!value.startsWith('//'),'Path must start with /'),description:z.string().trim().max(500).default(''),requestExample:z.string().trim().min(2).max(100000).refine(value=>{try{JSON.parse(value);return true}catch{return false}},'Request example must be valid JSON')
 }).strict();
 
-const connectionUpdateSchema=z.object({type:z.literal('connection'),id:z.string().uuid(),name:z.string().trim().min(2).max(80),baseUrl:z.string().url().max(500).refine(value=>new URL(value).protocol==='https:','Use an HTTPS URL'),authType:z.enum(['none','api_key','bearer','basic']),apiKeyHeader:z.string().trim().min(1).max(100),token:z.string().max(2000).optional().default(''),username:z.string().max(250).optional().default(''),password:z.string().max(1000).optional().default('')}).strict();
+const connectionUpdateSchema=z.object({type:z.literal('connection'),id:z.string().uuid(),name:z.string().trim().min(2).max(80),baseUrl:apiOriginSchema,authType:z.enum(['none','api_key','bearer','basic']),apiKeyHeader:z.string().trim().min(1).max(100),token:z.string().max(2000).optional().default(''),username:z.string().max(250).optional().default(''),password:z.string().max(1000).optional().default('')}).strict();
 const endpointUpdateSchema=endpointSchema.omit({type:true}).extend({type:z.literal('endpoint'),id:z.string().uuid()});
 
 export async function GET(){
@@ -83,5 +84,24 @@ export async function PUT(request:Request){
 export async function DELETE(request:Request){
  if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
  let body;try{body=z.object({type:z.enum(['connection','endpoint']),id:z.string().uuid()}).strict().parse(await request.json())}catch{return Response.json({error:'Invalid delete request.'},{status:400})}
- try{const table=body.type==='connection'?'api_connections':'api_endpoints';const result=await database().query(`DELETE FROM ${table} WHERE id=$1`,[body.id]);if(!result.rowCount)return Response.json({error:'Item not found.'},{status:404});return Response.json({ok:true})}catch(error){return unavailable(error)}
+ try{
+  if(body.type==='connection'){
+   const client=await database().connect();
+   try{
+    await client.query('BEGIN');
+    const owner=await client.query("SELECT id FROM api_connections WHERE id=$1 AND provider='autocab' FOR UPDATE",[body.id]);
+    if(!owner.rowCount){await client.query('ROLLBACK');return Response.json({error:'Connection not found.'},{status:404})}
+    const used=await client.query('SELECT id FROM api_endpoints WHERE connection_id=$1 LIMIT 1',[body.id]);
+    if(used.rowCount){await client.query('ROLLBACK');return Response.json({error:'Move or remove this connection’s endpoints before deleting it.'},{status:409})}
+    await client.query('DELETE FROM api_connections WHERE id=$1',[body.id]);await client.query('COMMIT');return Response.json({ok:true});
+   }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
+  }
+  const result=await database().query("DELETE FROM api_endpoints e USING api_connections c WHERE e.id=$1 AND e.connection_id=c.id AND c.provider='autocab'",[body.id]);return result.rowCount?Response.json({ok:true}):Response.json({error:'Endpoint not found.'},{status:404});
+ }catch(error){return unavailable(error)}
+}
+
+export async function PATCH(request:Request){
+ if(!sameOrigin(request)||!await isAdmin())return Response.json({error:'Administrator access required.'},{status:403});
+ const parsed=z.object({id:z.string().uuid(),enabled:z.boolean()}).strict().safeParse(await request.json().catch(()=>null));if(!parsed.success)return Response.json({error:'Choose an endpoint and enabled state.'},{status:400});
+ try{const result=await database().query("UPDATE api_endpoints e SET enabled=$1,updated_at=now() FROM api_connections c WHERE e.id=$2 AND e.connection_id=c.id AND c.provider='autocab' RETURNING e.id",[parsed.data.enabled,parsed.data.id]);return result.rowCount?Response.json({ok:true}):Response.json({error:'Endpoint not found.'},{status:404})}catch(error){return unavailable(error)}
 }

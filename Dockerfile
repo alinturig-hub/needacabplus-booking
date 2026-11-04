@@ -19,6 +19,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.mjs ./scripts/start-production.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/normalize-api-connections.mjs ./scripts/normalize-api-connections.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-local-drivers.mjs ./scripts/migrate-local-drivers.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrations/20261015_local_drivers.sql ./scripts/migrations/20261015_local_drivers.sql
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/bootstrap-taxicrm-reader.mjs ./scripts/bootstrap-taxicrm-reader.mjs
