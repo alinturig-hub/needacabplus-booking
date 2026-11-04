@@ -1,0 +1,10 @@
+import {boundedBody,verifyService,signedHeaders} from './service-auth';
+import {previewNotification,type PreviewDependencies} from './notifications-v2-preview';
+import type {IntentV2,GatewayState} from './notifications-v2-contract';
+export type PreviewAuth={keyId:string;secret:string;reserve:(nonce:string)=>Promise<boolean>};
+export function previewHandler(auth:PreviewAuth,dependencies:PreviewDependencies){return async(request:Request)=>{try{const body=await boundedBody(request);await verifyService(request,body,auth.keyId,auth.secret,auth.reserve);let input;try{input=JSON.parse(body)}catch{throw Error('INVALID_V2_JSON')}return Response.json(await previewNotification(input,dependencies),{headers:{'Cache-Control':'no-store'}})}catch(e){const code=e instanceof Error?e.message:'';const status=['UNAUTHORIZED','REPLAY'].includes(code)?401:code==='WRONG_SCOPE'?403:code.includes('CONFLICT')?409:code.startsWith('INVALID')?422:code==='BODY_TOO_LARGE'?413:503;return Response.json({error:status===503?'V2_PREVIEW_UNAVAILABLE':code},{status,headers:{'Cache-Control':'no-store'}})}}}
+export async function readNacContext(origin:string,intent:IntentV2,state:GatewayState,keyId:string,secret:string,fetcher:typeof fetch=fetch){
+ const u=new URL(origin);if(u.protocol!=='https:'||u.username||u.password)throw Error('INVALID_NAC_ORIGIN');const path='/api/internal/notifications/v2/context-preview',body=JSON.stringify({intent,gateway_state:state});
+ const response=await fetcher(new URL(path,u),{method:'POST',body,headers:{'Content-Type':'application/json',...signedHeaders('POST',path,body,keyId,secret)},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(8000)});
+ if(!response.ok)throw Error('V2_CONTEXT_UNAVAILABLE');const reader=response.body?.getReader();if(!reader)throw Error('INVALID_V2_RESPONSE');let size=0;const chunks:Uint8Array[]=[];for(;;){const p=await reader.read();if(p.done)break;size+=p.value.byteLength;if(size>32768){await reader.cancel();throw Error('BODY_TOO_LARGE')}chunks.push(p.value)}return JSON.parse(new TextDecoder().decode(Buffer.concat(chunks))) as unknown;
+}
