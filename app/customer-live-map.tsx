@@ -3,7 +3,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource} from 'maplibre-gl';
 import {useJourneyTiming} from './use-journey-timing';
 import {visibleNearbyCars,visibleMapCars,type CarMapBounds,type JourneyTiming} from '@/lib/journey-timing';
-import {fallbackMapStyle} from '@/lib/browser-map-style';
+import {fallbackMapStyle,selectedMapStyle} from '@/lib/browser-map-style';
 import {customerRoadRouteDetails} from '@/lib/customer-road-route';
 
 type Coordinate={latitude:number;longitude:number};
@@ -73,7 +73,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   let mounted=true;
   let activeStyle=darkTheme()?'osm-dark':'osm-light',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
   const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
-  const syncTheme=()=>{const theme=darkTheme()?'dark':'light',next=styleUrls?(theme==='dark'?styleUrls.darkStyleUrl:styleUrls.lightStyleUrl):null,key=next||`osm-${theme}`;if(key!==activeStyle){activeStyle=key;map.setStyle(next||fallbackMapStyle(theme));map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
+  const syncTheme=()=>{const theme=darkTheme()?'dark':'light',next=styleUrls?selectedMapStyle(theme,styleUrls):null,key=next||`osm-${theme}`;if(key!==activeStyle){activeStyle=key;map.setStyle(next||fallbackMapStyle(theme));map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
   const onStyleError=(event:unknown)=>{const issue=event as {sourceId?:string;error?:{url?:string}};if(!mounted||activeStyle.startsWith('osm-')||issue.sourceId==='osm'||issue.error?.url?.startsWith('https://tile.openstreetmap.org/'))return;styleUrls=null;activeStyle=darkTheme()?'osm-dark':'osm-light';map.once('style.load',restoreStyle);map.setStyle(fallbackMapStyle(darkTheme()?'dark':'light'))};
   map.on('error',onStyleError);
   const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
