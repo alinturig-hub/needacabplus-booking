@@ -64,3 +64,5 @@ This proves the guarded application integration with simulated transport, not pr
 A synthetic `@notifications.invalid` administrator is provisioned only through the guarded, signed staging bootstrap. Its tables use the existing User/RBAC migration definitions; login uses the unchanged NextAuth credentials provider, bcrypt and real session cookie. The existing dashboard conversation routes enforce RBAC. No forged session or authentication bypass is used.
 
 The actual shared inbox displays the simulated completed messages. Clicking its existing **Take over conversation** button updates the common conversation through the real authenticated route. A subsequently created synthetic NAC booking returns OPERATOR_TAKEOVER with no provider call. Explicit **Release to automation** is then verified. See `evidence/full-next/crm-ui-report.json`.
+
+The subsequent send-adapter and in-flight 24h-window milestone is documented in [ADAPTERS.md](ADAPTERS.md), with a separate owner-test approval proposal. No live v2 dispatcher is activated.

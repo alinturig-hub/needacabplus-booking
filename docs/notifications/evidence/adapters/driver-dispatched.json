@@ -1,0 +1,653 @@
+{
+  "passed": true,
+  "routes": "real Next application handlers",
+  "database": "isolated PostgreSQL",
+  "transport": "SIMULATED",
+  "providerCalls": 0,
+  "checks": [
+    {
+      "event": "driver.dispatched",
+      "case": "closed",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-3d90c633-ae04-46dd-9407-7584d7e6f6af:driver.assigned:+447700900001:1793837212400",
+        "booking_id": "autocab:SYNTHETIC-3d90c633-ae04-46dd-9407-7584d7e6f6af",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 100,
+        "checked_at": "2026-11-05T00:06:55.219Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-3d90c633-ae04-46dd-9407-7584d7e6f6af.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-3d90c633-ae04-46dd-9407-7584d7e6f6af"
+          },
+          {
+            "variable": "3",
+            "source": "driver_name",
+            "value": "Demo Driver"
+          },
+          {
+            "variable": "4",
+            "source": "vehicle_registration",
+            "value": "DEMO 001"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      },
+      "exact_simulated_payloads": [
+        {
+          "to": "447700900001",
+          "type": "template",
+          "template": {
+            "name": "synthetic_driver_dispatched",
+            "language": {
+              "code": "en_GB"
+            },
+            "components": [
+              {
+                "type": "body",
+                "parameters": [
+                  {
+                    "text": "Demo Passenger",
+                    "type": "text"
+                  },
+                  {
+                    "text": "SYNTHETIC-3d90c633-ae04-46dd-9407-7584d7e6f6af",
+                    "type": "text"
+                  },
+                  {
+                    "text": "Demo Driver",
+                    "type": "text"
+                  },
+                  {
+                    "text": "DEMO 001",
+                    "type": "text"
+                  }
+                ]
+              }
+            ]
+          },
+          "messaging_product": "whatsapp"
+        }
+      ]
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "open",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-65455190-6507-4d23-b338-1d6c9bea71a3:driver.assigned:+447700900001:1793837214787",
+        "booking_id": "autocab:SYNTHETIC-65455190-6507-4d23-b338-1d6c9bea71a3",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 101,
+        "checked_at": "2026-11-05T00:06:56.348Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "text",
+        "rendered_text": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-65455190-6507-4d23-b338-1d6c9bea71a3.",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      },
+      "exact_simulated_payloads": [
+        {
+          "to": "447700900001",
+          "text": {
+            "body": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-65455190-6507-4d23-b338-1d6c9bea71a3.",
+            "preview_url": false
+          },
+          "type": "text",
+          "messaging_product": "whatsapp"
+        }
+      ]
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "app-account",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-e31d4b15-fa8b-48e2-8d6c-8f1b031a2408:driver.assigned:+447700900001:1793837215899",
+        "booking_id": "autocab:SYNTHETIC-e31d4b15-fa8b-48e2-8d6c-8f1b031a2408",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 102,
+        "checked_at": "2026-11-05T00:06:57.466Z",
+        "result": "omitted",
+        "reason": "APP_NOTIFICATION_FLOW_SELECTED",
+        "explanations": [],
+        "channel": "app",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "cancelled",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-06707ee8-5f15-467e-9303-83b90181b634:driver.assigned:+447700900001:1793837216846",
+        "booking_id": "autocab:SYNTHETIC-06707ee8-5f15-467e-9303-83b90181b634",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 103,
+        "checked_at": "2026-11-05T00:06:58.404Z",
+        "result": "blocked",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "expired",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-f3af87f4-0da3-44ba-96c3-4f5ab7eb2db0:driver.assigned:+447700900001:1793833618776",
+        "booking_id": "autocab:SYNTHETIC-f3af87f4-0da3-44ba-96c3-4f5ab7eb2db0",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 104,
+        "checked_at": "2026-11-05T00:06:59.322Z",
+        "result": "blocked",
+        "reason": "NOTIFICATION_EXPIRED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "unapproved",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-31473525-42c2-4f19-af6e-a240958466d5:driver.assigned:+447700900001:1793837218695",
+        "booking_id": "autocab:SYNTHETIC-31473525-42c2-4f19-af6e-a240958466d5",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 105,
+        "checked_at": "2026-11-05T00:07:00.237Z",
+        "result": "blocked",
+        "reason": "TEMPLATE_NOT_APPROVED",
+        "explanations": [],
+        "channel": "none",
+        "content_mode": "template",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "missing-field",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-ef0a420b-f353-482c-b44d-ba5012492144:driver.assigned:+447700900001:1793837219607",
+        "booking_id": "autocab:SYNTHETIC-ef0a420b-f353-482c-b44d-ba5012492144",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 106,
+        "checked_at": "2026-11-05T00:07:01.148Z",
+        "result": "blocked",
+        "reason": "REQUIRED_BOOKING_FIELD_MISSING",
+        "explanations": [
+          "Missing customer_name"
+        ],
+        "channel": "none",
+        "content_mode": "template",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "no-grant",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-c4367060-7a4a-42f7-bb84-175e46ed4338:driver.assigned:+447700900001:1793837220528",
+        "booking_id": "autocab:SYNTHETIC-c4367060-7a4a-42f7-bb84-175e46ed4338",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 107,
+        "checked_at": "2026-11-05T00:07:02.070Z",
+        "result": "blocked",
+        "reason": "SERVICE_PERMISSION_REQUIRED",
+        "explanations": [],
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "suppressed",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-cc58541a-8379-43db-992a-7f23de4f5cc5:driver.assigned:+447700900001:1793837221434",
+        "booking_id": "autocab:SYNTHETIC-cc58541a-8379-43db-992a-7f23de4f5cc5",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 108,
+        "checked_at": "2026-11-05T00:07:02.990Z",
+        "result": "blocked",
+        "reason": "RECIPIENT_SUPPRESSED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "12-concurrent-duplicates",
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      },
+      "exact_simulated_payloads": [
+        {
+          "to": "447700900001",
+          "type": "template",
+          "template": {
+            "name": "synthetic_driver_dispatched",
+            "language": {
+              "code": "en_GB"
+            },
+            "components": [
+              {
+                "type": "body",
+                "parameters": [
+                  {
+                    "text": "Demo Passenger",
+                    "type": "text"
+                  },
+                  {
+                    "text": "SYNTHETIC-d8fc06ce-dd43-44f5-918a-f14031d2e0f7",
+                    "type": "text"
+                  },
+                  {
+                    "text": "Demo Driver",
+                    "type": "text"
+                  },
+                  {
+                    "text": "DEMO 001",
+                    "type": "text"
+                  }
+                ]
+              }
+            ]
+          },
+          "messaging_product": "whatsapp"
+        }
+      ]
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "cancel-during-simulation",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-f8a3e504-43b8-4f92-8994-4f604907a3bc:driver.assigned:+447700900001:1793837223585",
+        "booking_id": "autocab:SYNTHETIC-f8a3e504-43b8-4f92-8994-4f604907a3bc",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 110,
+        "checked_at": "2026-11-05T00:07:07.312Z",
+        "result": "blocked",
+        "reason": "BOOKING_CANCELLED",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      }
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "dispatch-first-handoff-waits",
+      "waiters": 1,
+      "previous": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-ad0d7527-56fe-4333-8f75-3062a9300d0d:driver.assigned:+447700900001:1793837226680",
+        "booking_id": "autocab:SYNTHETIC-ad0d7527-56fe-4333-8f75-3062a9300d0d",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 111,
+        "checked_at": "2026-11-05T00:07:08.410Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-ad0d7527-56fe-4333-8f75-3062a9300d0d.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-ad0d7527-56fe-4333-8f75-3062a9300d0d"
+          },
+          {
+            "variable": "3",
+            "source": "driver_name",
+            "value": "Demo Driver"
+          },
+          {
+            "variable": "4",
+            "source": "vehicle_registration",
+            "value": "DEMO 001"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "after_ack": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-46a1bd5e-0516-4d0b-8a06-10ab1a725f64:driver.assigned:+447700900001:1793837229778",
+        "booking_id": "autocab:SYNTHETIC-46a1bd5e-0516-4d0b-8a06-10ab1a725f64",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 112,
+        "checked_at": "2026-11-05T00:07:12.981Z",
+        "result": "blocked",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      }
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "handoff-first-dispatch-blocks",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-a0893f2d-174d-465f-9c2c-87c64e99f892:driver.assigned:+447700900001:1793837232348",
+        "booking_id": "autocab:SYNTHETIC-a0893f2d-174d-465f-9c2c-87c64e99f892",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 114,
+        "checked_at": "2026-11-05T00:07:15.765Z",
+        "result": "blocked",
+        "reason": "OPERATOR_TAKEOVER",
+        "channel": "none",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "advisoryWaiters": 1
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "window-expiring",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-a34ae5c8-20a4-409e-96ee-fe5f653604f4:driver.assigned:+447700900001:1793837235136",
+        "booking_id": "autocab:SYNTHETIC-a34ae5c8-20a4-409e-96ee-fe5f653604f4",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 115,
+        "checked_at": "2026-11-05T00:07:21.887Z",
+        "result": "ready",
+        "reason": "PREVIEW_READY",
+        "explanations": [],
+        "channel": "whatsapp",
+        "content_mode": "template",
+        "rendered_text": "Hello Demo Passenger, Demo Driver is on the way in DEMO 001. Booking SYNTHETIC-a34ae5c8-20a4-409e-96ee-fe5f653604f4.",
+        "body_parameters": [
+          {
+            "variable": "1",
+            "source": "customer_name",
+            "value": "Demo Passenger"
+          },
+          {
+            "variable": "2",
+            "source": "booking_id",
+            "value": "SYNTHETIC-a34ae5c8-20a4-409e-96ee-fe5f653604f4"
+          },
+          {
+            "variable": "3",
+            "source": "driver_name",
+            "value": "Demo Driver"
+          },
+          {
+            "variable": "4",
+            "source": "vehicle_registration",
+            "value": "DEMO 001"
+          }
+        ],
+        "button_parameters": [],
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "initial_content_mode": "text",
+      "history": {
+        "messages": 1,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": [
+          "SIMULATED"
+        ]
+      },
+      "exact_simulated_payloads": [
+        {
+          "to": "447700900001",
+          "type": "template",
+          "template": {
+            "name": "synthetic_driver_dispatched",
+            "language": {
+              "code": "en_GB"
+            },
+            "components": [
+              {
+                "type": "body",
+                "parameters": [
+                  {
+                    "text": "Demo Passenger",
+                    "type": "text"
+                  },
+                  {
+                    "text": "SYNTHETIC-a34ae5c8-20a4-409e-96ee-fe5f653604f4",
+                    "type": "text"
+                  },
+                  {
+                    "text": "Demo Driver",
+                    "type": "text"
+                  },
+                  {
+                    "text": "DEMO 001",
+                    "type": "text"
+                  }
+                ]
+              }
+            ]
+          },
+          "messaging_product": "whatsapp"
+        }
+      ]
+    },
+    {
+      "event": "driver.dispatched",
+      "case": "window-expiring-unapproved",
+      "decision": {
+        "schema_version": "2.0",
+        "mode": "DRY_RUN",
+        "idempotency_key": "autocab:SYNTHETIC-79044ebc-bfc7-4773-ac97-02c7cba81605:driver.assigned:+447700900001:1793837241269",
+        "booking_id": "autocab:SYNTHETIC-79044ebc-bfc7-4773-ac97-02c7cba81605",
+        "rule": {
+          "id": "driver-dispatched",
+          "version": 4
+        },
+        "conversation_id": "SYNTHETIC-CONVERSATION",
+        "conversation_revision": 116,
+        "checked_at": "2026-11-05T00:07:28.582Z",
+        "result": "blocked",
+        "reason": "TEMPLATE_NOT_APPROVED",
+        "explanations": [],
+        "channel": "none",
+        "content_mode": "template",
+        "provider_status": "NONE",
+        "provider_called": false
+      },
+      "initial_content_mode": "text",
+      "history": {
+        "messages": 0,
+        "notification_decisions": 1,
+        "shared_events": 1,
+        "real_queued_intents": 0,
+        "statuses": []
+      },
+      "exact_simulated_payloads": []
+    }
+  ]
+}

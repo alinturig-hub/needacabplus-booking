@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-05",
+  "isolated_postgresql": true,
+  "sending_enabled": false,
+  "provider_calls": 0,
+  "production_changes": false,
+  "tested": {
+    "nac": {
+      "origin": "https://tfz8ctgb0xupjw69vku1b7zl.144.76.63.11.sslip.io",
+      "commit": "9d2217ff68fd617260148bb8f8f54744cbc0569c"
+    },
+    "crm": {
+      "origin": "https://eqcd0c860djikhvkinzmtbpi.144.76.63.11.sslip.io",
+      "commit": "2b907101ca214efbe395af7416fc6e0b1f829dbe"
+    }
+  },
+  "unit_payload_and_transport_tests": 17,
+  "postgresql_existing_dispatch_tests": 9
+}

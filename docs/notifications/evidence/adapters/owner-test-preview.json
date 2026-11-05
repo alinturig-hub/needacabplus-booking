@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "state": "BLOCKED_PENDING_OWNER_APPROVAL",
+  "purpose": "One owner-only WhatsApp transport smoke test; not booking lifecycle activation",
+  "event": "booking.confirmed",
+  "booking_id": "SYNTHETIC-OWNER-TEST-20261105",
+  "maximum_provider_posts": 1,
+  "automatic_retries": 0,
+  "sms_fallback": false,
+  "live_booking_changes": false,
+  "production_migrations": false,
+  "production_deployment": false,
+  "sender": {
+    "app_id": "1800340067849051",
+    "waba_id": "4556038757974595",
+    "phone_number_id": "1406119395919653"
+  },
+  "recipient": {
+    "preview_only": "+447700900001",
+    "actual_owner_recipient": "NOT_CONFIRMED; bind in secure one-shot configuration, never infer from screenshots"
+  },
+  "template": {
+    "name": "nac_booking_confirmation_v1",
+    "language": "en_GB",
+    "category": "UTILITY",
+    "approval": "LIVE_APPROVAL_NOT_RECHECKED",
+    "metadata_id": "UNCONFIRMED",
+    "metadata_fingerprint": "UNCONFIRMED"
+  },
+  "rendered_text": "Your Need A Cab Plus booking SYNTHETIC-OWNER-TEST-20261105 is confirmed. Please contact our team if your journey details change.",
+  "preview_payload": {
+    "messaging_product": "whatsapp",
+    "to": "447700900001",
+    "type": "template",
+    "template": {
+      "name": "nac_booking_confirmation_v1",
+      "language": {
+        "code": "en_GB"
+      },
+      "components": [
+        {
+          "type": "body",
+          "parameters": [
+            {
+              "type": "text",
+              "text": "SYNTHETIC-OWNER-TEST-20261105"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "preview_payload_sha256": "65089d2c33bdf75aa7f19b74476ad2bc593ee59bda2b8cdaffd8ec571bfb0957",
+  "simulation": {
+    "transport": "SIMULATED",
+    "status": "ACCEPTED",
+    "real_provider_calls": 0
+  },
+  "required_before_approval": [
+    "Confirm the exact owner recipient privately and its service permission",
+    "Read the real approved UTILITY template metadata without modifying Meta; pin ID, language and fingerprint",
+    "Bind the actual recipient and approved snapshot, regenerate the exact final payload and its hash for owner review",
+    "Review a bounded one-shot execution path in the existing TaxiCRM claim/history transport; keep workers disabled",
+    "Approve only that payload hash, recipient, maximum one POST and expiry time"
+  ],
+  "stop_conditions": [
+    "Operator takeover or suppression",
+    "Permission/template/catalog mismatch",
+    "Expired approval or notification",
+    "Any existing claim for the same operation",
+    "UNKNOWN result: no resend and no SMS"
+  ],
+  "acceptance": [
+    "At most one provider request from TaxiCRM",
+    "Acceptance ID distinct from delivered/read webhook receipts",
+    "Common history and correlation preserved",
+    "Workers and global sending remain off after the test"
+  ]
+}

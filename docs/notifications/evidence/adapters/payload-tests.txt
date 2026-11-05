@@ -1,0 +1,25 @@
+✔ approval comes from the exact Meta template, language, category and supported body (37.843609ms)
+✔ send defaults disabled without a network call (1.686035ms)
+✔ mock accepted is not delivered; uses fixed origin and normalized recipient (43.883475ms)
+✔ timeout and malformed success become unknown with no automatic retry (0.725825ms)
+✔ provider server errors remain uncertain and never trigger fallback or a retry (0.707708ms)
+✔ exact positional body payload: ordering follows template, never approval examples (3.307802ms)
+✔ exact named body payload uses parameter_name (0.515758ms)
+✔ URL button suffixes keep original slots; static call needs no runtime parameter (1.111608ms)
+✔ exact free text and strict 24h boundary, with final transport margin (0.340674ms)
+✔ no payload on takeover, suppression, unknown outcome, expiry, or stale approval (0.856012ms)
+✔ media, dynamic headers and unimplemented quick replies/Flows fail closed (0.7088ms)
+✔ provider simulation preserves ACCEPTED vs UNKNOWN and has no retry/fallback path (0.748219ms)
+✔ the single dispatcher requires an explicit no-send environment (5.162247ms)
+✔ v1 shares the positional serializer without changing its payload (0.29149ms)
+✔ exact named/button HTTP payload passes through the single existing transport to a fake provider (25.350272ms)
+✔ text cannot cross HTTP boundary when eligible inbound window expired during preparation (1.055633ms)
+✔ all payload shapes remain disabled by default with no HTTP (0.512924ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 491.002026

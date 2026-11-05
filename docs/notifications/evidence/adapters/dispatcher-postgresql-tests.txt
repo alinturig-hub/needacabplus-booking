@@ -1,0 +1,17 @@
+✔ provider claim commits before HTTP; one send, complete common history and acceptance event (195.970638ms)
+✔ handoff waits for an initiated dispatch, then blocks subsequent automatic work (114.192745ms)
+✔ concurrent dispatchers cannot send the same semantic notification twice (106.549149ms)
+✔ ambiguous provider timeout is UNKNOWN and is never automatically resent (77.357602ms)
+✔ permission revocation during approval lookup prevents provider send (91.190019ms)
+✔ unapproved or marketing templates, stale booking and wrong recipient cannot dispatch (118.699988ms)
+✔ accepted provider call followed by database failure preserves claim and cannot resend (111.028755ms)
+✔ disabled service dispatcher touches no database or provider (1.546684ms)
+✔ recipient grants require a matching real customer and leave an audit; suppression cancels held work (101.037101ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1194.370492
