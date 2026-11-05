@@ -1,0 +1,49 @@
+{
+  "read_only": true,
+  "checked_at": "2026-11-05T06:56:36.216602+00:00",
+  "templates": [
+    {
+      "name": "nac_driver_arrived_v1",
+      "id": "1830667331615106",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en_GB"
+    },
+    {
+      "name": "nac_driver_on_the_way_v1",
+      "id": "1891504731837875",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en_GB"
+    },
+    {
+      "name": "nac_booking_cancelled_v1",
+      "id": "2164478044455857",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en_GB"
+    },
+    {
+      "name": "nac_journey_completed_v1",
+      "id": "1650838230025586",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en_GB"
+    },
+    {
+      "name": "nac_journey_started_v1",
+      "id": "1425561449200049",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en_GB"
+    },
+    {
+      "name": "nac_booking_confirmation_v1",
+      "id": "1384212676937085",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en_GB"
+    }
+  ],
+  "has_more": false
+}

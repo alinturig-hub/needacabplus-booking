@@ -1,0 +1,275 @@
+{
+  "state": "PREPARED_NOT_SENT",
+  "test": "Booking confirmed through full Next NAC \u2192 single TaxiCRM simulated gateway \u2192 common history",
+  "recipient": "<OWNER_RECIPIENT>",
+  "booking_id": "SYNTHETIC-OWNER-TEST-20261105",
+  "scope": "notifications-fullstage:META:99999999999:99999999998",
+  "rule": {
+    "id": "owner-confirmed-e2e",
+    "version": 2,
+    "name": "Owner Booking confirmed E2E (local simulation only)",
+    "event": "booking.confirmed",
+    "status": "active",
+    "conditions": {
+      "sources": [
+        "webapp",
+        "other"
+      ],
+      "requireDriver": false
+    },
+    "freeText": "Your Need A Cab Plus booking {{1}} is confirmed. Please contact our team if your journey details change.",
+    "template": {
+      "id": "1384212676937085",
+      "name": "nac_booking_confirmation_v1",
+      "language": "en_GB",
+      "fingerprint": "fd6dd0fa15d844023153906c049f7778785d704364de27b4752e04bc9b9079b1"
+    },
+    "bodyMappings": [
+      {
+        "variable": "1",
+        "source": "booking_id"
+      }
+    ],
+    "buttonMappings": [],
+    "sms": "disabled",
+    "smsText": "Booking {{2}} update. Please contact the operator.",
+    "inApp": "preserve_existing",
+    "ttlSeconds": 900
+  },
+  "meta_catalog_read_at": "2026-11-05T06:56:36.216602+00:00",
+  "live_template": {
+    "id": "1384212676937085",
+    "name": "nac_booking_confirmation_v1",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "language": "en_GB",
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Your Need A Cab Plus booking {{1}} is confirmed. Please contact our team if your journey details change.",
+        "example": {
+          "body_text": [
+            [
+              "100"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "mapping": [
+    {
+      "variable": "1",
+      "source": "booking_id",
+      "canonical": "Booking.externalId",
+      "value": "SYNTHETIC-OWNER-TEST-20261105"
+    }
+  ],
+  "decision": {
+    "schema_version": "2.0",
+    "mode": "DRY_RUN",
+    "idempotency_key": "autocab:SYNTHETIC-OWNER-TEST-20261105:booking.confirmed:<OWNER_RECIPIENT>:1",
+    "booking_id": "autocab:SYNTHETIC-OWNER-TEST-20261105",
+    "rule": {
+      "id": "owner-confirmed-e2e",
+      "version": 2
+    },
+    "conversation_id": "SYNTHETIC-OWNER-E2E-CONVERSATION",
+    "conversation_revision": 0,
+    "checked_at": "2026-11-05T06:58:00.092Z",
+    "result": "ready",
+    "reason": "PREVIEW_READY",
+    "explanations": [],
+    "channel": "whatsapp",
+    "content_mode": "template",
+    "rendered_text": "Your Need A Cab Plus booking SYNTHETIC-OWNER-TEST-20261105 is confirmed. Please contact our team if your journey details change.",
+    "body_parameters": [
+      {
+        "variable": "1",
+        "source": "booking_id",
+        "value": "SYNTHETIC-OWNER-TEST-20261105"
+      }
+    ],
+    "button_parameters": [],
+    "provider_status": "NONE",
+    "provider_called": false
+  },
+  "exact_payload": {
+    "to": "<OWNER_RECIPIENT_DIGITS>",
+    "type": "template",
+    "template": {
+      "name": "nac_booking_confirmation_v1",
+      "language": {
+        "code": "en_GB"
+      },
+      "components": [
+        {
+          "type": "body",
+          "parameters": [
+            {
+              "text": "SYNTHETIC-OWNER-TEST-20261105",
+              "type": "text"
+            }
+          ]
+        }
+      ]
+    },
+    "messaging_product": "whatsapp"
+  },
+  "exact_payload_sha256": "20b0e1a6f0f77649d59c452c037225d8c2ae1efab92d2823d0c4935e1350293a",
+  "shared_history": {
+    "mode": "DRY_RUN",
+    "real_queued_intents": 0,
+    "notification_decisions": [
+      {
+        "decision": {
+          "mode": "DRY_RUN",
+          "event": "booking.confirmed",
+          "issues": [],
+          "reason": "PREVIEW_READY",
+          "result": "ready",
+          "ruleId": "owner-confirmed-e2e",
+          "channel": "whatsapp",
+          "content": "Your Need A Cab Plus booking SYNTHETIC-OWNER-TEST-20261105 is confirmed. Please contact our team if your journey details change.",
+          "bookingId": "SYNTHETIC-OWNER-TEST-20261105",
+          "decidedAt": "2026-11-05T06:58:00.092Z",
+          "wouldSend": true,
+          "windowOpen": false,
+          "contentMode": "template",
+          "ruleVersion": 2,
+          "buttonValues": [],
+          "eventRevision": 1,
+          "mappingValues": [
+            {
+              "value": "SYNTHETIC-OWNER-TEST-20261105",
+              "source": "booking_id",
+              "variable": "1"
+            }
+          ],
+          "conversationId": "SYNTHETIC-OWNER-E2E-CONVERSATION",
+          "idempotencyKey": "autocab:SYNTHETIC-OWNER-TEST-20261105:booking.confirmed:<OWNER_RECIPIENT>:1",
+          "providerStatus": "NONE"
+        }
+      }
+    ],
+    "events": [
+      {
+        "mode": "DRY_RUN",
+        "rule": {
+          "id": "owner-confirmed-e2e",
+          "version": 2
+        },
+        "reason": "PREVIEW_READY",
+        "result": "ready",
+        "channel": "whatsapp",
+        "booking_id": "autocab:SYNTHETIC-OWNER-TEST-20261105",
+        "checked_at": "2026-11-05T06:58:00.092Z",
+        "content_mode": "template",
+        "explanations": [],
+        "rendered_text": "Your Need A Cab Plus booking SYNTHETIC-OWNER-TEST-20261105 is confirmed. Please contact our team if your journey details change.",
+        "schema_version": "2.0",
+        "body_parameters": [
+          {
+            "value": "SYNTHETIC-OWNER-TEST-20261105",
+            "source": "booking_id",
+            "variable": "1"
+          }
+        ],
+        "conversation_id": "SYNTHETIC-OWNER-E2E-CONVERSATION",
+        "idempotency_key": "autocab:SYNTHETIC-OWNER-TEST-20261105:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "provider_called": false,
+        "provider_status": "NONE",
+        "button_parameters": [],
+        "conversation_revision": 0
+      }
+    ],
+    "messages": [
+      {
+        "content": {
+          "rule": {
+            "id": "owner-confirmed-e2e",
+            "version": 2
+          },
+          "text": "Your Need A Cab Plus booking SYNTHETIC-OWNER-TEST-20261105 is confirmed. Please contact our team if your journey details change.",
+          "origin": "operational_notification",
+          "channel": "whatsapp",
+          "synthetic": true,
+          "transport": "SIMULATED",
+          "booking_id": "SYNTHETIC-OWNER-TEST-20261105",
+          "event_type": "booking.confirmed",
+          "content_mode": "template",
+          "provider_payload": {
+            "to": "<OWNER_RECIPIENT_DIGITS>",
+            "type": "template",
+            "template": {
+              "name": "nac_booking_confirmation_v1",
+              "language": {
+                "code": "en_GB"
+              },
+              "components": [
+                {
+                  "type": "body",
+                  "parameters": [
+                    {
+                      "text": "SYNTHETIC-OWNER-TEST-20261105",
+                      "type": "text"
+                    }
+                  ]
+                }
+              ]
+            },
+            "messaging_product": "whatsapp"
+          },
+          "simulated_provider_status": "ACCEPTED"
+        },
+        "status": "SIMULATED",
+        "providerMessageId": "simulated:fc7f3b7f-4086-4b20-a734-65a64aafe398"
+      }
+    ],
+    "shared_events": [
+      {
+        "type": "notification.simulated",
+        "payload": {
+          "mode": "DRY_RUN",
+          "origin": "operational_notification",
+          "result": {
+            "mode": "DRY_RUN",
+            "rule": {
+              "id": "owner-confirmed-e2e",
+              "version": 2
+            },
+            "reason": "PREVIEW_READY",
+            "result": "ready",
+            "channel": "whatsapp",
+            "booking_id": "autocab:SYNTHETIC-OWNER-TEST-20261105",
+            "checked_at": "2026-11-05T06:58:00.092Z",
+            "content_mode": "template",
+            "explanations": [],
+            "rendered_text": "Your Need A Cab Plus booking SYNTHETIC-OWNER-TEST-20261105 is confirmed. Please contact our team if your journey details change.",
+            "schema_version": "2.0",
+            "body_parameters": [
+              {
+                "value": "SYNTHETIC-OWNER-TEST-20261105",
+                "source": "booking_id",
+                "variable": "1"
+              }
+            ],
+            "conversation_id": "SYNTHETIC-OWNER-E2E-CONVERSATION",
+            "idempotency_key": "autocab:SYNTHETIC-OWNER-TEST-20261105:booking.confirmed:<OWNER_RECIPIENT>:1",
+            "provider_called": false,
+            "provider_status": "NONE",
+            "button_parameters": [],
+            "conversation_revision": 0
+          },
+          "booking_id": "SYNTHETIC-OWNER-TEST-20261105"
+        }
+      }
+    ]
+  },
+  "real_provider_posts": 0,
+  "real_booking_mutations": 0,
+  "live_flags_changed": false,
+  "simulation_permission": "Synthetic fixture only; live suppression/permission must be read again before an approved send",
+  "execution_limit": "No live trigger sender is enabled. Existing owner transport runner is a separate narrow transport test, not automatic booking ingestion."
+}
