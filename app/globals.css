@@ -787,3 +787,17 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
  .booking-shell.stage-2 .chosen-car>strong{font-size:20px;margin-left:0}
  .booking-shell.stage-2 .chosen-car>strong small{font-size:9px;margin-top:5px}
 }
+
+/* Give address results the visible viewport when the software keyboard is open. */
+@media(max-width:700px){
+ html[data-keyboard-open=true] .booking-shell{position:fixed;top:var(--booking-viewport-top,0px);left:0;right:0;height:var(--booking-viewport-height,100dvh);min-height:0;overflow:hidden}
+ html[data-keyboard-open=true] .booking-shell .brandbar,html[data-keyboard-open=true] .booking-shell.premium-booking.stage-0 .map-surface,html[data-keyboard-open=true] .booking-shell.premium-booking.stage-1 .map-surface,html[data-keyboard-open=true] .booking-shell.premium-booking.stage-2 .map-surface{display:none!important}
+ html[data-keyboard-open=true] .booking-shell.stage-0.address-editing .booking-panel:not(.map-picker-mode){position:absolute;inset:0;display:block;width:100%;height:100%!important;min-height:0!important;max-height:100%!important;margin:0;padding:6px 12px 12px;border-radius:0;overflow-y:auto}
+ html[data-keyboard-open=true] .booking-shell.stage-0 .mobile-handle,html[data-keyboard-open=true] .booking-shell.stage-0 .place-shortcuts,html[data-keyboard-open=true] .booking-shell.stage-0 .places-target{display:none!important}
+ html[data-keyboard-open=true] .finish-address-search{margin:0 0 4px;min-height:28px;height:28px}
+ html[data-keyboard-open=true] .booking-shell.stage-0 .route-builder{margin:0 0 6px}
+ html[data-keyboard-open=true] .booking-shell.stage-0 .customer-places{margin-top:6px}
+ html[data-keyboard-open=true] .booking-shell.stage-0 .address-history{margin-top:4px;max-height:none}
+ html[data-keyboard-open=true] .booking-shell.stage-2 .booking-panel{height:100%!important;min-height:0!important;max-height:100%!important;overflow-y:auto}
+ html[data-keyboard-open=true] .booking-shell.stage-2 .chosen-car{display:none}
+}
