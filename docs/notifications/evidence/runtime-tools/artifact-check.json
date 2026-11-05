@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-05",
+  "provider_posts": 0,
+  "http_posts": 0,
+  "production_changes": false,
+  "artifact_runtime": "node:22-alpine v22.23.4",
+  "bundled_artifacts_verified": 3,
+  "source_or_node_modules_in_test_image": false,
+  "inspect_passed": true,
+  "status_get_passed": true,
+  "read_only_descriptor_passed": true,
+  "offline_approval_passed": true,
+  "simulation_execute_rejected": true,
+  "workflow_registrations": 0,
+  "crm_regression_tests": 26,
+  "nac_guard_tests": 4,
+  "two_application_26_scenarios_rerun": false,
+  "final_application_docker_images_built": false,
+  "nac_targeted_existing_route_tests": 9,
+  "nac_next_build": "passed --webpack with synthetic configuration",
+  "crm_next_build": "passed with synthetic configuration"
+}

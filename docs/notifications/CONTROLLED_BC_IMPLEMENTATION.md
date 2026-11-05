@@ -50,20 +50,20 @@ Both applications must use the same physical canonical database for this control
 
 ```sh
 # In the authorized NAC runtime with the disabled private profile:
-npx tsx scripts/notifications/prepare-controlled-event.ts /secure/new-controlled-descriptor.json
+node /app/notification-tools/prepare-controlled-event.cjs /secure/new-controlled-descriptor.json
 # In the reviewed CRM checkout; offline, no DB/network:
-npx tsx scripts/notifications/prepare-controlled-approval.ts /secure/new-controlled-descriptor.json /secure/new-controlled-approval.json
+node /app/notification-tools/prepare-controlled-approval.cjs /secure/new-controlled-descriptor.json /secure/new-controlled-approval.json
 ```
 
 7. Only after owner approval of that new final packet, put its exact hash in `CONTROLLED_BC_APPROVAL_SHA256` in both scoped profiles, retain the packet privately as `CONTROLLED_BC_PACKET_FILE` for the launcher, and enable only `CONTROLLED_BC_MODE=LIVE`. General flags remain false. Never probe the LIVE event endpoint with a dummy hash: registration/validation is terminal for this operation.
 8. From the authorized application runtime invoke **once**:
 
 ```sh
-npx tsx scripts/notifications/run-controlled-booking-event.ts --inspect
+node /app/notification-tools/run-controlled-booking-event.cjs --inspect
 # Only after the separately approved activation:
-npx tsx scripts/notifications/run-controlled-booking-event.ts --execute
+node /app/notification-tools/run-controlled-booking-event.cjs --execute
 # Read-only monitoring, also after the trial is disabled:
-npx tsx scripts/notifications/run-controlled-booking-event.ts --status
+node /app/notification-tools/run-controlled-booking-event.cjs --status
 ```
 
 The launcher posts to the application trigger, not to Meta. App → TaxiCRM performs the single controlled handoff. If access is missing, the event/approval expires, validation fails or any outcome is uncertain, stop without retry/SMS. Repeated invocation cannot reset a registration or claim. Disable the controlled mode after the attempt and retain all ledgers. Continue normal signed receipt synchronization to DELIVERED/READ. A missing provider/common-history record after uncertainty requires manual reconciliation, not a replacement send.

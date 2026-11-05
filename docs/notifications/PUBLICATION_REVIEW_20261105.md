@@ -193,18 +193,18 @@ After separately approved publication/migration work and fresh canonical/templat
 
 ```sh
 # Authorized NAC runtime, control mode disabled; SELECT-only descriptor preparation.
-npx tsx scripts/notifications/prepare-controlled-event.ts /secure/new-controlled-descriptor.json
+node /app/notification-tools/prepare-controlled-event.cjs /secure/new-controlled-descriptor.json
 # Reviewed CRM checkout; offline, no DB/network.
-npx tsx scripts/notifications/prepare-controlled-approval.ts /secure/new-controlled-descriptor.json /secure/new-controlled-approval.json
+node /app/notification-tools/prepare-controlled-approval.cjs /secure/new-controlled-descriptor.json /secure/new-controlled-approval.json
 ```
 
 The packet must be newly approved for this controlled trigger. Configure its exact `approval_sha256` as `CONTROLLED_BC_APPROVAL_SHA256` in both bounded profiles, configure the private `CONTROLLED_BC_PACKET_FILE` for the launcher and only then set `CONTROLLED_BC_MODE=LIVE` in those profiles. Do not probe the live trigger with a dummy hash: a registration/claim is terminal and cannot be reset to retry.
 
 ```sh
 # These are future commands only. No --execute command was run in this publication task.
-npx tsx scripts/notifications/run-controlled-booking-event.ts --inspect
-npx tsx scripts/notifications/run-controlled-booking-event.ts --execute
-npx tsx scripts/notifications/run-controlled-booking-event.ts --status
+node /app/notification-tools/run-controlled-booking-event.cjs --inspect
+node /app/notification-tools/run-controlled-booking-event.cjs --execute
+node /app/notification-tools/run-controlled-booking-event.cjs --status
 ```
 
 After the one attempt, disable the scoped mode in both runtime configurations:

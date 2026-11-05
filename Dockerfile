@@ -8,6 +8,7 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+RUN node scripts/notifications/build-tools.mjs
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -18,6 +19,7 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/dist/notification-tools ./notification-tools
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.mjs ./scripts/start-production.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/normalize-api-connections.mjs ./scripts/normalize-api-connections.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-local-drivers.mjs ./scripts/migrate-local-drivers.mjs
