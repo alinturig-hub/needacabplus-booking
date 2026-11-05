@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-05",
+  "crm_image_id": "sha256:f0a1e58a33bdc39e89a506cf0246e99afc2e849c39ce36eaa13dfa31658db45a",
+  "nac_image_id": "sha256:d148947a379cfb33da164a40ddad84d2df5477c78d397b65d1e47dd0ddde0765",
+  "full_production_dockerfile_builds": {
+    "crm": "passed",
+    "nac": "passed"
+  },
+  "health_http": {
+    "crm": 200,
+    "nac": 200
+  },
+  "database": "disposable local PostgreSQL 17 only",
+  "nac_runtime_uid": 1001,
+  "nac_manifest_hashes": "passed, 2 tools",
+  "crm_manifest_hashes": "passed, 1 tool",
+  "crm_runtime_source_destination_mappings_preserved": 17,
+  "read_only_descriptor_from_final_nac_image": "passed",
+  "inspect_from_final_nac_image": {
+    "execution": false,
+    "mode": "SIMULATED"
+  },
+  "offline_approval_from_final_crm_image": {
+    "execution_enabled": false,
+    "maximum_provider_posts": 1,
+    "automatic_retries": 0,
+    "sms_fallback": false
+  },
+  "controlled_event_registrations": 0,
+  "controlled_dispatch_registrations": 0,
+  "outbound_claims": 0,
+  "provider_posts": 0,
+  "preflight_sql": {
+    "sha256": "b495bb72a0278319e30cf1c11bcc53393facc6d5180387068e8f7d638c85ad8c",
+    "empty_synthetic_schema": "passed",
+    "installed_synthetic_schema_and_grants": "passed",
+    "synthetic_nac_role": "passed",
+    "synthetic_crm_role": "passed",
+    "production_executed": false
+  },
+  "production_changes": false,
+  "two_application_26_scenarios_rerun": false,
+  "limits": [
+    "No production schema/ACL verification has been performed.",
+    "No new live approval packet or valid production canonical event has been prepared.",
+    "This is image packaging/boot/read-only tool verification, not a live send or two-application trigger execution."
+  ],
+  "environment_note": "The initial CRM build attempts reached compilation but exhausted the managed 32 GB VFS storage while copying successive runtime layers. The selected runtime file map was preserved and assembled once; the final build and boot passed. Only unused local build cache was cleaned."
+}

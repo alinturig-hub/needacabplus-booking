@@ -37,10 +37,11 @@ try{
  await assert.rejects(run('nac/run-controlled-booking-event.cjs',['--execute']));assert.equal(httpPosts,0);
  await assert.rejects(run('nac/run-controlled-booking-event.cjs',['--inspect'],{CONTROLLED_BC_MODE:'DISABLED'}));
  assert.equal(JSON.parse((await run('nac/run-controlled-booking-event.cjs',['--status'])).stdout).status,'NOT_REGISTERED');assert.equal(httpGets,1);assert.equal(httpPosts,0);
+ await assert.rejects(run('nac/prepare-controlled-event.cjs',[root+'/missing.json'],{CONTROLLED_BC_TEMPLATE_FILE:root+'/absent-private-template.json'}),(error:unknown)=>String((error as {stderr?:string}).stderr).includes('(ENOENT)'));
  await run('nac/prepare-controlled-event.cjs',[root+'/descriptor.json']);
  await run('crm/prepare-controlled-approval.cjs',[root+'/descriptor.json',root+'/approval.json']);
  const packet=JSON.parse(readFileSync(root+'/approval.json','utf8'));assert.equal(packet.execution_enabled,false);assert.equal(packet.intent.recipient,recipient);assert.equal(packet.intent.booking_id,'autocab:'+controlledBooking);
  const rows=await db.query(`SELECT (SELECT count(*) FROM notification_controlled_events)::int events,(SELECT count(*) FROM "WhatsAppControlledDispatch")::int dispatches,(SELECT count(*) FROM "WhatsAppOutboundMessage")::int outbounds`);
  assert.deepEqual(rows.rows[0],{events:0,dispatches:0,outbounds:0});
- console.log(JSON.stringify({passed:true,node:process.version,artifacts_verified:3,inspect:true,status:true,read_only_descriptor:true,offline_approval:true,execution_blocked_in_simulation:true,registrations:0,provider_posts:0,http_posts:httpPosts,no_source_or_node_modules:true}));
+ console.log(JSON.stringify({passed:true,node:process.version,artifacts_verified:3,inspect:true,status:true,read_only_descriptor:true,offline_approval:true,execution_blocked_in_simulation:true,safe_missing_file_error:true,registrations:0,provider_posts:0,http_posts:httpPosts,no_source_or_node_modules:true}));
 }finally{await db.end();server.close();}

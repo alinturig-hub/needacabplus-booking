@@ -47,3 +47,19 @@ The reproducible test driver is `staging/notifications/controlled/runtime-tools-
 ## Build compatibility
 
 The Next 16 build exposed two pre-existing optional GET Request signatures in admin quote-settings/zones. Their exported types now require Request, as expected by the route validator; existing runtime guards, authentication and business logic remain unchanged. All nine targeted ecosystem/map-zone tests passed. Both full Next builds pass using synthetic configuration (NAC with webpack), and TypeScript/targeted lint pass. No production Docker application image build is claimed by this artifact-only test.
+
+## Read-only production readiness preflight
+
+The identical reviewed file `scripts/notifications/controlled-preflight.sql` is supplied in both checkouts. It runs one `BEGIN READ ONLY` transaction with statement/lock limits and ends in ROLLBACK. It reports DB/user identity, role flags, prerequisite/new relation presence, controlled trigger/function ownership/settings and both table and column ACLs. It does not select customer records or refresh the test event. It was verified on an empty synthetic database and after the exact reviewed migrations/grants in a disposable database. That does not establish production schema/ACL readiness.
+
+Run only from an authorized database administration context, against the owner-confirmed shared database, using `psql --set ON_ERROR_STOP=1 --file scripts/notifications/controlled-preflight.sql`. The file is a reviewed administrative input from the checkout, not a new app startup step. Its output must be reviewed before any separately approved production schema change. Existing unexpected tables/triggers/migrations stop the release.
+
+## Private runtime file ownership
+
+NAC runs as UID/GID 1001 (`nextjs`). Privately mounted template/descriptor/approval inputs must be readable by that user; private output directories must be writable by that user. Use owner/group and 0600/0700 appropriately; do not make private files world-readable. A root-owned 0600 file copied with docker cp is not readable by nextjs. The preparation CLI now reports only a safe validation code or EACCES/ENOENT/ENOSPC, never raw SQL errors, connection strings or credentials.
+
+## Subsequent complete production-image verification
+
+Both complete production Dockerfiles now build successfully in the managed environment with the session CA mounted only during networked build steps and synthetic build DB configuration. Both final images booted against a disposable PostgreSQL 17 database with external schema management and general sending/workers disabled; both health endpoints returned 200. Runtime tool hashes matched their manifests. The actual NAC final image, running as UID 1001 with an owner-readable 0600 template file, prepared the canonical descriptor read-only and ran inspect with execution=false. The actual CRM final image generated the offline approval from that descriptor with execution_enabled=false. Workflow ledger/outbound counts remained zero. No execute command or Meta request was performed.
+
+The machine-readable record is `evidence/runtime-tools/runtime-image-check.json`. This supersedes the earlier packaging-phase limitation that final application images had not yet been built; that earlier evidence file remains a historical record. No two-application 26-case suite or production database verification is newly claimed here.
