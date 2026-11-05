@@ -1,7 +1,9 @@
 import {readFile} from 'node:fs/promises';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {database} from '../../database';
 import {sampleRule,fixture} from '../fixtures';
+import {stable} from '../v2/contract';
+import {storedRule} from './data';
 import {saveRule} from '../store';
 import {fullStageGuard} from './guard';
 import {nacStageAuth} from './nac-http';
@@ -13,13 +15,18 @@ export async function fullStageControlPOST(request:Request){try{
    const marker=(await c.query("SELECT to_regclass('notification_stage_marker') AS marker,to_regclass('\"Booking\"') AS booking")).rows[0];
    if(!marker.marker){if(marker.booking)throw Error('STAGE_DATABASE_NOT_EMPTY');await c.query(await readFile(process.cwd()+'/staging/notifications/full/schema.sql','utf8'))}
   }finally{await c.query("SELECT pg_advisory_unlock(hashtextextended('notifications-fullstage-bootstrap',0))");c.release()}
-  for(const event of ['booking.confirmed','driver.dispatched'] as const){const r=sampleRule(event);if(!(await db.query('SELECT 1 FROM notification_rules WHERE id=$1',[r.id])).rowCount){const saved=await saveRule(db,r,'save',0);await saveRule(db,saved,'activate',saved.version)}}
+  for(const event of ['booking.confirmed','driver.dispatched'] as const){const r=sampleRule(event),t=fixture(r).template;
+   const provider={id:t.id,name:t.name,language:t.language,status:t.status,category:t.category,parameter_format:t.format,components:[{type:'BODY',text:t.text}]};
+   r.template.fingerprint=createHash('sha256').update(stable(provider)).digest('hex');
+   const existing=(await db.query('SELECT definition FROM notification_rules WHERE id=$1',[r.id])).rows[0]?.definition;
+   if(!existing||existing.template.fingerprint.startsWith('fixture-')){const saved=await saveRule(db,r,'save',existing?.version||0);await saveRule(db,saved,'activate',saved.version)}
+  }
   return Response.json({mode:'DRY_RUN',database:'notifications_fullstage',initialized:true});
  }
  if(input.action==='seed'){
-  if(!['booking.confirmed','driver.dispatched'].includes(String(input.event))||!['closed','open','app-account','cancelled','expired','unapproved','missing-field','no-grant','suppressed'].includes(String(input.scenario)))throw Error('INVALID_STAGE_SEED');
-  const event=input.event as 'booking.confirmed'|'driver.dispatched',scenario=String(input.scenario),r=sampleRule(event),template=fixture(r).template;
-  if(scenario==='unapproved')template.status='PENDING';
+  if(!['booking.confirmed','driver.dispatched'].includes(String(input.event))||!['closed','open','app-account','cancelled','expired','unapproved','missing-field','no-grant','suppressed','window-expiring','window-expiring-unapproved'].includes(String(input.scenario)))throw Error('INVALID_STAGE_SEED');
+  const event=input.event as 'booking.confirmed'|'driver.dispatched',scenario=String(input.scenario),r=await storedRule(sampleRule(event).id),template=fixture(r).template;
+  if(scenario==='unapproved'||scenario==='window-expiring-unapproved')template.status='PENDING';
   const bookingId='SYNTHETIC-'+randomUUID(),id=randomUUID(),accountId=randomUUID(),at=new Date(Date.now()-(scenario==='expired'?3600000:1000)),revision=event==='booking.confirmed'?1:at.getTime();
   const c=await db.connect();try{await c.query('BEGIN');
    await c.query('INSERT INTO notification_stage_template(id,definition) VALUES($1,$2::jsonb) ON CONFLICT(id) DO UPDATE SET definition=excluded.definition',[template.id,JSON.stringify(template)]);
@@ -30,7 +37,7 @@ export async function fullStageControlPOST(request:Request){try{
    await c.query(`INSERT INTO "WhatsAppConversation"(id,scope,participant) VALUES('SYNTHETIC-CONVERSATION',$1,'+447700900001') ON CONFLICT(scope,participant) DO NOTHING`,[scope]);
    // Synthetic inbound evidence is deliberately separate from booking creation/outbound history.
    await c.query('DELETE FROM "WhatsAppMessage" WHERE scope=$1 AND direction=\'INBOUND\'',[scope]);
-   if(scenario==='open')await c.query(`INSERT INTO "WhatsAppMessage"(scope,"conversationId","providerMessageId",direction,content,status,"occurredAt") VALUES($1,'SYNTHETIC-CONVERSATION',$2,'INBOUND','{"text":"Synthetic customer request","type":"text","origin":"customer","synthetic":true}','RECEIVED',now()-interval '1 hour')`,[scope,'synthetic-inbound:'+randomUUID()]);
+   if(['open','window-expiring','window-expiring-unapproved'].includes(scenario))await c.query(`INSERT INTO "WhatsAppMessage"(scope,"conversationId","providerMessageId",direction,content,status,"occurredAt") VALUES($1,'SYNTHETIC-CONVERSATION',$2,'INBOUND','{"text":"Synthetic customer request","type":"text","origin":"customer","synthetic":true}','RECEIVED',CASE WHEN $3 THEN now()-interval '24 hours'+interval '4 seconds' ELSE now()-interval '1 hour' END)`,[scope,'synthetic-inbound:'+randomUUID(),scenario!=='open']);
    await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
   return Response.json({booking_id:bookingId,rule_id:r.id,occurred_at:at.toISOString(),revision,conversation_id:'SYNTHETIC-CONVERSATION',mode:'DRY_RUN'});
