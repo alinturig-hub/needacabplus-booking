@@ -1,3 +1,4 @@
+import {oauthBrowserCookie} from './oauth-browser';
 import {OAuthFlowError} from './oauth-errors';
 import {verifyIdentityToken} from './oauth-token';
 import {randomBytes} from 'node:crypto';
@@ -8,7 +9,7 @@ import {loadIdentityPolicy,readConfiguration} from './app-configuration';
 import {decryptCredentials} from './credentials';
 import {AuthError,hash} from './customer-verification';
 import {completeOAuthAccount} from './customer-oauth-account';
-const origin=process.env.CUSTOMER_APP_ORIGIN||'https://webapp.needacabplus.app';
+const origin=new URL(process.env.CUSTOMER_APP_ORIGIN||'https://webapp.needacabplus.app').origin;
 const googleKeys=createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 const appleKeys=createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 export function providerName(value:string){if(value!=='google'&&value!=='apple')throw new AuthError('Unknown sign-in provider.');return value}
@@ -17,15 +18,17 @@ function redirectUri(provider:string){return origin+'/api/customer/auth/oauth/'+
 export async function startOAuth(provider:'google'|'apple'){
  const {p}=await config(provider),state=randomBytes(32).toString('base64url'),browser=randomBytes(32).toString('base64url'),nonce=randomBytes(32).toString('base64url'),verifier=randomBytes(32).toString('base64url');
  await database().query('INSERT INTO customer_oauth_states(state_hash,provider,browser_hash,nonce,verifier,expires_at) VALUES($1,$2,$3,$4,$5,now()+make_interval(mins=>5))',[hash(state),provider,hash(browser),nonce,verifier]);
- (await cookies()).set('nac_oauth_'+provider,browser,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:provider==='apple'?'none':'lax',path:'/',maxAge:300});
+ (await cookies()).set(oauthBrowserCookie(provider,state),browser,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:provider==='apple'?'none':'lax',path:'/',maxAge:300});
  const url=new URL(provider==='google'?'https://accounts.google.com/o/oauth2/v2/auth':'https://appleid.apple.com/auth/authorize');const params:Record<string,string>={client_id:provider==='google'?p.googleClientId:p.appleClientId,redirect_uri:redirectUri(provider),response_type:'code',scope:provider==='google'?'openid email profile':'name email',state,nonce};
  if(provider==='google'){params.code_challenge=Buffer.from(hash(verifier),'hex').toString('base64url');params.code_challenge_method='S256'}else params.response_mode='form_post';
  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));return url.toString();
 }
 export async function finishOAuth(provider:'google'|'apple',code:string,state:string){
  if(!code||code.length>5000||!state||state.length>200)throw new AuthError('Invalid provider response.');
- const browser=(await cookies()).get('nac_oauth_'+provider)?.value;if(!browser)throw new AuthError('Sign-in expired. Please try again.');
+ const cookieStore=await cookies(),cookieName=oauthBrowserCookie(provider,state);
+ const browser=cookieStore.get(cookieName)?.value||cookieStore.get('nac_oauth_'+provider)?.value;if(!browser)throw new AuthError('Sign-in expired. Please try again.');
  const db=database(),saved=(await db.query('DELETE FROM customer_oauth_states WHERE state_hash=$1 AND provider=$2 AND browser_hash=$3 AND expires_at>now() RETURNING nonce,verifier',[hash(state),provider,hash(browser)])).rows[0];if(!saved)throw new AuthError('Sign-in expired. Please try again.');
+ cookieStore.delete(cookieName);
  const {p,secrets}=await config(provider),clientId=provider==='google'?p.googleClientId:p.appleClientId;
  let clientSecret=secrets.googleClientSecret;
  if(provider==='apple'){const key=await importPKCS8(secrets.applePrivateKey,'ES256');clientSecret=await new SignJWT({}).setProtectedHeader({alg:'ES256',kid:p.appleKeyId}).setIssuer(p.appleTeamId).setAudience('https://appleid.apple.com').setSubject(p.appleClientId).setIssuedAt().setExpirationTime('5m').sign(key)}

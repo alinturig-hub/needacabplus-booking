@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-html-link-for-pages -- OAuth endpoints require full browser navigation, never client-router fetches. */
 
 import {FormEvent,Suspense,useEffect,useRef,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
@@ -56,8 +57,8 @@ function CustomerLoginForm(){
    <button className="mobile-login-button" disabled={busy}>{busy?'Sending code…':'Log In'}</button>
   </form>
   {hasSocial&&<><div className="mobile-auth-or"><span/>Or<span/></div><div className="mobile-socials">
-   {providers.google&&<Link prefetch={false} href="/api/customer/auth/oauth/google"><span className="google-mark">G</span>Sign in with Google</Link>}
-   {providers.apple&&<Link prefetch={false} href="/api/customer/auth/oauth/apple"><span className="apple-mark">●</span>Sign in with Apple</Link>}
+   {providers.google&&<a href="/api/customer/auth/oauth/google"><span className="google-mark">G</span>Sign in with Google</a>}
+   {providers.apple&&<a href="/api/customer/auth/oauth/apple"><span className="apple-mark">●</span>Sign in with Apple</a>}
   </div></>}
   <button className="mobile-guest-button" type="button" disabled={busy} onClick={()=>void request('guest',{})}>Continue as Guest</button>
   <p className="mobile-auth-benefit">Members can access saved places, journey history and membership fares. Guests can book without creating an account.</p>

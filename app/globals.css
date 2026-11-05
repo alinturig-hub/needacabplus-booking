@@ -748,3 +748,23 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .customer-stop-marker.route-stop span{max-width:min(190px,calc(100vw - 24px));white-space:normal;text-align:center;line-height:1.25;width:max-content}
 
 .ride-promotion-applied{padding:12px 14px;border:1px solid #64bd9b66;border-radius:10px;color:var(--foreground);background:#64bd9b18;font-size:14px;font-weight:600;margin:8px 0 14px}.ride-option-price del{order:2}.ride-option-price b{order:1}
+
+/* Passenger planning: keep the real availability map above the search/history sheet. */
+.address-map-action{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--foreground);font:inherit;text-align:left;padding:12px 4px}
+@media(max-width:700px){
+ .booking-shell.stage-0:not(.stop-editor) .map-surface:not(.map-picker-active){display:block!important;position:absolute;top:54px;left:0;right:0;bottom:62%;width:100%;height:auto;min-height:0}
+ .booking-shell.stage-0:not(.stop-editor) .booking-panel:not(.map-picker-mode){position:absolute;left:0;right:0;bottom:0;flex:none;width:100%;height:62%!important;max-height:calc(var(--booking-viewport-height,100dvh) - 175px);border:1px solid var(--border);border-bottom:0;border-radius:26px 26px 0 0;padding:16px 18px max(18px,env(safe-area-inset-bottom));background:var(--booking-surface);overflow-y:auto}
+ .booking-shell.stage-0.address-editing:not(.stop-editor) .booking-panel:not(.map-picker-mode){height:72%!important;max-height:calc(var(--booking-viewport-height,100dvh) - 140px)}
+ .booking-shell.stage-0:not(.stop-editor) .mobile-handle{display:block;margin:0 auto 12px}
+ .booking-shell.stage-0:not(.stop-editor) .booking-address-flow{min-height:0}
+ .booking-shell.stage-0:not(.stop-editor) .booking-home{gap:12px;padding-bottom:78px}
+ .booking-shell.stage-0:not(.stop-editor) .booking-home-actions>button{min-height:90px;padding:10px}
+ .booking-shell.stage-0:not(.stop-editor) .booking-home-actions>button>span{width:36px;height:36px;border-radius:12px}
+ .booking-shell.stage-0:not(.stop-editor) .booking-home-actions svg{width:23px;height:23px}
+ .booking-shell.stage-0.address-editing .journey-heading,.booking-shell.stage-0.address-editing .trip-instruction,.booking-shell.stage-0.address-editing .preview-note,.booking-shell.stage-0.address-editing .route-continue-note{display:none}
+ .booking-shell.stage-0.address-editing .route-builder{margin-top:0}
+ .booking-shell.stage-0.address-editing .customer-places .places-target{display:none}
+}
+@media(max-width:700px){.booking-shell.stage-0.address-editing:not(.stop-editor) .address-history{display:block}}
+
+@media(max-width:700px){.booking-shell.stage-0.address-editing:not(.stop-editor) .map-surface:not(.map-picker-active){bottom:72%}}
