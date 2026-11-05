@@ -4,7 +4,7 @@ A Capacitor 7 Android shell for `https://webapp.needacabplus.app`, isolated from
 
 - Label: **Need A Cab Plus Test**
 - Package: `app.needacabplus.passenger.testing`
-- Version: `0.1.0-testing` (code 1)
+- Version: `0.2.0-testing` (code 2)
 - Android 6.0 / API 23 or later, target API 35.
 - HTTPS only, no wildcard in-WebView navigation, no mixed content or WebView debugging. App backup disabled.
 - Foreground coarse/fine location only; Capacitor requests Android permission when the website asks for GPS. Location permission is restricted to the exact passenger HTTPS origin. No background location.
@@ -41,3 +41,7 @@ Output: `mobile/android/app/build/outputs/apk/debug/app-debug.apk`. Gradle signs
 6. Disable the network and reopen; verify the connection screen and retry after reconnecting.
 
 No device/emulator smoke test is claimed until one is actually run. Push delivery, OAuth handoff, native wallets, app links, accessible/native offline UX and Play policy/target SDK requirements need separate validation before release. Remote-server loading is appropriate for this first internal test; review a bundled frontend/native integration before a Play submission.
+
+Version 0.2.0 forces Android system-bar/cutout margins so web content does not overlap the clock, battery or navigation bar. Install over the previous APK using the same package and test signing key. Native Google return/session exchange remains unimplemented.
+
+OAuth start links now open in the system browser before creating any OAuth cookie in the WebView. Browser sign-in remains in that browser; this avoids mixing browser/WebView cookie jars but does not transfer the session back to the APK. Phone sign-in remains the in-app test path.

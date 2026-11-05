@@ -8,6 +8,7 @@ assert.equal(config.server.cleartext,false);
 assert.equal(config.android.allowMixedContent,false);
 assert.equal(config.android.webContentsDebuggingEnabled,false);
 assert.equal(config.server.allowNavigation,undefined);
+assert.equal(config.android.adjustMarginsForEdgeToEdge,'force');
 assert.match(manifest,/ACCESS_FINE_LOCATION/);
 assert.match(manifest,/ACCESS_COARSE_LOCATION/);
 assert.match(manifest,/android:allowBackup="false"/);

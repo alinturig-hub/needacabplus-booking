@@ -1,13 +1,9 @@
-# Test build verification
+# Android 0.2.0 testing build
 
-Build: assembleDebug and lintDebug passed. APK signatures v1/v2 verified using apksigner.
-Passenger HTTPS GET returned 200. No customer data, booking or message was submitted.
+Package app.needacabplus.passenger.testing, versionCode 2. assembleDebug and lintDebug passed; apksigner verifies v1/v2 signatures. Certificate SHA-256 f595f4f43bacd8a3702def3d522db01e1ebc948ae5ce5eff30456d4d38d9665c matches version 0.1.0.
 
-Artifact SHA-256: `05eaafe4c04f0d6353d926d0a22e83b7cdcd55d960aa2cb40d50a1f632efe7c9`
+APK SHA-256: 198de129ec2fb582cf48db0a8cac2391978ade91b75d9df0138d91d43512dede.
 
-Package: `app.needacabplus.passenger.testing`; version: `0.1.0-testing`.
-Native push and mobile booking-origin proof are not implemented. The binary uses the live web backend, not a booking sandbox.
+Forces system-bar/cutout margins and opens entire OAuth start flow in the system browser. Browser session is not transferred to the app. Native Google handoff and push remain unimplemented. The remote web backend is live: confirming a booking can create a real reservation.
 
-No device/emulator was available: login, permission prompts, GPS accuracy, maps, back navigation, theme and offline recovery still need the device smoke test in README.md.
-
-Android Lint: 0 errors; 19 warnings (generated template resources, SDK/library updates, manifest ordering and backup-rule guidance). Review these before a release build.
+No physical device/emulator test was performed. Check system-bar clearance, keyboard, back navigation, GPS, phone sign-in and upgrade/session persistence on the owner's device. No real Google account, booking or message was used by this build.
