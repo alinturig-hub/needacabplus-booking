@@ -24,7 +24,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Uri returnUri = getIntent() == null ? null : getIntent().getData();
-        if (NativeGoogleAuth.isReturn(returnUri)) setIntent(new Intent(getIntent()).setData(null));
+        if (NativeGoogleAuth.isReturn(returnUri)) setIntent(new Intent(getIntent()).setData(null).replaceExtras((Bundle) null));
         super.onCreate(savedInstanceState);
         // Modern edge-to-edge windows need explicit IME resizing. Older Android uses adjustResize.
         if (Build.VERSION.SDK_INT >= 30) {
@@ -101,8 +101,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         if (NativeGoogleAuth.isReturn(intent.getData())) {
-            if (nativeGoogle != null) nativeGoogle.accept(intent.getData());
-            return; // Never forward the short-lived grant to Capacitor/JavaScript.
+            Uri returnUri = intent.getData();
+            Intent sanitized = new Intent(intent).setData(null).replaceExtras((Bundle) null);
+            setIntent(sanitized);
+            super.onNewIntent(sanitized); // Preserve lifecycle callbacks without exposing the grant.
+            if (nativeGoogle != null) nativeGoogle.accept(returnUri);
+            return;
         }
         super.onNewIntent(intent);
     }
