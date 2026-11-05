@@ -5,11 +5,14 @@ import {FormEvent,Suspense,useEffect,useRef,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import {ArrowLeft} from 'lucide-react';
+import {useInitialLocation} from '../use-initial-location';
+import {requestInitialLocation} from '@/lib/browser-location';
 import {oauthMessages} from '@/lib/oauth-errors';
 
 type AuthResponse={error?:string;verificationRequired?:boolean;phoneRequired?:boolean;phone?:string;maskedPhone?:string;expiresIn?:number};
 
 function CustomerLoginForm(){
+ useInitialLocation();
  const router=useRouter(),params=useSearchParams(),codeInput=useRef<HTMLInputElement>(null);
  const startsWithVerification=params.get('verify')==='1'&&params.get('phone')!=='1';
  const [stage,setStage]=useState<'number'|'code'>(startsWithVerification?'code':'number');
@@ -60,7 +63,7 @@ function CustomerLoginForm(){
    {providers.google&&<a href="/api/customer/auth/oauth/google" onClick={()=>setError('')}><span className="google-mark">G</span>Sign in with Google</a>}
    {providers.apple&&<a href="/api/customer/auth/oauth/apple" onClick={()=>setError('')}><span className="apple-mark">●</span>Sign in with Apple</a>}
   </div></>}
-  <button className="mobile-guest-button" type="button" disabled={busy} onClick={()=>void request('guest',{})}>Continue as Guest</button>
+  <button className="mobile-guest-button" type="button" disabled={busy} onClick={()=>{void requestInitialLocation();void request('guest',{})}}>Continue as Guest</button>
   <p className="mobile-auth-benefit">Members can access saved places, journey history and membership fares. Guests can book without creating an account.</p>
   </div>
   <p className="mobile-auth-legal">By continuing, you agree to our <Link href="/terms">Terms &amp; Conditions</Link>, acknowledge our <Link href="/privacy">Privacy Policy</Link>, and confirm that you are over 18. We may send messages related to your journeys.</p>

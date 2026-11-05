@@ -1,15 +1,15 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource,type StyleSpecification} from 'maplibre-gl';
+import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource} from 'maplibre-gl';
 import {useJourneyTiming} from './use-journey-timing';
 import {visibleNearbyCars,visibleMapCars,type CarMapBounds,type JourneyTiming} from '@/lib/journey-timing';
+import {fallbackMapStyle} from '@/lib/browser-map-style';
 import {customerRoadRouteDetails} from '@/lib/customer-road-route';
 
 type Coordinate={latitude:number;longitude:number};
 type Vehicle=Coordinate&{id:string;recordedAt:string};
 type LiveMarker={marker:Marker;position:[number,number];target:[number,number];time:number;heading:number;frame:number|null};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
-const openStreetMapStyle:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]};
 function heading(from:[number,number],to:[number,number]){const rad=Math.PI/180,d=(to[0]-from[0])*rad;return Math.atan2(Math.sin(d)*Math.cos(to[1]*rad),Math.cos(from[1]*rad)*Math.sin(to[1]*rad)-Math.sin(from[1]*rad)*Math.cos(to[1]*rad)*Math.cos(d))/rad}
 function darkTheme(){return document.documentElement.dataset.theme==='dark'}
 function applyMapTheme(map:MapLibreMap){
@@ -59,7 +59,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  useEffect(()=>{
   if(!container.current)return;
   let map:MapLibreMap;
-  try{map=new MapLibreMap({container:container.current,style:openStreetMapStyle,center:DEFAULT_CENTER,zoom:13,minZoom:5,maxZoom:19,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});}catch{queueMicrotask(()=>setMapError(true));return}
+  try{map=new MapLibreMap({container:container.current,style:fallbackMapStyle(darkTheme()?'dark':'light'),center:DEFAULT_CENTER,zoom:13,minZoom:5,maxZoom:19,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});}catch{queueMicrotask(()=>setMapError(true));return}
   const refreshBounds=()=>{const b=map.getBounds();setBrowseBounds({west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth()})};
   const initialBoundsFrame=requestAnimationFrame(refreshBounds);
   map.on('moveend',refreshBounds);map.on('resize',refreshBounds);
@@ -71,13 +71,13 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   map.on('moveend',()=>{if(!gesture)return;gesture=false;if(callbacks.current.picker){const point=map.getCenter();callbacks.current.onPickerMove?.({latitude:point.lat,longitude:point.lng})}});
   map.on('click',event=>{if(callbacks.current.picker){callbacks.current.onPickerStart?.();map.jumpTo({center:event.lngLat});callbacks.current.onPickerMove?.({latitude:event.lngLat.lat,longitude:event.lngLat.lng})}});
   let mounted=true;
-  let activeStyle='openstreetmap',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
+  let activeStyle=darkTheme()?'osm-dark':'osm-light',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
   const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
-  const syncTheme=()=>{const next=styleUrls?(darkTheme()?styleUrls.darkStyleUrl:styleUrls.lightStyleUrl):null;if(next&&next!==activeStyle){activeStyle=next;map.setStyle(next);map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
-  const onStyleError=(event:unknown)=>{const issue=event as {sourceId?:string;error?:{url?:string}};if(!mounted||activeStyle==='openstreetmap'||issue.sourceId==='osm'||issue.error?.url?.startsWith('https://tile.openstreetmap.org/'))return;styleUrls=null;activeStyle='openstreetmap';map.once('style.load',restoreStyle);map.setStyle(openStreetMapStyle)};
+  const syncTheme=()=>{const theme=darkTheme()?'dark':'light',next=styleUrls?(theme==='dark'?styleUrls.darkStyleUrl:styleUrls.lightStyleUrl):null,key=next||`osm-${theme}`;if(key!==activeStyle){activeStyle=key;map.setStyle(next||fallbackMapStyle(theme));map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
+  const onStyleError=(event:unknown)=>{const issue=event as {sourceId?:string;error?:{url?:string}};if(!mounted||activeStyle.startsWith('osm-')||issue.sourceId==='osm'||issue.error?.url?.startsWith('https://tile.openstreetmap.org/'))return;styleUrls=null;activeStyle=darkTheme()?'osm-dark':'osm-light';map.once('style.load',restoreStyle);map.setStyle(fallbackMapStyle(darkTheme()?'dark':'light'))};
   map.on('error',onStyleError);
   const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
-  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(mounted&&data.provider==='maptiler'&&data.lightStyleUrl&&data.darkStyleUrl){styleUrls={lightStyleUrl:data.lightStyleUrl,darkStyleUrl:data.darkStyleUrl};syncTheme()}}).catch(()=>{});
+  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(mounted&&data.provider==='maptiler'&&(data.lightStyleUrl||data.darkStyleUrl)){styleUrls={lightStyleUrl:data.lightStyleUrl||null,darkStyleUrl:data.darkStyleUrl||null};syncTheme()}}).catch(()=>{});
   const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   let resizeFrame:number|null=null;
   const observer=new ResizeObserver(()=>{
@@ -113,7 +113,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    car.frame=requestAnimationFrame(animate);
   }
  },[nearbyVehicles]);
- useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.jumpTo({center:[cameraTarget.longitude,cameraTarget.latitude]})},[cameraTarget]);
+ useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.easeTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:Math.max(map.getZoom(),15.5),duration:700,offset:window.matchMedia('(max-width:700px)').matches?[0,-map.getContainer().clientHeight*.18]:[0,0]})},[cameraTarget]);
  useEffect(()=>{
   const map=mapRef.current;if(!map||!showRoute||pickupLatitude===null||pickupLongitude===null||destinationLatitude===null||destinationLongitude===null)return;
   const controller=new AbortController();let active=true;

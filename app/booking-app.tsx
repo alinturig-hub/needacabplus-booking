@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {passengerIdentity} from '@/lib/passenger-identity';
 import {createPortal} from 'react-dom';
-import {useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,CalendarClock,CarFront,Check,CheckCircle2,Clock3,MapPin,ReceiptText,Search,ShieldCheck,UserRound,Users,Briefcase,CreditCard,House,Star,Pencil,Plus,X,LocateFixed,Sun,Moon,Monitor} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {Checkbox} from '@/components/ui/checkbox';
 import {vehicles,money} from '@/lib/vehicles';
 import type {Customer} from '@/lib/customer-auth';
 import CustomerLiveMap from './customer-live-map';
+import {useInitialLocation} from './use-initial-location';
 import BookingOnlinePayment from './booking-online-payment';
 import {passengerPaymentSchema,passengerPaymentLabel,type PassengerPayment} from '@/lib/passenger-payment';
 import {emptyJourneyTiming,type JourneyTiming} from '@/lib/journey-timing';
@@ -37,7 +38,7 @@ export default function BookingApp({customer}:{customer:Customer|null}){
  const [paymentChoice,setPaymentChoice]=useState<PassengerPayment>({kind:'cash'});
  const [selectedAddresses,setSelectedAddresses]=useState<Record<string,AddressChoice>>({});
  const [places,setPlaces]=useState<SavedPlace[]>([]),[history,setHistory]=useState<AddressChoice[]>([]),[activeStop,setActiveStop]=useState('pickup'),[placeEditor,setPlaceEditor]=useState<'home'|'work'|'favorite'|null>(null),[showFavorites,setShowFavorites]=useState(false);
- const [theme,setTheme]=useState<Theme>('system'),[locating,setLocating]=useState(false),[pickupCandidate,setPickupCandidate]=useState<PickupCandidate|null>(null),[sheetState,setSheetState]=useState<SheetState>('collapsed'),[sheetDrag,setSheetDrag]=useState(0),[currentLocation,setCurrentLocation]=useState<Coordinate|null>(null),[stopEditor,setStopEditor]=useState(false);
+ const [theme,setTheme]=useState<Theme>('dark'),[locating,setLocating]=useState(false),[pickupCandidate,setPickupCandidate]=useState<PickupCandidate|null>(null),[sheetState,setSheetState]=useState<SheetState>('collapsed'),[sheetDrag,setSheetDrag]=useState(0),[currentLocation,setCurrentLocation]=useState<Coordinate|null>(null),[stopEditor,setStopEditor]=useState(false);
  const [journeyTiming,setJourneyTiming]=useState<JourneyTiming>(emptyJourneyTiming),[rideScheduledAt,setRideScheduledAt]=useState<string|null>(null);
  const [bookingIntent,setBookingIntent]=useState<BookingIntent>('asap');
  // eslint-disable-next-line react-hooks/set-state-in-effect -- restore this customer's device preference once after hydration.
@@ -45,6 +46,12 @@ export default function BookingApp({customer}:{customer:Customer|null}){
  const [bookingAccess,setBookingAccess]=useState<{paidMember:boolean;serviceAccess:{guarantee:boolean;priority:boolean;quietAsap:boolean}}|null>(null);
  const [mapPicker,setMapPicker]=useState<'pickup'|'destination'|null>(null),[cameraTarget,setCameraTarget]=useState<Coordinate|null>(null),[mapChoice,setMapChoice]=useState<AddressChoice|null>(null),[mapResolving,setMapResolving]=useState(false);
  const requestId=useRef(''),pending=useRef(false),heading=useRef<HTMLHeadingElement>(null),dragStart=useRef<{y:number;state:SheetState}|null>(null),mapSequence=useRef(0),mapRequest=useRef<AbortController|null>(null),pickupRequest=useRef(0),panel=useRef<HTMLElement>(null),[searchFocused,setSearchFocused]=useState(false);
+ useInitialLocation(useCallback((point:Coordinate)=>{
+  setCurrentLocation(point);
+  // An arriving GPS result must not replace a restored journey or a manual pick-up.
+  let restored=false;try{restored=Boolean(sessionStorage.getItem(bookingDraftKey))}catch{}
+  if(pickupRequest.current===0&&!restored)setCameraTarget(point);
+ },[]));
  const identity=passengerIdentity(customer,{name,phone});
  const activeAddress=activeStop==='pickup'?pickup:activeStop==='destination'?destination:viaPoints[Number(activeStop.slice(4))]||'';
  const searchingAddress=searchFocused&&activeAddress.trim().length>=2;
@@ -62,7 +69,7 @@ export default function BookingApp({customer}:{customer:Customer|null}){
   return()=>{cancelAnimationFrame(frame);viewport?.removeEventListener('resize',update);viewport?.removeEventListener('scroll',update);window.removeEventListener('resize',update);document.removeEventListener('focusin',update);document.removeEventListener('focusout',update);root.style.removeProperty('--booking-viewport-height');root.style.removeProperty('--booking-viewport-top');delete root.dataset.keyboardOpen};
  },[]);
  useEffect(()=>()=>mapRequest.current?.abort(),[]);
- useEffect(()=>{const saved=(localStorage.getItem('nac-theme') as Theme|null)||'system',media=window.matchMedia('(prefers-color-scheme: dark)'),frame=requestAnimationFrame(()=>setTheme(saved));const apply=()=>{document.documentElement.dataset.theme=saved==='system'?(media.matches?'dark':'light'):saved};apply();media.addEventListener('change',apply);return()=>{cancelAnimationFrame(frame);media.removeEventListener('change',apply)}},[]);
+ useEffect(()=>{const saved=(localStorage.getItem('nac-theme') as Theme|null)||'dark',media=window.matchMedia('(prefers-color-scheme: dark)'),frame=requestAnimationFrame(()=>setTheme(saved));const apply=()=>{document.documentElement.dataset.theme=saved==='system'?(media.matches?'dark':'light'):saved};apply();media.addEventListener('change',apply);return()=>{cancelAnimationFrame(frame);media.removeEventListener('change',apply)}},[]);
  useEffect(()=>{const controller=new AbortController();fetch('/api/quotes',{cache:'no-store',signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error('Booking services unavailable');const data=await response.json() as {paidMember:boolean;serviceAccess:{guarantee:boolean;priority:boolean;quietAsap:boolean}};setBookingAccess(data)}).catch(()=>{});return()=>controller.abort()},[]);
 
  useEffect(()=>{if(!customer)return;let active=true;Promise.all([fetch('/api/customer/places',{cache:'no-store'}),fetch('/api/customer/history',{cache:'no-store'})]).then(async([placesResponse,historyResponse])=>{const saved=await placesResponse.json() as {places?:SavedPlace[]},recent=await historyResponse.json() as {history?:AddressChoice[]};if(active){setPlaces(saved.places||[]);setHistory(recent.history||[])}}).catch(()=>{});return()=>{active=false}},[customer]);
