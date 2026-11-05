@@ -86,3 +86,7 @@ Evidence in `evidence/controlled-bc-implementation/` is redacted and **cannot be
 ### Verified result
 
 26 full production-Next/PostgreSQL scenarios passed, including exact payload, signed receipt ingestion, status readback, foreign receipt rejection, both operator lock orderings, eight concurrent triggers, suppression/cancellation after claim, expiry during processing, unknown responses and post-acceptance persistence failure. Four profile guard tests, 26 CRM regressions, nine existing dispatcher PostgreSQL tests and six NAC regressions passed. Both Next builds, TypeScript, targeted lint and Prisma validation passed. Zero real provider POSTs. Commit IDs are provided in the accompanying task result; changes remain local and unpublished.
+
+## Subsequent draft-PR publication
+
+This implementation-phase record originally described unpublished local work. The verified source commits are now being published to the existing draft PR branches through a fast-forward cherry-pick workflow, with no release action. See [PUBLICATION_REVIEW_20261105.md](PUBLICATION_REVIEW_20261105.md) for full source/applied IDs, live-version comparison, exact migration/grant SQL and activation/deactivation instructions. The code is not thereby deployed or enabled.
