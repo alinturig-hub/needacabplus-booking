@@ -1,0 +1,13 @@
+/** Manual app event launcher. Inspect by default; never imports a Meta/SMS sender. */
+import {readFileSync} from 'node:fs';
+import {controlledGuard,controlledOrigin,controlledPaths,controlledBooking} from '../../lib/notifications/controlled/protocol';
+import {signedHeaders,boundedBody} from '../../lib/whatsapp-service-auth';
+async function main(){const args=process.argv.slice(2);if(args.some(a=>!['--inspect','--execute','--status'].includes(a)))throw Error('INVALID_ARGUMENT');if(args.includes('--status')){const raw=process.env.APP_ORIGIN||'',origin=controlledOrigin(raw,new URL(raw).protocol==='https:'?'LIVE':controlledGuard().mode),path=controlledPaths.event;const response=await fetch(new URL(path,origin),{headers:signedHeaders('GET',path,'',process.env.WHATSAPP_NAC_KEY_ID||'',process.env.WHATSAPP_NAC_SECRET||''),redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('STATUS_UNAVAILABLE');console.log(await boundedBody(response as unknown as Request));return;}const g=controlledGuard(),origin=controlledOrigin(process.env.APP_ORIGIN,g.mode);
+ if(!args.includes('--execute')){console.log(JSON.stringify({execution:false,mode:g.mode,booking:g.booking,app_endpoint:origin+controlledPaths.event,test_expires_at:new Date(g.deadline).toISOString(),general_sending:false}));return;}
+ if(g.mode!=='LIVE')throw Error('EXPLICIT_LIVE_PROFILE_REQUIRED');const packet=JSON.parse(readFileSync(process.env.CONTROLLED_BC_PACKET_FILE||'','utf8'));
+ if(packet.purpose!=='CONTROLLED_BOOKING_CONFIRMED_TRIGGER'||packet.preparation_mode!=='LIVE'||packet.intent.booking_id!=='autocab:'+controlledBooking||packet.approval_sha256!==process.env.CONTROLLED_BC_APPROVAL_SHA256||packet.intent.recipient!==g.recipient||!Number.isFinite(Date.parse(packet.effective_expires_at))||Date.parse(packet.effective_expires_at)<=Date.now())throw Error('NEW_APPROVED_PACKET_REQUIRED');
+ const path=controlledPaths.event,body=JSON.stringify({booking_id:g.booking});
+ const response=await fetch(new URL(path,origin),{method:'POST',body,headers:{'Content-Type':'application/json',...signedHeaders('POST',path,body,process.env.WHATSAPP_NAC_KEY_ID||'',process.env.WHATSAPP_NAC_SECRET||'')},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
+ if(!response.ok)throw Error('APP_EVENT_STOPPED');const result=JSON.parse(await boundedBody(response as unknown as Request));console.log(JSON.stringify({status:result.status,reason:result.reason,provider_message_id:result.provider_message_id,outbound_id:result.outbound_id,provider_posts:result.provider_posts,automatic_retry:false}));
+}
+void main().catch(()=>{console.error('Stopped. No automatic retry or SMS. Verify the durable operation before any further action.');process.exitCode=1});

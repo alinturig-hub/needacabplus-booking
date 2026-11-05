@@ -1,0 +1,14 @@
+✔ phone normalization does not invent country for ambiguous numbers (1.707112ms)
+✔ NAC accepts signed durable callback authentication and rejects changed endpoint (24.127677ms)
+✔ confirmed booking capture, durable same-key retry, callback dedup and conflict (4473.61273ms)
+✔ milestones follow actual canonical timestamps and skip superseded journey stages (1.038034ms)
+✔ future events and absent driver parameters are never invented (0.495657ms)
+✔ telephone/Autocab journeys are captured once per milestone; stale events stay out (4301.437937ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5242.561674

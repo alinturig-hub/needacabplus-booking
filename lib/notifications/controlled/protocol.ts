@@ -1,0 +1,24 @@
+import {createHash} from 'node:crypto';
+export const controlledBooking='SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d';
+export const controlledRecipientHash='34a7e4b48c511f8b5bf51618ad68ce94cf8b70987f5e65c690dad3a0769de1c2';
+export const controlledPaths={event:'/api/internal/notifications/v2/controlled-booking-event',context:'/api/internal/notifications/v2/controlled-context',gateway:'/api/internal/whatsapp/v2/controlled-booking-confirmed'};
+export function canonical(value:unknown):string{if(value===null||typeof value!=='object')return JSON.stringify(value);if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';const r=value as Record<string,unknown>;return '{'+Object.keys(r).sort().map(k=>JSON.stringify(k)+':'+canonical(r[k])).join(',')+'}'}
+export const digest=(x:unknown)=>createHash('sha256').update(canonical(x)).digest('hex');
+export function controlledGuard(env:NodeJS.ProcessEnv=process.env,now=Date.now()){
+ const mode=env.CONTROLLED_BC_MODE;if(!['SIMULATED','LIVE'].includes(mode||''))throw Error('CONTROLLED_DISABLED');
+ if(env.WHATSAPP_SHARED_ENABLED!=='true'||['META_WHATSAPP_SENDING_ENABLED','WHATSAPP_JOURNEY_SENDING_ENABLED','META_WHATSAPP_TEST_SEND_ENABLED'].some(k=>env[k]!=='false'))throw Error('GENERAL_SENDING_MUST_STAY_DISABLED');
+ const recipient=env.CONTROLLED_BC_RECIPIENT||'';if(createHash('sha256').update(recipient).digest('hex')!==controlledRecipientHash||env.CONTROLLED_BC_BOOKING_ID!==controlledBooking)throw Error('CONTROLLED_ALLOWLIST_MISMATCH');
+ const deadline=Date.parse(env.CONTROLLED_BC_EXPIRES_AT||'');if(!Number.isFinite(deadline)||deadline<=now||deadline>now+86400000)throw Error('CONTROLLED_APPROVAL_EXPIRED');
+ const db=new URL(env.DATABASE_URL||'');for(const key of ['TAXICRM_SHARED_DATABASE_URL','TAXICRM_DATABASE_URL','BOOKING_ATTEMPTS_DATABASE_URL'])if(env[key]){const alias=new URL(env[key]!);if(alias.hostname!==db.hostname||alias.port!==db.port||alias.pathname!==db.pathname)throw Error('CONTROLLED_DATABASE_ALIAS_MISMATCH')}
+ if(mode==='SIMULATED'&&(db.hostname!=='127.0.0.1'||db.port!=='55439'||!/^\/notifications_controlled_qa(?:_[a-z0-9]+)?$/.test(db.pathname)||Boolean(env.META_WHATSAPP_ACCESS_TOKEN)||Boolean(env.SMS_API_KEY)))throw Error('CONTROLLED_SIMULATION_ISOLATION_REQUIRED');
+ if(mode==='LIVE'&&(!/^[a-f0-9]{64}$/.test(env.CONTROLLED_BC_APPROVAL_SHA256||'')||env.META_WHATSAPP_WABA_ID!=='4556038757974595'||env.META_WHATSAPP_PHONE_NUMBER_ID!=='1406119395919653'||env.META_WHATSAPP_APP_ID!=='1800340067849051'))throw Error('CONTROLLED_APPROVAL_REQUIRED');
+ const databaseIdentity={host:db.hostname,port:db.port||'5432',name:decodeURIComponent(db.pathname.slice(1)),role:decodeURIComponent(db.username)};if(mode==='LIVE'&&env.CONTROLLED_BC_DATABASE_IDENTITY_SHA256!==digest(databaseIdentity))throw Error('CONTROLLED_DATABASE_IDENTITY_REQUIRED');
+ const workspace=env.WHATSAPP_WORKSPACE_ID||'';if(!/^[a-zA-Z0-9_-]{1,64}$/.test(workspace))throw Error('CONTROLLED_WORKSPACE_REQUIRED');
+ return {mode:mode as 'SIMULATED'|'LIVE',recipient,booking:controlledBooking,deadline,workspace,databaseIdentity,scope:workspace+':META:'+env.META_WHATSAPP_WABA_ID+':'+env.META_WHATSAPP_PHONE_NUMBER_ID};
+}
+export function controlledOrigin(value:string|undefined,mode:'SIMULATED'|'LIVE'){
+ const u=new URL(value||'');if(u.username||u.password||u.pathname!=='/'||u.search||u.hash||!(mode==='SIMULATED'?u.protocol==='http:'&&u.hostname==='127.0.0.1':u.protocol==='https:'&&/^(admin|webapp|inbound|taxicrm)\.(needacabplus\.app|plymhub\.ai)$/.test(u.hostname)))throw Error('CONTROLLED_ORIGIN_REJECTED');return u.origin;
+}
+export function checkControlledIntent(intent:{booking_id:string;recipient:string;event_type:string;revision:number;idempotency_key:string;expires_at:string;rule:{id:string;version:number}},env:NodeJS.ProcessEnv=process.env){const g=controlledGuard(env);if(intent.booking_id!=='autocab:'+g.booking||intent.recipient!==g.recipient||intent.event_type!=='booking.confirmed'||intent.revision!==1||intent.idempotency_key!==`${intent.booking_id}:booking.confirmed:${g.recipient}:1`||Date.parse(intent.expires_at)<=Date.now()||intent.rule.id!==env.CONTROLLED_BC_RULE_ID||String(intent.rule.version)!==env.CONTROLLED_BC_RULE_VERSION)throw Error('CONTROLLED_INTENT_REJECTED');return g}
+export function approvalHash(intent:unknown,payload:unknown,templateFingerprint:string,deadline:number,databaseIdentity:unknown){return digest({databaseIdentity,purpose:'CONTROLLED_BOOKING_CONFIRMED_TRIGGER',intent,payload,templateFingerprint,deadline,maximumProviderPosts:1,automaticRetries:0,smsFallback:false})}
+export type ControlledResult={operation_key:string;booking_id:string;scope:string;mode:'SIMULATED'|'LIVE';status:'SENDING'|'BLOCKED'|'UNKNOWN'|'REJECTED'|'ACCEPTED'|'SENT'|'DELIVERED'|'READ'|'FAILED';reason:string;provider_message_id?:string;outbound_id?:string;provider_posts:number|null;simulated_posts:number|null;approval_sha256?:string};

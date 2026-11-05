@@ -1,3 +1,5 @@
+import {synchronizeControlledResult} from './notifications/controlled/app';
+import type {ControlledResult} from './notifications/controlled/protocol';
 import {createHash} from 'node:crypto';
 import type {Pool} from 'pg';
 import {signedHeaders,verifyService,boundedBody} from './whatsapp-service-auth';
@@ -38,5 +40,5 @@ export async function receiveGatewayEvent(db:Pool,request:Request){
  let event;try{event=JSON.parse(body);}catch{throw Error('INVALID_EVENT');}
  if(event.schema_version!=='1.0'||event.scope!==scope||typeof event.event_id!=='string'||!/^\d{1,19}$/.test(event.event_id)||!['message.received','message.status','message.accepted','conversation.mode_changed'].includes(event.type)||!event.payload||typeof event.payload!=='object')throw Error('INVALID_EVENT');
  const hash=createHash('sha256').update(body).digest('hex');await db.query(`INSERT INTO whatsapp_event_inbox(event_id,scope,event_type,payload,request_hash) VALUES($1,$2,$3,$4::jsonb,$5) ON CONFLICT(event_id) DO NOTHING`,[event.event_id,scope,event.type,JSON.stringify(event.payload),hash]);
- const saved=(await db.query(`SELECT request_hash FROM whatsapp_event_inbox WHERE event_id=$1`,[event.event_id])).rows[0];if(saved.request_hash!==hash)throw Error('EVENT_CONFLICT');return {received:true,event_id:event.event_id};
+ const saved=(await db.query(`SELECT request_hash FROM whatsapp_event_inbox WHERE event_id=$1`,[event.event_id])).rows[0];if(saved.request_hash!==hash)throw Error('EVENT_CONFLICT');if(event.payload.controlled_test===true&&['message.accepted','message.status'].includes(event.type))await synchronizeControlledResult(db,{...event.payload,scope:event.scope} as ControlledResult);return {received:true,event_id:event.event_id};
 }

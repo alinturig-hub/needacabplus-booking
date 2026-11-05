@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-05",
+  "nextApplications": "full production builds, loopback only",
+  "database": "fresh local PostgreSQL with new migration definitions",
+  "end_to_end_cases": 26,
+  "guard_tests": 4,
+  "crm_regressions": 26,
+  "existing_dispatch_postgresql_tests": 9,
+  "nac_regressions": 6,
+  "nac_build_passed": true,
+  "crm_build_passed": true,
+  "prisma_schema_valid": true,
+  "provider_transport": "simulated, no real Meta network request",
+  "production_migrations": false,
+  "publication": false,
+  "real_provider_posts": 0
+}

@@ -43,3 +43,7 @@ Before a real execution can be offered for approval, connect a scoped app-contro
 5. Only after explicit approval of the prepared final result, allow maximum one provider POST, record acceptance/common history/correlation, and track delivered/read via the existing signed Meta webhook. UNKNOWN stops with no retry or SMS. All general flags stay false.
 
 Evidence is in `evidence/controlled-booking-confirmed/`. The complete target manifest and payload are private, separate files. Neither production bookings nor the completed owner test were modified. No schema migration, live deployment, general notification flag change or live message occurred.
+
+## Subsequent implementation
+
+The previously missing scoped app-to-transport handoff is now implemented locally in [CONTROLLED_BC_IMPLEMENTATION.md](CONTROLLED_BC_IMPLEMENTATION.md), with simulated verification and an explicit activation plan. This does not activate or publish it, extend the original event TTL, or authorize a real send.

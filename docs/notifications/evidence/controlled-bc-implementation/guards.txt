@@ -1,0 +1,12 @@
+✔ controlled delivery is disabled by default and cannot use enabled general flags (1.226037ms)
+✔ another booking or recipient cannot widen the allowlist (0.407841ms)
+✔ approved local simulation rejects a provider token, remote DB, aliases and expiry (0.603358ms)
+✔ live requires a separate exact approval, Meta identity and bound database identity (0.627746ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 285.532481

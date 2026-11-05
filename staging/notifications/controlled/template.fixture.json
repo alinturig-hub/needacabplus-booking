@@ -1,0 +1,21 @@
+{
+  "id": "1384212676937085",
+  "name": "nac_booking_confirmation_v1",
+  "status": "APPROVED",
+  "category": "UTILITY",
+  "language": "en_GB",
+  "parameter_format": "POSITIONAL",
+  "components": [
+    {
+      "type": "BODY",
+      "text": "Your Need A Cab Plus booking {{1}} is confirmed. Please contact our team if your journey details change.",
+      "example": {
+        "body_text": [
+          [
+            "100"
+          ]
+        ]
+      }
+    }
+  ]
+}

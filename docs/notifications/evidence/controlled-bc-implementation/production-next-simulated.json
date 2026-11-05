@@ -1,0 +1,326 @@
+{
+  "passed": true,
+  "transport": "SIMULATED_ONLY",
+  "real_provider_posts": 0,
+  "production_changes": false,
+  "cases": [
+    {
+      "case": "read-only-canonical-descriptor-and-offline-approval-no-claim"
+    },
+    {
+      "case": "app-to-gateway-single-transport-and-duplicate",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "ACCEPTED",
+        "reason": "PROVIDER_ACCEPTED_NOT_DELIVERED",
+        "provider_posts": 0,
+        "simulated_posts": 1,
+        "provider_message_id": "simulated:e59306d0-da49-4277-a1e0-654b146a528c",
+        "outbound_id": "aef3ac66-1fb2-41bd-8508-bfd78bb12ceb",
+        "approval_sha256": "c2b4ecec52809dae6910b11b7987c7fd66ee0bd03b0c73638d88c3b2bddedbc3"
+      },
+      "totals": {
+        "messages": 1,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "signed-webhook-common-history-and-monotonic-status-sync",
+      "appState": "READ",
+      "crmState": "READ",
+      "invalidSignatureRejected": true,
+      "totals": {
+        "messages": 1,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "foreign-provider-status-correlation-rejected"
+    },
+    {
+      "case": "lost-gateway-response-unknown-count-no-retry-status-reconciles",
+      "result": {
+        "mode": "SIMULATED",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "status": "UNKNOWN",
+        "reason": "SEND_OUTCOME_UNKNOWN_NO_RETRY",
+        "provider_posts": 0,
+        "simulated_posts": null
+      },
+      "totals": {
+        "messages": 1,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "RECIPIENT_SUPPRESSED",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "BLOCKED",
+        "reason": "RECIPIENT_SUPPRESSED",
+        "provider_posts": 0,
+        "simulated_posts": 0
+      }
+    },
+    {
+      "case": "OPERATOR_TAKEOVER",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "BLOCKED",
+        "reason": "OPERATOR_TAKEOVER",
+        "provider_posts": 0,
+        "simulated_posts": 0
+      }
+    },
+    {
+      "case": "SERVICE_PERMISSION_REQUIRED",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "BLOCKED",
+        "reason": "SERVICE_PERMISSION_REQUIRED",
+        "provider_posts": 0,
+        "simulated_posts": 0
+      }
+    },
+    {
+      "case": "BOOKING_CANCELLED",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "BLOCKED",
+        "reason": "BOOKING_CANCELLED",
+        "provider_posts": 0,
+        "simulated_posts": 0
+      }
+    },
+    {
+      "case": "APP_NOTIFICATION_FLOW_SELECTED",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "BLOCKED",
+        "reason": "APP_NOTIFICATION_FLOW_SELECTED",
+        "provider_posts": 0,
+        "simulated_posts": 0
+      }
+    },
+    {
+      "case": "expired-canonical-event",
+      "result": {
+        "error": "CONTROLLED_INTENT_REJECTED"
+      }
+    },
+    {
+      "case": "booking-and-recipient-allowlist",
+      "result": {
+        "error": "CONTROLLED_EVENT_REJECTED"
+      }
+    },
+    {
+      "case": "supplier-timeout",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "UNKNOWN",
+        "reason": "PROVIDER_OUTCOME_UNKNOWN",
+        "provider_posts": 0,
+        "simulated_posts": 1,
+        "outbound_id": "7f6ec3c6-40ff-402b-ac13-e9bacbecd5e6",
+        "approval_sha256": "46a9d60d3af0b2e7386e7cb98c95c399c52cd5135d28728c3ecda8a85b5eca26"
+      },
+      "totals": {
+        "messages": 0,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "supplier-server-error",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "UNKNOWN",
+        "reason": "PROVIDER_OUTCOME_UNKNOWN",
+        "provider_posts": 0,
+        "simulated_posts": 1,
+        "outbound_id": "75423b95-4bad-4e6d-8d1d-cf44e2b64471",
+        "approval_sha256": "a38fe529de67c4d10f5f52a82785f87cb086ccaebd160542574fd4da122ec3ff"
+      },
+      "totals": {
+        "messages": 0,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "supplier-malformed",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "UNKNOWN",
+        "reason": "PROVIDER_OUTCOME_UNKNOWN",
+        "provider_posts": 0,
+        "simulated_posts": 1,
+        "outbound_id": "965c94eb-4563-48e6-b886-fb609d8871d6",
+        "approval_sha256": "67b6f0a6a0d2ea817995ebf1989a9303a81c5c2fb27e341b577c6426ede52718"
+      },
+      "totals": {
+        "messages": 0,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "supplier-rejected",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "REJECTED",
+        "reason": "PROVIDER_OUTCOME_REJECTED",
+        "provider_posts": 0,
+        "simulated_posts": 1,
+        "outbound_id": "e119efdb-8b23-4722-8229-76901963d8ff",
+        "approval_sha256": "d29ebc9a9a56fd62a4030e78df6209a4149f7425c26279ccd21a2cfb329cef04"
+      },
+      "totals": {
+        "messages": 0,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "accepted-provider-history-failure-preserves-claim-no-resend",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "UNKNOWN",
+        "reason": "PERSISTENCE_OR_SEND_OUTCOME_UNKNOWN",
+        "provider_posts": 0,
+        "simulated_posts": 1
+      },
+      "totals": {
+        "messages": 0,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "cancelled-after-claim-before-http",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "REJECTED",
+        "reason": "FINAL_POLICY_BLOCKED_NO_POST",
+        "provider_posts": 0,
+        "simulated_posts": 0,
+        "outbound_id": "ffccfcfd-d3d6-405b-b00c-470d0b1b9fda",
+        "approval_sha256": "5abb5d6db6e04c97dbce00a259702e1ccc3bc340a554b110e81c8ec9b835bb79"
+      }
+    },
+    {
+      "case": "suppressed-after-claim-not-replayed-after-release",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "REJECTED",
+        "reason": "FINAL_POLICY_BLOCKED_NO_POST",
+        "provider_posts": 0,
+        "simulated_posts": 0,
+        "outbound_id": "959b0aec-bcf3-4f5e-9cea-7ba3be1c87c7",
+        "approval_sha256": "b3f58f84403fbca7e56e8a4a77df32be876829118548b236af137c61b5f1d7f1"
+      }
+    },
+    {
+      "case": "notification-expires-during-processing",
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "REJECTED",
+        "reason": "FINAL_POLICY_BLOCKED_NO_POST",
+        "provider_posts": 0,
+        "simulated_posts": 0,
+        "outbound_id": "ba794089-0f9e-42f0-88ca-486a0b19baec",
+        "approval_sha256": "df6dbb6f64b7f7276ff0c4a69fc19aad501c13b7ac34022adf6ff24a23b621d7"
+      }
+    },
+    {
+      "case": "unapproved-template-no-post"
+    },
+    {
+      "case": "operator-first-dispatch-waits-and-blocks",
+      "postgresqlContention": true,
+      "result": {
+        "operation_key": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d:booking.confirmed:<OWNER_RECIPIENT>:1",
+        "booking_id": "autocab:SYNTHETIC-BC-53fd75f0-eb4d-4042-8ee6-92ebcc845f9d",
+        "scope": "controlled-qa:META:99999999999:99999999998",
+        "mode": "SIMULATED",
+        "status": "BLOCKED",
+        "reason": "OPERATOR_TAKEOVER",
+        "provider_posts": 0,
+        "simulated_posts": 0
+      }
+    },
+    {
+      "case": "eight-concurrent-app-triggers",
+      "totals": {
+        "messages": 1,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "operator-handoff-waits-for-inflight-provider",
+      "advisoryContention": true,
+      "totals": {
+        "messages": 1,
+        "claims": 1,
+        "attempts": 1
+      }
+    },
+    {
+      "case": "fresh-migration-fence-old-and-new-associations-unrelated-bookings-untouched",
+      "fence": 4,
+      "real_provider_posts": 0
+    },
+    {
+      "case": "simulation-live-or-scope-promotion-conflict-no-post"
+    }
+  ]
+}

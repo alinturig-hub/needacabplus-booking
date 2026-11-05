@@ -1,0 +1,34 @@
+✔ fresh booking generates a new disabled approval manifest with the application operation key (8.119101ms)
+✔ the completed smoke-test booking and any other recipient are rejected (0.882734ms)
+✔ suppression, operator takeover, previous acceptance and expiry never yield a manifest (0.624094ms)
+✔ send defaults disabled without a network call (1.355699ms)
+✔ mock accepted is not delivered; uses fixed origin and normalized recipient (22.930509ms)
+✔ timeout and malformed success become unknown with no automatic retry (0.89953ms)
+✔ provider server errors remain uncertain and never trigger fallback or a retry (0.54241ms)
+✔ exact positional body payload: ordering follows template, never approval examples (3.98257ms)
+✔ exact named body payload uses parameter_name (0.720209ms)
+✔ URL button suffixes keep original slots; static call needs no runtime parameter (1.106412ms)
+✔ exact free text and strict 24h boundary, with final transport margin (0.557012ms)
+✔ no payload on takeover, suppression, unknown outcome, expiry, or stale approval (0.84055ms)
+✔ media, dynamic headers and unimplemented quick replies/Flows fail closed (0.569481ms)
+✔ provider simulation preserves ACCEPTED vs UNKNOWN and has no retry/fallback path (0.758136ms)
+✔ the single dispatcher requires an explicit no-send environment (1.87919ms)
+✔ v1 shares the positional serializer without changing its payload (0.288606ms)
+✔ exact named/button HTTP payload passes through the single existing transport to a fake provider (26.800641ms)
+✔ text cannot cross HTTP boundary when eligible inbound window expired during preparation (0.678285ms)
+✔ all payload shapes remain disabled by default with no HTTP (0.422228ms)
+✔ signed auth binds method, path, body, age and nonce; replays rejected (19.986631ms)
+✔ intent validates scope, semantic identity, template binding and expiry (0.841251ms)
+✔ durable intent retries deduplicate; changed payload conflicts; wrong workspace rejected (1836.43319ms)
+✔ canonical message dedup survives rebatched receipts, scopes phone, status cannot regress (1448.401386ms)
+✔ operator takeover is revision checked, idempotent, cancels held work; release never flushes it (1660.073561ms)
+✔ legacy test sender cannot bypass shared conversation control (1.245477ms)
+✔ numeric Meta participant joins E164 conversation and STOP cancels held notifications (1562.177462ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7089.247406
