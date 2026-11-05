@@ -22,7 +22,7 @@ test('full OAuth handlers preserve two browser attempts, consume state once and 
   assert.equal(await flow.finishOAuth('google','synthetic-code-b',b.searchParams.get('state')),'synthetic-account');
   assert.equal(await flow.finishOAuth('google','synthetic-code-a',a.searchParams.get('state')),'synthetic-account');
   assert.equal(exchanges,2);assert.equal(identities.length,2);assert.equal(jar.size,0);assert.equal(states.size,0);
-  await assert.rejects(()=>flow.finishOAuth('google','replay',a.searchParams.get('state')),/expired/);assert.equal(exchanges,2);
-  const c=new URL(await flow.startOAuth('google'));jar.clear();await assert.rejects(()=>flow.finishOAuth('google','missing-browser',c.searchParams.get('state')),/expired/);assert.equal(exchanges,2);
+  await assert.rejects(()=>flow.finishOAuth('google','replay',a.searchParams.get('state')),e=>e.code==='provider_browser_missing');assert.equal(exchanges,2);
+  const c=new URL(await flow.startOAuth('google'));jar.clear();await assert.rejects(()=>flow.finishOAuth('google','missing-browser',c.searchParams.get('state')),e=>e.code==='provider_browser_missing');assert.equal(exchanges,2);
  }finally{global.fetch=oldFetch}
 });

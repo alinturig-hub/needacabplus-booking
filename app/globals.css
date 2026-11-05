@@ -768,3 +768,22 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 @media(max-width:700px){.booking-shell.stage-0.address-editing:not(.stop-editor) .address-history{display:block}}
 
 @media(max-width:700px){.booking-shell.stage-0.address-editing:not(.stop-editor) .map-surface:not(.map-picker-active){bottom:72%}}
+
+/* Slim route summary kept clear of status-bar overlays in older test APKs too. */
+@media(max-width:700px){
+ .booking-shell .ride-map-route{top:calc(env(safe-area-inset-top,0px) + 34px);left:12px;right:12px;min-height:44px;padding:4px 7px;gap:5px;border-radius:18px;grid-template-columns:32px minmax(0,1fr) 14px minmax(0,1fr) 32px}
+ .booking-shell .ride-map-route>button{width:32px;height:34px;min-height:34px}
+ .booking-shell .ride-map-route>span{font-size:12px;line-height:1.2}
+ .booking-shell.stage-2 .brandbar{display:none}
+ .booking-shell.stage-1 .customer-map-live,.booking-shell.stage-2 .customer-map-live{top:calc(env(safe-area-inset-top,0px) + 88px)}
+ .booking-shell.stage-2 .chosen-car{margin:8px 0 12px;padding:12px;gap:10px}
+ .booking-shell.stage-2 .details-form{gap:12px}
+}
+@media(max-width:700px){
+ .booking-shell.stage-2 .chosen-car{display:grid;grid-template-columns:54px minmax(0,1fr) auto;flex-wrap:nowrap;border:1px solid var(--border);border-radius:16px;background:var(--booking-surface)}
+ .booking-shell.stage-2 .chosen-car>svg{width:52px;height:48px;margin:0}
+ .booking-shell.stage-2 .chosen-car h2{font-size:17px;margin:0 0 5px}
+ .booking-shell.stage-2 .chosen-car .muted{font-size:10px;gap:3px}
+ .booking-shell.stage-2 .chosen-car>strong{font-size:20px;margin-left:0}
+ .booking-shell.stage-2 .chosen-car>strong small{font-size:9px;margin-top:5px}
+}
