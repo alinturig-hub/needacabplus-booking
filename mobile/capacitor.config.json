@@ -1,0 +1,14 @@
+{
+  "appId": "app.needacabplus.passenger.testing",
+  "appName": "Need A Cab Plus Test",
+  "webDir": "www",
+  "server": {
+    "url": "https://webapp.needacabplus.app",
+    "cleartext": false,
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

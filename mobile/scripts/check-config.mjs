@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const config=JSON.parse(readFileSync(new URL('../capacitor.config.json',import.meta.url)));
+const manifest=readFileSync(new URL('../android/app/src/main/AndroidManifest.xml',import.meta.url),'utf8');
+assert.equal(config.appId,'app.needacabplus.passenger.testing');
+assert.equal(config.server.url,'https://webapp.needacabplus.app');
+assert.equal(config.server.cleartext,false);
+assert.equal(config.android.allowMixedContent,false);
+assert.equal(config.android.webContentsDebuggingEnabled,false);
+assert.equal(config.server.allowNavigation,undefined);
+assert.match(manifest,/ACCESS_FINE_LOCATION/);
+assert.match(manifest,/ACCESS_COARSE_LOCATION/);
+assert.match(manifest,/android:allowBackup="false"/);
+assert.match(manifest,/android:usesCleartextTraffic="false"/);
+assert.doesNotMatch(manifest,/ACCESS_BACKGROUND_LOCATION|READ_CONTACTS|READ_SMS|SEND_SMS/);
+console.log('Testing package, HTTPS, navigation, GPS and permission checks passed.');
