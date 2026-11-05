@@ -1,47 +1,28 @@
-# Android testing APK — Need A Cab Plus
+# Need A Cab Plus — Android testing 0.3.0
 
-A Capacitor 7 Android shell for `https://webapp.needacabplus.app`, isolated from the web application's build and dependencies. No production deployment or server changes are required.
+Package `app.needacabplus.passenger.testing`, versionCode 3, Android API 23+ with current WebView. The app loads https://webapp.needacabplus.app. This is a testing binary connected to the LIVE backend: confirming a booking can create a real reservation. No automated booking or notification is run by the build.
 
-- Label: **Need A Cab Plus Test**
-- Package: `app.needacabplus.passenger.testing`
-- Version: `0.2.0-testing` (code 2)
-- Android 6.0 / API 23 or later, target API 35.
-- HTTPS only, no wildcard in-WebView navigation, no mixed content or WebView debugging. App backup disabled.
-- Foreground coarse/fine location only; Capacitor requests Android permission when the website asks for GPS. Location permission is restricted to the exact passenger HTTPS origin. No background location.
-- Uses the existing passenger website and first-party account session; it does not copy credentials into native storage. The same account can sign in, but a browser session is not automatically shared with the APK.
-- External links use the device browser/appropriate app. No OAuth/native payment handoff is claimed; use existing phone/password login for the first device smoke test.
-- No push token registration, Firebase setup, background tracking, native booking-origin proof or SMS/WhatsApp policy changes in this build. Those require an explicit backend integration, not a User-Agent flag.
+## Google return
 
-## Important test boundary
+The app generates an independent PKCE verifier and state, stores them in app-private preferences, and opens the whole Google flow in the system browser. The existing server callback validates Google and issues a 60-second one-use grant bound to that verifier/state. The return page uses a package-pinned Android intent (with a visible Return to app button if automatic launch is blocked). Native code checks its pending state, exchanges the grant over HTTPS, installs only the ordinary HttpOnly customer-session cookie through CookieManager, and reloads the passenger homepage. No Google/session token is in the intent, JSON or JavaScript. Return intents are intercepted before Capacitor sees their data. Wrong, expired or reused grants fail closed; unknown outcomes are not retried automatically.
 
-This is a **testing binary connected to the live web application**, not a sandbox booking backend. Booking confirmation can create a real reservation; do not confirm a booking during the initial installation/GPS/login test. No automated booking or message is performed by the build. Existing live service policy still applies.
+The server reuses the existing ephemeral OAuth state store with a separate versioned provider namespace. No database migration, Firebase setup, Google Android SDK/client or Meta credential is needed. Existing browser-only OAuth stays supported. The native handoff in this version is Google-only; Apple remains browser-only. No native push is implemented.
 
-## Build
+## Keyboard and system bars
 
-Requires Node 22+, JDK 21, Android SDK platform 35 and build tools (Gradle may select 34.0.0). The Gradle wrapper downloads its pinned version. Install SDK components and accept the Android SDK licenses in your development environment. Local SDK paths and signing keys must remain untracked.
+System-bar/cutout margins are forced. On Android 11+ the WebView applies the greater of system and IME bottom insets to resize above the keyboard; older Android uses adjustResize. Web address search uses the visual viewport and prioritizes fields/results while typing, preserving entered addresses on keyboard close.
 
-```sh
-cd mobile
-npm ci
-node scripts/check-config.mjs
-npx cap sync android
-cd android
-./gradlew --no-daemon :app:assembleDebug :app:lintDebug
-```
+## Build and install
 
-Output: `mobile/android/app/build/outputs/apk/debug/app-debug.apk`. Gradle signs it with the local **debug** key; this is not the Google Play signing identity. Keep the same local test key for installable upgrades or uninstall the previous test app first. The production Play application ID/signing/AAB release process will be established separately.
+Requires Node 22+, JDK 21 and Android SDK 35/build tools. From `mobile`: `npm ci`, `node scripts/check-config.mjs`, `npx cap sync android`, then `cd android && ./gradlew --no-daemon :app:assembleDebug :app:lintDebug`.
 
-## Install and device smoke test
+Install the debug APK over the previous test app (same package/signing key); no uninstall is needed. New signing keys require uninstall and lose local app data. Signing keys, SDK paths and APKs stay out of Git. Google Play signing/publication is a separate release.
 
-1. Download the APK on Android and open it. Allow installation from that download app if Android asks; you can revoke that permission after installation. Alternatively: `adb install -r app-debug.apk`.
-2. Open **Need A Cab Plus Test**, check layout, light/dark theme, keyboard and Android back navigation.
-3. Sign in with an existing customer account using phone/password. Close/reopen and verify session persistence. Check sign-out.
-4. Tap current location, grant **While using the app** and choose precise location if available. Confirm the displayed pickup; test denied permission/manual address too. Accuracy depends on the device and environment, not a guaranteed one metre.
-5. Search pickup, destination and via, inspect the map, and request a quote only if desired. Do not confirm a real booking as part of this smoke test.
-6. Disable the network and reopen; verify the connection screen and retry after reconnecting.
+## Owner device check
 
-No device/emulator smoke test is claimed until one is actually run. Push delivery, OAuth handoff, native wallets, app links, accessible/native offline UX and Play policy/target SDK requirements need separate validation before release. Remote-server loading is appropriate for this first internal test; review a bundled frontend/native integration before a Play submission.
+1. Install 0.3.0 and start Google sign-in FROM THE APP. Complete Google in the browser; tap Return to app if it does not open automatically. Confirm that the APK homepage shows the signed-in account without a browser address bar.
+2. Close/reopen and verify session persistence; check app sign-out. Test cancelling Google, an expired return and repeat tapping without a booking.
+3. Enter a destination with the keyboard visible. Check results, scrolling and preservation of pickup/destination when hiding the keyboard, in light/dark themes.
+4. Check GPS permission, precise/approximate/manual pickup, back navigation and connection recovery. Do not confirm a real booking as part of the smoke test.
 
-Version 0.2.0 forces Android system-bar/cutout margins so web content does not overlap the clock, battery or navigation bar. Install over the previous APK using the same package and test signing key. Native Google return/session exchange remains unimplemented.
-
-OAuth start links now open in the system browser before creating any OAuth cookie in the WebView. Browser sign-in remains in that browser; this avoids mixing browser/WebView cookie jars but does not transfer the session back to the APK. Phone sign-in remains the in-app test path.
+No physical-device or real-Google-account success is claimed until the owner performs this test. Local native build/signature and synthetic server/browser protocol tests are recorded separately.

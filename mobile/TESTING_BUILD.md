@@ -1,9 +1,11 @@
-# Android 0.2.0 testing build
+# Android testing 0.3.0 verification
 
-Package app.needacabplus.passenger.testing, versionCode 2. assembleDebug and lintDebug passed; apksigner verifies v1/v2 signatures. Certificate SHA-256 f595f4f43bacd8a3702def3d522db01e1ebc948ae5ce5eff30456d4d38d9665c matches version 0.1.0.
+Package app.needacabplus.passenger.testing, versionCode 3. assembleDebug/lintDebug passed. APK signature v1/v2 verifies. The signer remains f595f4f43bacd8a3702def3d522db01e1ebc948ae5ce5eff30456d4d38d9665c, compatible with existing testing installs.
 
-APK SHA-256: 198de129ec2fb582cf48db0a8cac2391978ade91b75d9df0138d91d43512dede.
+APK SHA-256: 34efdf40a8feb8e4b24b9f39237a85906a4641e62e6cb6c9882b64148b849eac.
 
-Forces system-bar/cutout margins and opens entire OAuth start flow in the system browser. Browser session is not transferred to the app. Native Google handoff and push remain unimplemented. The remote web backend is live: confirming a booking can create a real reservation.
+Google return uses private app PKCE/state, a package-pinned return intent, one-use server exchange, then native CookieManager installation of the normal HttpOnly session. No session token travels through intents/JavaScript. Native system and IME insets resize above the keyboard on Android 11+; older versions use adjustResize.
 
-No physical device/emulator test was performed. Check system-bar clearance, keyboard, back navigation, GPS, phone sign-in and upgrade/session persistence on the owner's device. No real Google account, booking or message was used by this build.
+Synthetic backend/browser tests are recorded in docs/passenger/NATIVE_GOOGLE_RETURN.md on the corresponding web branch. No physical-device real Google completion or IME result is claimed. Owner must install 0.3.0 over 0.2.0 and start Google again FROM THE APP. Both server and 0.3.0 are required.
+
+This testing binary connects to the LIVE web backend. Do not confirm real bookings during the smoke test. No push or Google Play release is included.
