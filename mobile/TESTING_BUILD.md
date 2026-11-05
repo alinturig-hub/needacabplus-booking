@@ -1,11 +1,14 @@
-# Android testing 0.3.0 verification
+# Android testing 0.4.0
 
-Package app.needacabplus.passenger.testing, versionCode 3. assembleDebug/lintDebug passed. APK signature v1/v2 verifies. The signer remains f595f4f43bacd8a3702def3d522db01e1ebc948ae5ce5eff30456d4d38d9665c, compatible with existing testing installs.
+Install over the existing testing APK; same package and signing certificate, versionCode 4.
+Loads the current live https://webapp.needacabplus.app, rather than a bundled offline copy.
+Reviewed web baseline: 2e1ce5dd22bc1f30f347a01561ebf351842f52aa.
+First-open GPS, guest map centring/zoom/marker and dark fallback are implemented in that web baseline.
+Native Google return, origin-restricted geolocation permission handling and keyboard/system insets are retained.
 
-APK SHA-256: 1947215d87e4b01f2cd0931466b612bce5190c9e874240b485308cbcfc06f2bb.
+Verification: six GPS/theme unit tests PASS; isolated real-component browser GPS/guest/dark test PASS; capacitor configuration check PASS; assembleDebug and lintDebug PASS; APK v1/v2 signatures PASS and certificate matches v3.
+Physical Android GPS permission, real Google completion and keyboard behaviour still require owner device verification.
+This APK connects to the live booking backend. Avoid confirming a real booking during UI testing.
+No web deployment, production configuration change, booking creation or message sending performed.
 
-Google return uses private app PKCE/state, a package-pinned return intent, one-use server exchange, then native CookieManager installation of the normal HttpOnly session. No session token travels through intents/JavaScript. Native system and IME insets resize above the keyboard on Android 11+; older versions use adjustResize.
-
-Synthetic backend/browser tests are recorded in docs/passenger/NATIVE_GOOGLE_RETURN.md on the corresponding web branch. No physical-device real Google completion or IME result is claimed. Owner must install 0.3.0 over 0.2.0 and start Google again FROM THE APP. Both server and 0.3.0 are required.
-
-This testing binary connects to the LIVE web backend. Do not confirm real bookings during the smoke test. No push or Google Play release is included.
+APK SHA-256: c6455f73cfec9b98d2133cb5994017d16a6955a88f40f4f7f937bd9df7b7ef66
