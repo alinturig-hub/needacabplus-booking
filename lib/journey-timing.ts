@@ -12,6 +12,13 @@ export function visibleNearbyCars(cars:NearbyCar[],pickup:RoadPoint|null,now:num
  return cars.filter(car=>Number.isFinite(car.latitude)&&Math.abs(car.latitude)<=90&&Number.isFinite(car.longitude)&&Math.abs(car.longitude)<=180&&Number.isFinite(Date.parse(car.recordedAt))&&now-Date.parse(car.recordedAt)<=120000&&Date.parse(car.recordedAt)<=now+30000&&distance(car,pickup)<=radiusHaversine)
   .sort((a,b)=>distance(a,pickup)-distance(b,pickup)||a.id.localeCompare(b.id)).slice(0,CUSTOMER_CAR_LIMIT);
 }
+/** Before pickup selection, show fresh available cars inside the actual viewport. */
+export type CarMapBounds={west:number;south:number;east:number;north:number};
+export function visibleMapCars(cars:NearbyCar[],bounds:CarMapBounds|null,now:number){
+ if(!bounds||!Object.values(bounds).every(Number.isFinite)||bounds.south>bounds.north||bounds.west>bounds.east)return [];
+ return cars.filter(car=>Number.isFinite(car.latitude)&&Math.abs(car.latitude)<=90&&Number.isFinite(car.longitude)&&Math.abs(car.longitude)<=180&&Number.isFinite(Date.parse(car.recordedAt))&&now-Date.parse(car.recordedAt)<=120000&&Date.parse(car.recordedAt)<=now+30000&&car.latitude>=bounds.south&&car.latitude<=bounds.north&&[car.longitude,car.longitude-360,car.longitude+360].some(lon=>lon>=bounds.west&&lon<=bounds.east))
+  .sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt)||a.id.localeCompare(b.id)).slice(0,50);
+}
 export function nearbyCars(cars:NearbyCar[],pickup:RoadPoint,now:number){
  return visibleNearbyCars(cars,pickup,now).slice(0,3);
 }

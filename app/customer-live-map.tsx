@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {LngLatBounds,Map as MapLibreMap,Marker,type GeoJSONSource,type StyleSpecification} from 'maplibre-gl';
 import {useJourneyTiming} from './use-journey-timing';
-import {visibleNearbyCars,type JourneyTiming} from '@/lib/journey-timing';
+import {visibleNearbyCars,visibleMapCars,type CarMapBounds,type JourneyTiming} from '@/lib/journey-timing';
 import {customerRoadRouteDetails} from '@/lib/customer-road-route';
 
 type Coordinate={latitude:number;longitude:number};
@@ -46,8 +46,9 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
  const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null,waypointKey=waypoints.map(point=>`${point.latitude},${point.longitude}`).join(';');
  const timingRouteKey=JSON.stringify([pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey]);
+ const [browseBounds,setBrowseBounds]=useState<CarMapBounds|null>(null);
  const [vehicleClock,setVehicleClock]=useState(Date.now);
- const nearbyVehicles=useMemo(()=>visibleNearbyCars(vehicles,pickupLatitude===null||pickupLongitude===null?null:{latitude:pickupLatitude,longitude:pickupLongitude},vehicleClock),[vehicles,pickupLatitude,pickupLongitude,vehicleClock]);
+ const nearbyVehicles=useMemo(()=>pickupLatitude===null||pickupLongitude===null?visibleMapCars(vehicles,browseBounds,vehicleClock):visibleNearbyCars(vehicles,{latitude:pickupLatitude,longitude:pickupLongitude},vehicleClock),[vehicles,pickupLatitude,pickupLongitude,vehicleClock,browseBounds]);
  useEffect(()=>{const timer=setInterval(()=>setVehicleClock(Date.now()),15000);return()=>clearInterval(timer)},[]);
  const timing=useJourneyTiming({pickup,vehicles:nearbyVehicles,tripSeconds:trip?.key===timingRouteKey?trip.seconds:null,enabled:showRoute&&!picker,scheduled,scheduledAt});
  useEffect(()=>{timingCallback.current=onTimingChange},[onTimingChange]);
@@ -59,6 +60,9 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   if(!container.current)return;
   let map:MapLibreMap;
   try{map=new MapLibreMap({container:container.current,style:openStreetMapStyle,center:DEFAULT_CENTER,zoom:13,minZoom:5,maxZoom:19,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});}catch{queueMicrotask(()=>setMapError(true));return}
+  const refreshBounds=()=>{const b=map.getBounds();setBrowseBounds({west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth()})};
+  const initialBoundsFrame=requestAnimationFrame(refreshBounds);
+  map.on('moveend',refreshBounds);map.on('resize',refreshBounds);
   mapRef.current=map;map.touchZoomRotate.disableRotation();map.touchPitch.disable();
   // Only gestures request a new address. Resizing the sheet and moving the camera
   // to a selected result must never start another reverse-geocoding request.
@@ -81,7 +85,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;map.resize();if(routeCoordinates.current&&!callbacks.current.picker)fitRoute(map,routeCoordinates.current,0,routeBottomRatioRef.current,routeTopPaddingRef.current)});
   });observer.observe(container.current);
   const cars=markers.current;
-  return()=>{mounted=false;observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);map.off('error',onStyleError);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
+  return()=>{cancelAnimationFrame(initialBoundsFrame);map.off('moveend',refreshBounds);map.off('resize',refreshBounds);mounted=false;observer.disconnect();themeObserver.disconnect();map.off('load',onLoad);map.off('error',onStyleError);if(resizeFrame!==null)cancelAnimationFrame(resizeFrame);cars.forEach(car=>{if(car.frame!==null)cancelAnimationFrame(car.frame);car.marker.remove()});cars.clear();map.remove();mapRef.current=null};
  },[]);
  useEffect(()=>{
   let active=true,receivedStream=false;
@@ -158,5 +162,5 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   map.on('move',positionLabels);map.on('resize',positionLabels);positionLabels();
   return()=>{map.off('move',positionLabels);map.off('resize',positionLabels);stops.forEach(marker=>marker.remove())};
  },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,picker,userLocation,showRoute,timing.pickupTime,timing.pickupMinutes,timing.arrivalTime]);
- return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{nearbyVehicles.length} nearby free car{nearbyVehicles.length===1?'':'s'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
+ return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}<div className={`customer-map-live ${live?'':'connecting'}`}><span/>{nearbyVehicles.length} {pickup?'nearby free':'available'} car{nearbyVehicles.length===1?'':'s'}{pickup?'':' in this map area'} · {live?'Live':'Connecting'}</div>{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }

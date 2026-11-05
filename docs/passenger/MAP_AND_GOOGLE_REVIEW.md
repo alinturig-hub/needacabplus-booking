@@ -31,3 +31,9 @@ node --test tests/oauth-browser.test.cjs tests/oauth-flow-browser.test.cjs tests
 Six test cases cover independent attempts, canonical host routing, the actual start/finish functions with simulated state storage and provider responses, missing browser proof/replay, safe diagnostic categories, account linking and signed identity-token validation. Local TypeScript and targeted lint pass.
 
 A separate local browser harness renders the real BookingApp at 390×844, mocks app APIs and uses synthetic addresses/vehicle/account only. It confirms map visibility, history before input, results replacing history, map action, light/dark layouts and no page exceptions. It is not an end-to-end live authentication/booking/stream test. Evidence and screenshots are in /workspace/artifacts/passenger-map-login. No APK rebuild was performed for this web-only change; the current remote-content APK will see a future web deployment, while native OAuth handoff remains outstanding.
+
+## Initial map availability correction
+
+Before a pickup/GPS anchor exists, the map now uses its actual visible bounds to display up to 50 fresh available cars. Moving/resizing the map refreshes that selection. Once a pickup/GPS anchor exists, the original three-mile/seven-car filter is used. The initial badge says “available cars in this map area”, rather than implying distance from an unknown customer position. Position validation and the two-minute freshness/future-clock checks remain. No fleet, booking, notification or provider configuration changes.
+
+Validation: `node --test tests/visible-map-cars.test.cjs`, existing journey-timing tests, targeted ESLint and TypeScript. The synthetic mobile browser check additionally verifies a car marker and the map-area label before pickup selection.
