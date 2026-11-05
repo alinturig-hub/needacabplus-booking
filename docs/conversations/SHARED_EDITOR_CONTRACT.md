@@ -138,13 +138,21 @@ Run offline review checks (Python 3 + jsonschema; no application server needed):
 `PYTHONDONTWRITEBYTECODE=1 python docs/conversations/tests/validate_proposal.py`
 The equivalent TaxiCRM directory is `docs/integrations/conversation-editor`; mirror comparison uses `CONVERSATION_CONTRACT_MIRROR` with an explicit local checkout path. These checks validate examples/negative schema cases only, not action ownership, HMAC or runtime behavior. The staging plan is the required evidence for those guarantees.
 
-## Observed configuration discrepancy — release gate
+## Corrected configuration observation — resource and time
 
-Read-only Coolify runtime-variable inspection on 5 November 2026 found:
+The earlier observation incorrectly collapsed production and preview entries with the same key. It must not be used to claim production sending was enabled.
 
-| Application | META_WHATSAPP_SENDING_ENABLED | META_WHATSAPP_TEST_SEND_ENABLED | WHATSAPP_JOURNEY_SENDING_ENABLED |
+Read-only GET responses from `https://admin.plymhub.ai`:
+- NeedACab Plus resource `/api/v1/applications/crqpd2l9iolo0aqxubv5xztd/envs`: request 2026-11-05 14:29:52.549909Z, response 14:29:53.764836Z.
+- TaxiCRM resource `/api/v1/applications/gbwo4xfa46m5n1klnqxr8afl/envs`: request 2026-11-05 14:29:53.764937Z, response 14:29:54.632105Z.
+
+London was GMT at these instants. The sanitized exact observation is `flag-observation-20261105.json`; entries preserve `is_preview`, `is_runtime` and `is_buildtime` rather than overwriting by key.
+
+| Resource configuration | META_WHATSAPP_SENDING_ENABLED | META_WHATSAPP_TEST_SEND_ENABLED | WHATSAPP_JOURNEY_SENDING_ENABLED |
 |---|---|---|---|
-| NeedACab Plus | false | false | false |
-| TaxiCRM | true | true | false |
+| NAC production (is_preview=false) | false | false | false |
+| NAC preview (is_preview=true) | false | false | false |
+| TaxiCRM production (is_preview=false) | false | false | false |
+| TaxiCRM preview (is_preview=true) | true | true | false |
 
-Therefore it would be incorrect to claim all existing production sending flags are off. No configuration was changed because this task prohibits production changes. This proposal has no runnable send integration, uses DRY_RUN-only schemas and must not inherit those live flags as execution authorization. Before any integration/staging run, use an isolated configuration with every send/test-send flag false and simulated transport; any proposed production flag correction is a separate owner-reviewed operational action. No live test was performed here.
+All selected entries have is_runtime=true and is_buildtime=false. These are stored configuration values returned by Coolify at the recorded time, not proof of the effective environment inside an already-running process or of worker execution. No settings were modified. Do not infer approval or activation from preview flags. New staging integration must use isolated configuration with all send/test-send flags off and simulated transport.

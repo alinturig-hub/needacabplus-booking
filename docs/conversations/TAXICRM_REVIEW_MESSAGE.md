@@ -12,6 +12,6 @@ Review decisions needed: monotonic canonical booking revision source; account/gu
 
 Nine offline proposal tests passed. They are schema/fixture checks, not proof of runtime PostgreSQL integration. Next phase is isolated app routes and PostgreSQL concurrency with a simulated provider after this contract review.
 
-Important configuration discrepancy: live TaxiCRM currently reports Meta-send=true, test-send=true, journey-send=false. NAC reports all three false. This was read-only inspection; no flags were changed. The new contract adds no execution path and must remain DRY_RUN in an isolated environment with sending off.
+Corrected configuration observation: GET of Coolify application envs resources crqpd2l9iolo0aqxubv5xztd (NAC) and gbwo4xfa46m5n1klnqxr8afl (TaxiCRM) on 2026-11-05 14:29:52–14:29:54 GMT shows all three production entries (is_preview=false) false in BOTH applications. TaxiCRM preview entries alone have Meta-send=true/test-send=true, with journey-send=false. The earlier keyed summary incorrectly overwrote production with preview entries. These are stored configuration observations, not verified running-process values; no settings were changed. See the exact timestamped sanitized JSON in this package.
 
 No deployment, production migration, real booking, template mutation or message was performed. These are local development-branch proposals, not an activation request.

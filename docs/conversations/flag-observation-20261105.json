@@ -1,0 +1,106 @@
+[
+  {
+    "label": "NeedACab Plus",
+    "application_uuid": "crqpd2l9iolo0aqxubv5xztd",
+    "resource": "https://admin.plymhub.ai/api/v1/applications/crqpd2l9iolo0aqxubv5xztd/envs",
+    "request_started_at_utc": "2026-11-05T14:29:52.549909+00:00",
+    "response_received_at_utc": "2026-11-05T14:29:53.764836+00:00",
+    "observation": "Stored Coolify configuration returned by GET, not proof of effective running-process environment",
+    "flags": [
+      {
+        "key": "META_WHATSAPP_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": false,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "WHATSAPP_JOURNEY_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": false,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "META_WHATSAPP_TEST_SEND_ENABLED",
+        "value": "false",
+        "is_preview": false,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "META_WHATSAPP_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": true,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "WHATSAPP_JOURNEY_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": true,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "META_WHATSAPP_TEST_SEND_ENABLED",
+        "value": "false",
+        "is_preview": true,
+        "is_runtime": true,
+        "is_buildtime": false
+      }
+    ]
+  },
+  {
+    "label": "TaxiCRM",
+    "application_uuid": "gbwo4xfa46m5n1klnqxr8afl",
+    "resource": "https://admin.plymhub.ai/api/v1/applications/gbwo4xfa46m5n1klnqxr8afl/envs",
+    "request_started_at_utc": "2026-11-05T14:29:53.764937+00:00",
+    "response_received_at_utc": "2026-11-05T14:29:54.632105+00:00",
+    "observation": "Stored Coolify configuration returned by GET, not proof of effective running-process environment",
+    "flags": [
+      {
+        "key": "META_WHATSAPP_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": false,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "META_WHATSAPP_TEST_SEND_ENABLED",
+        "value": "false",
+        "is_preview": false,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "WHATSAPP_JOURNEY_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": false,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "META_WHATSAPP_SENDING_ENABLED",
+        "value": "true",
+        "is_preview": true,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "META_WHATSAPP_TEST_SEND_ENABLED",
+        "value": "true",
+        "is_preview": true,
+        "is_runtime": true,
+        "is_buildtime": false
+      },
+      {
+        "key": "WHATSAPP_JOURNEY_SENDING_ENABLED",
+        "value": "false",
+        "is_preview": true,
+        "is_runtime": true,
+        "is_buildtime": false
+      }
+    ]
+  }
+]
