@@ -26,8 +26,8 @@ export async function startOAuth(provider:'google'|'apple'){
 export async function finishOAuth(provider:'google'|'apple',code:string,state:string){
  if(!code||code.length>5000||!state||state.length>200)throw new AuthError('Invalid provider response.');
  const cookieStore=await cookies(),cookieName=oauthBrowserCookie(provider,state);
- const browser=cookieStore.get(cookieName)?.value||cookieStore.get('nac_oauth_'+provider)?.value;if(!browser)throw new AuthError('Sign-in expired. Please try again.');
- const db=database(),saved=(await db.query('DELETE FROM customer_oauth_states WHERE state_hash=$1 AND provider=$2 AND browser_hash=$3 AND expires_at>now() RETURNING nonce,verifier',[hash(state),provider,hash(browser)])).rows[0];if(!saved)throw new AuthError('Sign-in expired. Please try again.');
+ const browser=cookieStore.get(cookieName)?.value||cookieStore.get('nac_oauth_'+provider)?.value;if(!browser)throw new OAuthFlowError('provider_browser_missing');
+ const db=database(),saved=(await db.query('DELETE FROM customer_oauth_states WHERE state_hash=$1 AND provider=$2 AND browser_hash=$3 AND expires_at>now() RETURNING nonce,verifier',[hash(state),provider,hash(browser)])).rows[0];if(!saved)throw new OAuthFlowError('provider_state_invalid');
  cookieStore.delete(cookieName);
  const {p,secrets}=await config(provider),clientId=provider==='google'?p.googleClientId:p.appleClientId;
  let clientSecret=secrets.googleClientSecret;

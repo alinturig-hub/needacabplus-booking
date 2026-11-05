@@ -3,6 +3,8 @@ export const oauthMessages:Record<string,string>={
  provider:'Provider sign-in could not be completed. Please try again.',
  provider_cancelled:'Google or Apple sign-in was cancelled. Please try again.',
  provider_expired:'Your sign-in session expired or its browser cookie is missing. Start again in the same browser.',
+ provider_browser_missing:'Your browser did not return the secure sign-in cookie. Start Google or Apple sign-in again in this browser and allow cookies for this site.',
+ provider_state_invalid:'This sign-in attempt expired or was already used. Start Google or Apple sign-in again.',
  provider_account_exists:'This email already has an account. Sign in with your email and password.',
  provider_configuration:'Provider sign-in is not configured correctly. Please contact support or sign in with email.',
  provider_code:'The provider sign-in code expired or was already used. Start again.',
