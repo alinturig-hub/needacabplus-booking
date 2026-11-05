@@ -1,3 +1,4 @@
+import {encodeOAuthVerifier,decodeOAuthVerifier,issueNativeGrant,type NativeContext} from './native-auth';
 import {oauthBrowserCookie} from './oauth-browser';
 import {OAuthFlowError} from './oauth-errors';
 import {verifyIdentityToken} from './oauth-token';
@@ -15,9 +16,10 @@ const appleKeys=createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'
 export function providerName(value:string){if(value!=='google'&&value!=='apple')throw new AuthError('Unknown sign-in provider.');return value}
 async function config(provider:'google'|'apple'){const p=await loadIdentityPolicy(),row=await readConfiguration('identity');if(!p[provider==='google'?'googleEnabled':'appleEnabled'])throw new AuthError('This sign-in method is not enabled.');return {p,secrets:row.secrets_encrypted?decryptCredentials(row.secrets_encrypted):{}}}
 function redirectUri(provider:string){return origin+'/api/customer/auth/oauth/'+provider+'/callback'}
-export async function startOAuth(provider:'google'|'apple'){
+export async function startOAuth(provider:'google'|'apple',native:NativeContext|null=null){
+ if(native&&provider!=='google')throw new AuthError('Unknown native sign-in provider.');
  const {p}=await config(provider),state=randomBytes(32).toString('base64url'),browser=randomBytes(32).toString('base64url'),nonce=randomBytes(32).toString('base64url'),verifier=randomBytes(32).toString('base64url');
- await database().query('INSERT INTO customer_oauth_states(state_hash,provider,browser_hash,nonce,verifier,expires_at) VALUES($1,$2,$3,$4,$5,now()+make_interval(mins=>5))',[hash(state),provider,hash(browser),nonce,verifier]);
+ await database().query('INSERT INTO customer_oauth_states(state_hash,provider,browser_hash,nonce,verifier,expires_at) VALUES($1,$2,$3,$4,$5,now()+make_interval(mins=>5))',[hash(state),provider,hash(browser),nonce,encodeOAuthVerifier(verifier,native)]);
  (await cookies()).set(oauthBrowserCookie(provider,state),browser,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:provider==='apple'?'none':'lax',path:'/',maxAge:300});
  const url=new URL(provider==='google'?'https://accounts.google.com/o/oauth2/v2/auth':'https://appleid.apple.com/auth/authorize');const params:Record<string,string>={client_id:provider==='google'?p.googleClientId:p.appleClientId,redirect_uri:redirectUri(provider),response_type:'code',scope:provider==='google'?'openid email profile':'name email',state,nonce};
  if(provider==='google'){params.code_challenge=Buffer.from(hash(verifier),'hex').toString('base64url');params.code_challenge_method='S256'}else params.response_mode='form_post';
@@ -29,14 +31,17 @@ export async function finishOAuth(provider:'google'|'apple',code:string,state:st
  const browser=cookieStore.get(cookieName)?.value||cookieStore.get('nac_oauth_'+provider)?.value;if(!browser)throw new OAuthFlowError('provider_browser_missing');
  const db=database(),saved=(await db.query('DELETE FROM customer_oauth_states WHERE state_hash=$1 AND provider=$2 AND browser_hash=$3 AND expires_at>now() RETURNING nonce,verifier',[hash(state),provider,hash(browser)])).rows[0];if(!saved)throw new OAuthFlowError('provider_state_invalid');
  cookieStore.delete(cookieName);
+ const decoded=decodeOAuthVerifier(saved.verifier);
  const {p,secrets}=await config(provider),clientId=provider==='google'?p.googleClientId:p.appleClientId;
  let clientSecret=secrets.googleClientSecret;
  if(provider==='apple'){const key=await importPKCS8(secrets.applePrivateKey,'ES256');clientSecret=await new SignJWT({}).setProtectedHeader({alg:'ES256',kid:p.appleKeyId}).setIssuer(p.appleTeamId).setAudience('https://appleid.apple.com').setSubject(p.appleClientId).setIssuedAt().setExpirationTime('5m').sign(key)}
- const body=new URLSearchParams({client_id:clientId,client_secret:clientSecret,code,grant_type:'authorization_code',redirect_uri:redirectUri(provider),...(provider==='google'?{code_verifier:saved.verifier}:{})});
+ const body=new URLSearchParams({client_id:clientId,client_secret:clientSecret,code,grant_type:'authorization_code',redirect_uri:redirectUri(provider),...(provider==='google'?{code_verifier:decoded.providerVerifier}:{})});
  const response=await fetch(provider==='google'?'https://oauth2.googleapis.com/token':'https://appleid.apple.com/auth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(10000),redirect:'error'});if(!response.ok){const rejected=await response.json().catch(()=>({})) as {error?:string};throw new OAuthFlowError(rejected.error==='invalid_client'?'provider_configuration':rejected.error==='invalid_grant'?'provider_code':'provider')};const data=await response.json() as {id_token?:unknown};if(typeof data.id_token!=='string')throw new AuthError('Missing identity token.');
  const payload=await verifyIdentityToken(data.id_token,provider,clientId,saved.nonce,provider==='google'?googleKeys:appleKeys).catch(()=>{throw new OAuthFlowError('provider_identity')});
  if(payload.nonce!==saved.nonce||!payload.sub)throw new AuthError('Invalid sign-in response.');
  if(typeof payload.email!=='string'||!(payload.email_verified===true||payload.email_verified==='true'))throw new AuthError('The provider did not verify an email address.');
  const fullName=typeof payload.name==='string'?payload.name:'Customer';
- return completeOAuthAccount(provider,payload.sub,payload.email.toLowerCase(),fullName);
+ const account=await completeOAuthAccount(provider,payload.sub,payload.email.toLowerCase(),fullName);
+ if(decoded.native)return {...account,nativeReturn:await issueNativeGrant(account.customerId,decoded.native)};
+ return {...account,nativeReturn:null};
 }
