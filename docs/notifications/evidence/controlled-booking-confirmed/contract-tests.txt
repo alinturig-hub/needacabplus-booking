@@ -1,0 +1,11 @@
+✔ fresh booking generates a new disabled approval manifest with the application operation key (3.032788ms)
+✔ the completed smoke-test booking and any other recipient are rejected (0.535539ms)
+✔ suppression, operator takeover, previous acceptance and expiry never yield a manifest (0.447145ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 281.151739
