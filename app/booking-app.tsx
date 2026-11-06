@@ -48,13 +48,14 @@ export default function BookingApp({customer}:{customer:Customer|null}){
  useEffect(()=>{if(!customer)return;try{if(sessionStorage.getItem(bookingDraftKey))return;const saved=passengerPaymentSchema.safeParse(JSON.parse(localStorage.getItem(`nac-payment:${customer.id}`)||'null'));if(saved.success)setPaymentChoice(saved.data)}catch{}},[customer]);
  const [bookingAccess,setBookingAccess]=useState<{paidMember:boolean;serviceAccess:{guarantee:boolean;priority:boolean;quietAsap:boolean}}|null>(null);
  const [mapPicker,setMapPicker]=useState<'pickup'|'destination'|null>(null),[cameraTarget,setCameraTarget]=useState<Coordinate|null>(null),[mapChoice,setMapChoice]=useState<AddressChoice|null>(null),[mapResolving,setMapResolving]=useState(false);
- const requestId=useRef(''),pending=useRef(false),heading=useRef<HTMLHeadingElement>(null),dragStart=useRef<{y:number;state:SheetState}|null>(null),mapSequence=useRef(0),mapRequest=useRef<AbortController|null>(null),pickupRequest=useRef(0),panel=useRef<HTMLElement>(null),[searchFocused,setSearchFocused]=useState(false);
- useInitialLocation(useCallback((point:Coordinate)=>{
+ const requestId=useRef(''),pending=useRef(false),heading=useRef<HTMLHeadingElement>(null),dragStart=useRef<{y:number;state:SheetState}|null>(null),mapSequence=useRef(0),mapRequest=useRef<AbortController|null>(null),pickupRequest=useRef(0),initialCameraSet=useRef(false),panel=useRef<HTMLElement>(null),[searchFocused,setSearchFocused]=useState(false);
+ useInitialLocation(useCallback((point:Coordinate|null)=>{
   setCurrentLocation(point);
+  if(!point)return;
   // An arriving GPS result must not replace a restored journey or a manual pick-up.
   let restored=false;try{restored=Boolean(sessionStorage.getItem(bookingDraftKey))}catch{}
-  if(pickupRequest.current===0&&!restored)setCameraTarget(point);
- },[]));
+  if(pickupRequest.current===0&&!restored&&!initialCameraSet.current){initialCameraSet.current=true;setCameraTarget(point)}
+ },[]),true);
  useEffect(()=>{if(pickupCandidate&&pickupDialog.current&&!pickupDialog.current.open)pickupDialog.current.showModal()},[pickupCandidate]);
  const searchCity=pickupSearchCity(selectedAddresses.pickup?.fullAddress||pickupCandidate?.choice.fullAddress);
  const identity=passengerIdentity(customer,{name,phone});

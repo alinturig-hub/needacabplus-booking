@@ -115,10 +115,10 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   }
  },[nearbyVehicles]);
  useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.easeTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:Math.max(map.getZoom(),16.5),duration:700,offset:window.matchMedia('(max-width:700px)').matches?[0,-map.getContainer().clientHeight*.18]:[0,0]})},[cameraTarget]);
- useEffect(()=>{autoFramed.current=null;userMoved.current=false},[pickupLatitude,pickupLongitude]);
+ useEffect(()=>{autoFramed.current=null;userMoved.current=false},[cameraTarget]);
  useEffect(()=>{
   const map=mapRef.current;if(!map||picker||showRoute||!pickup||!nearbyVehicles.length||userMoved.current)return;
-  const key=`${pickup.latitude}:${pickup.longitude}`;if(autoFramed.current===key)return;
+  const key=`${pickup.latitude}:${pickup.longitude}`;if(autoFramed.current!==null)return;
   autoFramed.current=key;
   const point:[number,number]=[pickup.longitude,pickup.latitude];
   const bounds=new LngLatBounds(point,point);nearbyVehicles.slice(0,3).forEach(car=>bounds.extend([car.longitude,car.latitude]));

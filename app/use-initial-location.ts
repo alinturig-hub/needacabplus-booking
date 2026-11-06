@@ -1,6 +1,7 @@
 'use client';
 import {useEffect} from 'react';
 import {requestInitialLocation,type BrowserPoint} from '@/lib/browser-location';
-export function useInitialLocation(onLocation?:(point:BrowserPoint)=>void){
- useEffect(()=>{let active=true;void requestInitialLocation().then(point=>{if(active&&point)onLocation?.(point)});return()=>{active=false}},[onLocation]);
+import {watchForegroundLocation} from '@/lib/live-location';
+export function useInitialLocation(onLocation?:(point:BrowserPoint|null)=>void,live=false){
+ useEffect(()=>{let active=true;let stop=()=>{};void requestInitialLocation().then(point=>{if(!active)return;if(point)onLocation?.(point);if(point&&live&&onLocation)stop=watchForegroundLocation(onLocation)});return()=>{active=false;stop()}},[onLocation,live]);
 }
