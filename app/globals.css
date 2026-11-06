@@ -874,3 +874,7 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .booking-shell .ride-map-addresses>span,
 .booking-shell .ride-map-addresses>strong{font-size:11px;line-height:16px;letter-spacing:0}
 .booking-shell .ride-map-addresses>strong{font-weight:600}
+
+/* Tighten the summary around two text lines without shrinking its touch targets. */
+.booking-shell .ride-map-route{width:min(360px,calc(100% - 32px));min-height:46px;padding:0 3px;gap:2px;border-radius:24px}
+.customer-stop-marker.route-stop.destination span{bottom:calc(100% + 12px)}
