@@ -841,3 +841,11 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 @media(max-width:700px){
  .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-expanded{height:calc(100% - env(safe-area-inset-top,0px) - 112px - var(--sheet-drag,0px))!important;max-height:calc(100% - env(safe-area-inset-top,0px) - 112px)!important}
 }
+
+/* Reserve the route summary and breathing room in every route-bearing sheet state. */
+@media(max-width:700px){
+ html:not([data-keyboard-open=true]) .booking-shell:is(.stage-1,.stage-2):has(.ride-map-route) .booking-panel{
+  min-height:0!important;
+  max-height:calc(100% - env(safe-area-inset-top,0px) - 112px)!important;
+ }
+}
