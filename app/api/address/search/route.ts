@@ -1,3 +1,4 @@
+import {rankAddressSuggestions} from '@/lib/address-ranking';
 import {stationSearchQuery,knownPlaceAddress} from '@/lib/station-search';
 import {z} from 'zod';
 import {AutocabApiError,AutocabConfigurationError,searchAddresses} from '@/lib/autocab-api';
@@ -11,11 +12,11 @@ const suggestionSchema=z.object({address:z.string().trim().min(1),fullAddress:z.
 
 export async function GET(request:Request){
  try{
-  const query=querySchema.parse(new URL(request.url).searchParams.get('q')||'');
+  const params=new URL(request.url).searchParams,query=querySchema.parse(params.get('q')||''),city=z.string().trim().min(2).max(80).parse(params.get('city')||'Plymouth');
   const {settings,apiKey}=await readMapConfiguration();let suggestions:z.infer<typeof suggestionSchema>[];
   const lookupQuery=stationSearchQuery(query)||query;
   let namedSuggestions:z.infer<typeof suggestionSchema>[]=[];
-  {try{const origin=(process.env.MAP_ADDRESS_LOOKUP_ORIGIN||'https://webapp.needacab.uk').replace(/\/$/,'');const response=await fetch(`${origin}/api/address/lookup?text=${encodeURIComponent(lookupQuery)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)namedSuggestions=z.array(suggestionSchema).parse(await response.json()).slice(0,8)}catch{/* Retain configured search if the named-place lookup is unavailable. */}}
+  {try{const origin=(process.env.MAP_ADDRESS_LOOKUP_ORIGIN||'https://webapp.needacab.uk').replace(/\/$/,'');const response=await fetch(`${origin}/api/address/lookup?text=${encodeURIComponent(lookupQuery)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)namedSuggestions=z.array(suggestionSchema).parse(await response.json()).slice(0,40)}catch{/* Retain configured search if the named-place lookup is unavailable. */}}
   if(namedSuggestions.length){suggestions=namedSuggestions}
   else if(settings.searchProvider==='maptiler'&&apiKey){
    const features=await searchMapTiler(query,apiKey,{country:settings.country,language:settings.language,longitude:settings.proximityLongitude,latitude:settings.proximityLatitude});
@@ -26,6 +27,7 @@ export async function GET(request:Request){
    if(!searchResponse.ok)return Response.json({error:'Map address search is temporarily unavailable.'},{status:502});
    suggestions=z.array(suggestionSchema).parse(await searchResponse.json()).slice(0,8);
   }
+  suggestions=rankAddressSuggestions(suggestions,query,city).slice(0,8);
   const resolved=await Promise.allSettled(suggestions.map(async suggestion=>{
    if(suggestion.placeID)return {address:suggestion.address,fullAddress:null,placeID:suggestion.placeID,customAddressID:suggestion.customAddressID||null};
    if(namedSuggestions.includes(suggestion)&&knownPlaceAddress(suggestion.fullAddress))return {address:suggestion.address,fullAddress:suggestion.fullAddress,placeID:null,customAddressID:suggestion.customAddressID||suggestion.fullAddress?.id||null};
