@@ -829,3 +829,10 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .booking-shell .ride-map-addresses>span,.booking-shell .ride-map-addresses>strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:18px}
 .booking-shell .ride-map-addresses>span{color:var(--muted-foreground);font-weight:400}
 .ride-map-addresses i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#4285f4;margin-right:6px}
+
+.pickup-edit-address{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--background);color:var(--foreground);text-align:left;font-size:13px;font-weight:600;line-height:1.5;cursor:pointer}
+.pickup-edit-address svg{flex-shrink:0}.pickup-edit-address:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.pickup-inline-editor .address-search{display:block;min-width:0}.pickup-inline-editor input{width:100%;min-height:44px;font-size:16px}
+.pickup-inline-editor .address-results{position:static;display:block;max-height:180px;overflow:auto;width:100%;margin-top:8px}
+.pickup-inline-editor p{font-size:12px;color:var(--destructive)}
+.booking-shell.stage-0 .has-pickup-confirmation dialog.pickup-confirmation{max-height:calc(var(--booking-viewport-height,100dvh) - 32px)}
