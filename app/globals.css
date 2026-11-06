@@ -821,3 +821,11 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .booking-shell.stage-0 dialog.pickup-confirmation h2{padding-right:20px;font-size:19px}
 .booking-shell.stage-0 dialog.pickup-confirmation .pickup-confirmation-actions{grid-column:1/-1}
 .booking-shell.stage-0 dialog.pickup-confirmation .pickup-confirmation-actions button{min-height:44px;white-space:normal}
+
+/* Compact route summary: two readable lines with full-size touch controls. */
+.booking-shell .ride-map-route{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:4px;width:min(380px,calc(100% - 32px));left:50%;right:auto;transform:translateX(-50%);min-height:52px;padding:4px 6px;border-radius:28px}
+.booking-shell .ride-map-route>button{width:44px;height:44px;min-width:44px;padding:10px}
+.ride-map-addresses{display:grid;gap:2px;min-width:0;text-align:center}
+.booking-shell .ride-map-addresses>span,.booking-shell .ride-map-addresses>strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:18px}
+.booking-shell .ride-map-addresses>span{color:var(--muted-foreground);font-weight:400}
+.ride-map-addresses i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#4285f4;margin-right:6px}

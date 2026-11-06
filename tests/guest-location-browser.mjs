@@ -25,7 +25,7 @@ try{
  const camera=await page.evaluate(()=>window.__camera);assert.deepEqual(camera.center,[-4.1436,50.3778]);assert.equal(await page.evaluate(()=>window.__gpsCalls),1);
  const styles=await page.evaluate(()=>window.__styles.filter(s=>typeof s==='object'));assert.equal(styles[0].layers[0].paint['raster-brightness-max'],.42);assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');await page.emulateMedia({colorScheme:'light'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');assert.deepEqual(writes,['/api/customer/auth/guest']);assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:'Where to? Now · ASAP'}).click();
- if(!await page.getByRole('dialog').count())await page.getByRole('button',{name:'Use my current location',exact:true}).click();
+
  await page.getByRole('dialog').waitFor();await page.getByText('Synthetic pickup, Plymouth',{exact:true}).waitFor();
  const box=await page.getByRole('dialog').boundingBox();assert.ok(box&&Math.abs(box.y+box.height/2-422)<5);
  await page.getByRole('button',{name:'Close location suggestion and enter address'}).click();await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Pick-up');assert.equal(await page.getByRole('dialog').count(),0);
