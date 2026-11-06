@@ -73,11 +73,11 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   let mounted=true;
   let activeStyle=darkTheme()?'osm-dark':'osm-light',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
   const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
-  const syncTheme=()=>{const theme=darkTheme()?'dark':'light',next=styleUrls?selectedMapStyle(theme,styleUrls):null,key=next||`osm-${theme}`;if(key!==activeStyle){activeStyle=key;map.setStyle(next||fallbackMapStyle(theme));map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
+  const syncTheme=()=>{const theme=darkTheme()?'dark':'light',next=styleUrls?selectedMapStyle(theme,styleUrls):null,key=next||`osm-${theme}`;if(key!==activeStyle){activeStyle=key;map.setStyle(next||fallbackMapStyle(theme),{diff:false});map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
   const onStyleError=(event:unknown)=>{const issue=event as {sourceId?:string;error?:{url?:string}};if(!mounted||activeStyle.startsWith('osm-')||issue.sourceId==='osm'||issue.error?.url?.startsWith('https://tile.openstreetmap.org/'))return;styleUrls=null;activeStyle=darkTheme()?'osm-dark':'osm-light';map.once('style.load',restoreStyle);map.setStyle(fallbackMapStyle(darkTheme()?'dark':'light'))};
   map.on('error',onStyleError);
   const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
-  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(mounted&&data.provider==='maptiler'&&(data.lightStyleUrl||data.darkStyleUrl)){styleUrls={lightStyleUrl:data.lightStyleUrl||null,darkStyleUrl:data.darkStyleUrl||null};syncTheme()}}).catch(()=>{});
+  fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(mounted&&(data.provider==='maptiler'||data.provider==='openfreemap')&&(data.lightStyleUrl||data.darkStyleUrl)){styleUrls={lightStyleUrl:data.lightStyleUrl||null,darkStyleUrl:data.darkStyleUrl||null};syncTheme()}}).catch(()=>{});
   const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   let resizeFrame:number|null=null;
   const observer=new ResizeObserver(()=>{

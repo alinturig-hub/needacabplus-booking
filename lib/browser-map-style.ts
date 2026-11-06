@@ -9,6 +9,6 @@ export function selectedMapStyle(theme:'light'|'dark',styles:{lightStyleUrl?:str
  return selected||null;
 }
 export async function configuredMapStyle(theme:'light'|'dark',signal?:AbortSignal):Promise<StyleSpecification|string>{
- try{const response=await fetch('/api/map/config',{cache:'no-store',signal});if(!response.ok)return fallbackMapStyle(theme);const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(data.provider==='maptiler'){const style=selectedMapStyle(theme,data);if(style)return style}}catch{}
+ try{const response=await fetch('/api/map/config',{cache:'no-store',signal});if(!response.ok)return fallbackMapStyle(theme);const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if((data.provider==='maptiler'||data.provider==='openfreemap')){const style=selectedMapStyle(theme,data);if(style)return style}}catch{}
  return fallbackMapStyle(theme);
 }

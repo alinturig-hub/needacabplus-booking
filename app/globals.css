@@ -810,3 +810,14 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
  .customer-car-marker{width:42px;height:50px}
  .customer-car-marker img{width:27px;height:40px}
 }
+
+/* Native dialog top layer avoids transformed booking-sheet positioning. */
+.booking-shell.stage-0 .has-pickup-confirmation dialog.pickup-confirmation{position:fixed;inset:0;top:0;left:0;margin:auto;transform:none;width:min(430px,calc(100vw - 32px));max-height:calc(100dvh - 48px);height:fit-content;overflow:auto;padding:24px;display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;border:1px solid var(--border);border-radius:20px;color:var(--foreground);background:var(--booking-surface)}
+.booking-shell.stage-0 .has-pickup-confirmation dialog.pickup-confirmation::backdrop{background:#07101766;backdrop-filter:blur(2px)}
+.booking-shell.stage-0 .booking-address-flow.has-pickup-confirmation:before{display:none}
+.pickup-confirmation-close{position:absolute;right:8px;top:8px;width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer}
+.pickup-confirmation-close svg{width:20px;height:20px}
+.pickup-confirmation-close:focus-visible{outline:2px solid var(--primary);outline-offset:-3px}
+.booking-shell.stage-0 dialog.pickup-confirmation h2{padding-right:20px;font-size:19px}
+.booking-shell.stage-0 dialog.pickup-confirmation .pickup-confirmation-actions{grid-column:1/-1}
+.booking-shell.stage-0 dialog.pickup-confirmation .pickup-confirmation-actions button{min-height:44px;white-space:normal}
