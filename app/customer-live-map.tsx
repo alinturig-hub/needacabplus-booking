@@ -113,7 +113,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    car.frame=requestAnimationFrame(animate);
   }
  },[nearbyVehicles]);
- useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.easeTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:Math.max(map.getZoom(),15.5),duration:700,offset:window.matchMedia('(max-width:700px)').matches?[0,-map.getContainer().clientHeight*.18]:[0,0]})},[cameraTarget]);
+ useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.easeTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:Math.max(map.getZoom(),16.5),duration:700,offset:window.matchMedia('(max-width:700px)').matches?[0,-map.getContainer().clientHeight*.18]:[0,0]})},[cameraTarget]);
  useEffect(()=>{
   const map=mapRef.current;if(!map||!showRoute||pickupLatitude===null||pickupLongitude===null||destinationLatitude===null||destinationLongitude===null)return;
   const controller=new AbortController();let active=true;

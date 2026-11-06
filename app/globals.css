@@ -801,3 +801,12 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
  html[data-keyboard-open=true] .booking-shell.stage-2 .booking-panel{height:100%!important;min-height:0!important;max-height:100%!important;overflow-y:auto}
  html[data-keyboard-open=true] .booking-shell.stage-2 .chosen-car{display:none}
 }
+
+/* Compact passenger symbols; retain accessible touch target sizes. */
+@media(max-width:700px){
+ .booking-shell.stage-0 .booking-home-actions>button>span{width:36px;height:36px;border-radius:11px}
+ .booking-shell.stage-0 .booking-home-actions svg{width:20px;height:20px}
+ .booking-home-nav svg{width:20px;height:20px}
+ .customer-car-marker{width:42px;height:50px}
+ .customer-car-marker img{width:27px;height:40px}
+}
