@@ -31,7 +31,7 @@ export async function GET(request:Request){
    if(namedSuggestions.includes(suggestion)&&knownPlaceAddress(suggestion.fullAddress))return {address:suggestion.address,fullAddress:suggestion.fullAddress,placeID:null,customAddressID:suggestion.customAddressID||suggestion.fullAddress?.id||null};
    let address:Record<string,unknown>|undefined;
    if(suggestion.fullAddress){const coordinate=suggestion.fullAddress.coordinate as {latitude?:unknown;longitude?:unknown}|undefined,latitude=Number(coordinate?.latitude),longitude=Number(coordinate?.longitude);if(Number.isFinite(latitude)&&Number.isFinite(longitude))address=(await searchAddresses(suggestion.address,1,latitude,longitude))[0]}
-   return address?{address:String(address.text||suggestion.address),fullAddress:address,placeID:suggestion.placeID||null,customAddressID:address.id||suggestion.customAddressID||null}:null;
+   return address?{address:suggestion.address,fullAddress:{...address,text:suggestion.address},placeID:suggestion.placeID||null,customAddressID:address.id||suggestion.customAddressID||null}:null;
   }));
   const items=resolved.flatMap(result=>result.status==='fulfilled'&&result.value?[result.value]:[]);
   return Response.json({items},{headers:{'Cache-Control':'no-store'}});
