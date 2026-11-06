@@ -836,3 +836,8 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .pickup-inline-editor .address-results{position:static;display:block;max-height:180px;overflow:auto;width:100%;margin-top:8px}
 .pickup-inline-editor p{font-size:12px;color:var(--destructive)}
 .booking-shell.stage-0 .has-pickup-confirmation dialog.pickup-confirmation{max-height:calc(var(--booking-viewport-height,100dvh) - 32px)}
+
+/* Keep a visible gap below the 52px route summary, including expanded sheets. */
+@media(max-width:700px){
+ .booking-shell.stage-1 .booking-panel.ride-sheet.sheet-expanded{height:calc(100% - env(safe-area-inset-top,0px) - 112px - var(--sheet-drag,0px))!important;max-height:calc(100% - env(safe-area-inset-top,0px) - 112px)!important}
+}
