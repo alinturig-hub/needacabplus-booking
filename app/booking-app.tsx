@@ -219,7 +219,7 @@ function AddressInput({label,placeholder,value,onChange,onSelect,onFocus,onLocat
   sequence.current++;setOpen(false);setMessage('');setLoading(false);
   if(item.fullAddress||!item.placeID){selected.current=true;setItems([]);onSelect(item);return}
   setResolving(true);
-  try{const response=await fetch(`/api/address/resolve?placeId=${encodeURIComponent(item.placeID)}`,{cache:'no-store'}),data=await response.json() as {item?:AddressChoice;error?:string};if(!response.ok||!data.item)throw new Error(data.error||'Unable to verify this address.');selected.current=true;setItems([]);onSelect(data.item)}
+  try{const response=await fetch(`/api/address/resolve?placeId=${encodeURIComponent(item.placeID)}`,{cache:'no-store'}),data=await response.json() as {item?:AddressChoice;error?:string};if(!response.ok||!data.item)throw new Error(data.error||'Unable to verify this address.');selected.current=true;setItems([]);onSelect({...data.item,address:item.address,fullAddress:data.item.fullAddress?{...data.item.fullAddress,text:item.address}:data.item.fullAddress})}
   catch(error){setMessage(error instanceof Error?error.message:'Unable to verify this address.');setOpen(true)}finally{setResolving(false)}
  }
  const resultsHost=resultsId&&typeof document!=='undefined'?document.getElementById(resultsId):null;

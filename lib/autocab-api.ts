@@ -1,3 +1,4 @@
+import {nearbyVenueLabel} from './venue-label';
 import {requireAutocabIntegration} from '@/lib/integration-control';
 import {database} from '@/lib/database';
 import {decryptCredentials} from '@/lib/credentials';
@@ -90,7 +91,7 @@ export async function searchAddresses(query:string,companyId=1,latitude?:number,
 export async function addressAtCoordinates(latitude:number,longitude:number,companyId=1,includeNearbyPlace=false,nearbyRadius?:number){
  const [payload,nearby]=await Promise.all([call('address.search',{query:{latitude,longitude,companyId}}),includeNearbyPlace?nearbyNamedPlace(latitude,longitude,nearbyRadius):Promise.resolve(null)]);
  function findAddress(value:unknown,depth=0):JsonRecord|null{if(depth>5)return null;if(Array.isArray(value)){for(const nested of value){const found=findAddress(nested,depth+1);if(found)return found}return null}const item=record(value);if(!Object.keys(item).length)return null;if(field(item,'text','street','postCode'))return item;for(const nested of Object.values(item)){const found=findAddress(nested,depth+1);if(found)return found}return null}
- const direct=findAddress(payload);if(direct){if(!nearby){const label=text(direct,'text'),name=includeNearbyPlace&&label&&inferredPlaceName(label);return name?{...direct,nearbyPlace:{name,type:'autocab',latitude,longitude,distanceMetres:null}}:direct}const street=text(direct,'street','road'),town=text(direct,'town','city','locality'),parts=[nearby.name,street,town].filter((value,index,all)=>value&&all.findIndex(item=>item?.toLowerCase()===value.toLowerCase())===index);return {...direct,originalAddressText:text(direct,'text')||[street,town,text(direct,'postCode')].filter(Boolean).join(', '),text:parts.join(', '),nearbyPlace:nearby}}
+ const direct=findAddress(payload);if(direct){if(!nearby){const label=text(direct,'text'),name=includeNearbyPlace&&label&&inferredPlaceName(label);return name?{...direct,nearbyPlace:{name,type:'autocab',latitude,longitude,distanceMetres:null}}:direct}const street=text(direct,'street','road'),town=text(direct,'town','city','locality');return {...direct,originalAddressText:text(direct,'text')||[street,town,text(direct,'postCode')].filter(Boolean).join(', '),text:nearbyVenueLabel(nearby.name,text(direct,'text')||[text(direct,'house'),street,town,text(direct,'postCode')].filter(Boolean).join(', ')),nearbyPlace:nearby}}
  try{const {address}=await reverseConfiguredMapAddress(latitude,longitude);const found=(await searchAddresses(address,companyId,latitude,longitude))[0]||null;return found&&nearby?{...found,originalAddressText:text(found,'text'),nearbyPlace:nearby}:found}catch{return null}
 }
 
