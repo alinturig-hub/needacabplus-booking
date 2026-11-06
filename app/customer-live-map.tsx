@@ -11,6 +11,10 @@ type Vehicle=Coordinate&{id:string;recordedAt:string};
 type LiveMarker={marker:Marker;position:[number,number];target:[number,number];time:number;heading:number;frame:number|null};
 const DEFAULT_CENTER:[number,number]=[-4.143,50.374];
 function heading(from:[number,number],to:[number,number]){const rad=Math.PI/180,d=(to[0]-from[0])*rad;return Math.atan2(Math.sin(d)*Math.cos(to[1]*rad),Math.cos(from[1]*rad)*Math.sin(to[1]*rad)-Math.sin(from[1]*rad)*Math.cos(to[1]*rad)*Math.cos(d))/rad}
+function collapseAttribution(map:MapLibreMap){
+ const attribution=map.getContainer().querySelector<HTMLDetailsElement>('details.maplibregl-ctrl-attrib');
+ if(attribution?.classList.contains('maplibregl-compact')){attribution.classList.remove('maplibregl-compact-show');attribution.open=false}
+}
 function darkTheme(){return document.documentElement.dataset.theme==='dark'}
 function applyMapTheme(map:MapLibreMap){
  const dark=darkTheme();
@@ -69,11 +73,11 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   map.on('click',event=>{if(callbacks.current.picker){callbacks.current.onPickerStart?.();map.jumpTo({center:event.lngLat});callbacks.current.onPickerMove?.({latitude:event.lngLat.lat,longitude:event.lngLat.lng})}});
   let mounted=true;
   let activeStyle=darkTheme()?'osm-dark':'osm-light',styleUrls:{lightStyleUrl:string|null;darkStyleUrl:string|null}|null=null;
-  const restoreStyle=()=>{if(!map.isStyleLoaded())return;if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
+  const restoreStyle=()=>{if(!map.isStyleLoaded())return;collapseAttribution(map);if(routeCoordinates.current)drawRoute(map,routeCoordinates.current);applyMapTheme(map)};
   const syncTheme=()=>{const theme=darkTheme()?'dark':'light',next=styleUrls?selectedMapStyle(theme,styleUrls):null,key=next||`osm-${theme}`;if(key!==activeStyle){activeStyle=key;map.setStyle(next||fallbackMapStyle(theme),{diff:false});map.once('style.load',restoreStyle)}else if(map.isStyleLoaded())restoreStyle()};
   const onStyleError=(event:unknown)=>{const issue=event as {sourceId?:string;error?:{url?:string}};if(!mounted||activeStyle.startsWith('osm-')||issue.sourceId==='osm'||issue.error?.url?.startsWith('https://tile.openstreetmap.org/'))return;styleUrls=null;activeStyle=darkTheme()?'osm-dark':'osm-light';map.once('style.load',restoreStyle);map.setStyle(fallbackMapStyle(darkTheme()?'dark':'light'))};
   map.on('error',onStyleError);
-  const onLoad=()=>applyMapTheme(map);map.on('load',onLoad);
+  const onLoad=()=>{applyMapTheme(map);collapseAttribution(map)};map.on('load',onLoad);
   fetch('/api/map/config',{cache:'no-store'}).then(async response=>{if(!response.ok)return;const data=await response.json() as {provider?:string;lightStyleUrl?:string|null;darkStyleUrl?:string|null};if(mounted&&(data.provider==='maptiler'||data.provider==='openfreemap')&&(data.lightStyleUrl||data.darkStyleUrl)){styleUrls={lightStyleUrl:data.lightStyleUrl||null,darkStyleUrl:data.darkStyleUrl||null};syncTheme()}}).catch(()=>{});
   const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   let resizeFrame:number|null=null;
