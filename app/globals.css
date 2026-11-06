@@ -869,3 +869,8 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .pickup-inline-editor .address-search>.address-clear-button{position:absolute;top:0;right:0;bottom:auto;transform:none;width:44px;height:44px;margin:0;padding:12px}
 .pickup-inline-editor .address-results{box-sizing:border-box;margin:8px 0 0}
 .pickup-inline-editor .address-results button{width:100%;min-width:0;text-align:left}
+
+/* Quiet, compact address typography; touch targets remain unchanged. */
+.booking-shell .ride-map-addresses>span,
+.booking-shell .ride-map-addresses>strong{font-size:11px;line-height:16px;letter-spacing:0}
+.booking-shell .ride-map-addresses>strong{font-weight:600}
