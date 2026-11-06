@@ -1,6 +1,7 @@
 {
-  "src/components/marketing/WhatsAppTemplateEditor.tsx": "392f72a1ab082152c05e6a4871069364905dad1e761361555e22561388519ad8",
+  "src/components/marketing/WhatsAppTemplateEditor.tsx": "ca56544555b6cf8fe0d5417ac954267391f0e8937d2763a52aaad8fa9b4b5ccb",
   "src/lib/integrations/whatsapp/editor-types.ts": "a6db821cd05c8dda58a912ad2bb93680a571d94b324c10421bb5c2a5f91a84b4",
   "src/lib/integrations/whatsapp/template-parameters.ts": "58dbec41041069f21cfc7814c77e7ef6a7b80ef2482222907eaaf62d6ca72f64",
-  "src/lib/integrations/whatsapp/template-error.ts": "f7852037ff32b73d65f8e4bbe3f4e5bba8ecefa7e45e01579be97526108c5c45"
+  "src/lib/integrations/whatsapp/template-error.ts": "f7852037ff32b73d65f8e4bbe3f4e5bba8ecefa7e45e01579be97526108c5c45",
+  "src/lib/integrations/whatsapp/template-purpose.ts": "31c17f234b67578870f98f43c0c5cf1cd61b13daca0d09b08e29044a0f394f4e"
 }

@@ -1,0 +1,34 @@
+{
+  "passed": true,
+  "cases": [
+    "NAC deep link opens operational catalog and hides campaign templates",
+    "existing Meta template inspection is read-only",
+    "sample image and quick-reply button are passed through the NAC editor",
+    "new version requires explicit review and confirmation and uses NAC endpoint",
+    "CRM defaults to campaigns; booking reveal is read-only with NAC link"
+  ],
+  "pageErrors": [],
+  "scope": "isolated components; synthetic API responses only",
+  "calls": [
+    {
+      "path": "/api/admin/notifications/templates",
+      "action": "list"
+    },
+    {
+      "path": "/api/admin/notifications/templates/media",
+      "action": "upload"
+    },
+    {
+      "path": "/api/admin/notifications/templates",
+      "action": "preview"
+    },
+    {
+      "path": "/api/admin/notifications/templates",
+      "action": "submit"
+    },
+    {
+      "path": "/api/dashboard/configuration/whatsapp",
+      "action": "list"
+    }
+  ]
+}

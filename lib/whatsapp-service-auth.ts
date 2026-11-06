@@ -1,11 +1,11 @@
 import {createHash,createHmac,randomUUID,timingSafeEqual} from "node:crypto";
-export function signedHeaders(method:string,path:string,body:string,keyId:string,secret:string,now=Date.now(),nonce:string=randomUUID()){
+export function signedHeaders(method:string,path:string,body:string|Uint8Array,keyId:string,secret:string,now=Date.now(),nonce:string=randomUUID()){
  if(secret.length<32||!keyId)throw Error("WHATSAPP_SERVICE_NOT_CONFIGURED");
  const timestamp=String(Math.floor(now/1000));
  const canonical=[method.toUpperCase(),path,timestamp,nonce,createHash('sha256').update(body).digest('hex')].join('\n');
  return {'x-wa-key':keyId,'x-wa-timestamp':timestamp,'x-wa-nonce':nonce,'x-wa-signature':createHmac('sha256',secret).update(canonical).digest('hex')};
 }
-export async function verifyService(request:Request,body:string,keyId:string,secret:string,reserve:(nonce:string)=>Promise<boolean>,now=Date.now()){
+export async function verifyService(request:Request,body:string|Uint8Array,keyId:string,secret:string,reserve:(nonce:string)=>Promise<boolean>,now=Date.now()){
  const timestamp=request.headers.get('x-wa-timestamp')||'',nonce=request.headers.get('x-wa-nonce')||'',signature=request.headers.get('x-wa-signature')||'';
  if(secret.length<32||!keyId)throw Error('WHATSAPP_SERVICE_NOT_CONFIGURED');
  if(request.headers.get('x-wa-key')!==keyId||!/^\d{10}$/.test(timestamp)||Math.abs(now/1000-Number(timestamp))>300||!/^[a-zA-Z0-9_-]{16,100}$/.test(nonce)||!/^[a-f0-9]{64}$/.test(signature))throw Error('UNAUTHORIZED');
