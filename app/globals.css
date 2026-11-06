@@ -849,3 +849,10 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
   max-height:calc(100% - env(safe-area-inset-top,0px) - 112px)!important;
  }
 }
+
+.ride-promotion-applied{margin:10px 0 14px;border-bottom:1px solid var(--border);padding:10px 0;color:#e97869;text-align:center}
+.ride-promotion-applied summary{display:flex;align-items:center;justify-content:center;gap:7px;list-style:none;cursor:pointer;min-height:44px;font-size:14px;font-weight:650}
+.ride-promotion-applied summary::-webkit-details-marker{display:none}
+.ride-promotion-applied p{font-size:12px;line-height:1.5;color:var(--muted-foreground);margin:6px 12px 10px}
+.ride-option-price b{display:flex;align-items:center;justify-content:flex-end;gap:5px}.ride-option-price b>svg{color:#e97869;flex-shrink:0}
+.ride-option-price del{display:block;margin-top:5px;color:var(--muted-foreground);font-size:12px;font-weight:400}
