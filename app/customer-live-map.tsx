@@ -47,7 +47,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  const callbacks=useRef({picker,onPickerMove,onPickerStart});
  const timingCallback=useRef(onTimingChange);
  const [trip,setTrip]=useState<{key:string;seconds:number}|null>(null);
- const [vehicles,setVehicles]=useState<Vehicle[]>([]),[live,setLive]=useState(false),[mapError,setMapError]=useState(false);
+ const [vehicles,setVehicles]=useState<Vehicle[]>([]),[mapError,setMapError]=useState(false);
  const pickupLatitude=pickup?.latitude??null,pickupLongitude=pickup?.longitude??null,destinationLatitude=destination?.latitude??null,destinationLongitude=destination?.longitude??null,waypointKey=waypoints.map(point=>`${point.latitude},${point.longitude}`).join(';');
  const timingRouteKey=JSON.stringify([pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey]);
  const autoFramed=useRef<string|null>(null),userMoved=useRef(false);
@@ -93,9 +93,9 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   const controller=new AbortController();
   fetch('/api/map/vehicles',{cache:'no-store',signal:controller.signal}).then(async response=>{if(response.ok){const data=await response.json() as Vehicle[];if(active&&!receivedStream)setVehicles(data)}}).catch(()=>{});
   const events=new EventSource('/api/map/vehicles/stream');
-  events.addEventListener('connected',()=>{if(active)setLive(true)});
-  events.addEventListener('vehicles',((event:MessageEvent<string>)=>{try{const data=JSON.parse(event.data) as Vehicle[];if(active&&Array.isArray(data)){receivedStream=true;setVehicles(data);setLive(true)}}catch{}}) as EventListener);
-  events.addEventListener('stream-error',()=>{if(active)setLive(false)});events.onerror=()=>{if(active)setLive(false)};
+
+  events.addEventListener('vehicles',((event:MessageEvent<string>)=>{try{const data=JSON.parse(event.data) as Vehicle[];if(active&&Array.isArray(data)){receivedStream=true;setVehicles(data)}}catch{}}) as EventListener);
+
   return()=>{active=false;controller.abort();events.close()};
  },[]);
  useEffect(()=>{
@@ -174,5 +174,5 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
   map.on('move',positionLabels);map.on('resize',positionLabels);positionLabels();
   return()=>{map.off('move',positionLabels);map.off('resize',positionLabels);stops.forEach(marker=>marker.remove())};
  },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,picker,userLocation,showRoute,timing.pickupTime,timing.pickupMinutes,timing.arrivalTime]);
- return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}{live&&pickup&&nearbyVehicles.length>0&&<div className="customer-map-live"><span/>Free cars</div>}{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
+ return <div className="customer-map-canvas"><div ref={container} className="customer-map-engine" aria-label="Interactive map"/>{picker&&<div className="map-picker-pin" aria-hidden="true"><svg width="32" height="42" viewBox="0 0 32 42"><path d="M16 40C13 35 2 23 2 15A14 14 0 0 1 30 15C30 23 19 35 16 40Z" fill="#f2dd4a" stroke="white" strokeWidth="2"/><circle cx="16" cy="15" r="4" fill="#171a19"/></svg></div>}{mapError&&<p role="alert" className="map-render-error">The map could not start. You can still search for an address below.</p>}</div>;
 }
