@@ -888,3 +888,14 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
  .booking-shell.stage-0.stop-editor .field-body{min-width:0}
  .booking-shell.stage-0.stop-editor .route-fields input{min-width:0;width:100%}
 }
+
+/* A map picker must remain visible even while the keyboard is closing/search is active. */
+@media(max-width:700px){
+ .booking-shell:has(.map-picker-active){position:fixed;top:var(--booking-viewport-top,0px);left:0;right:0;display:flex;flex-direction:column;height:var(--booking-viewport-height,100dvh);min-height:0;overflow:hidden}
+ .booking-shell:has(.map-picker-active) .brandbar{display:none}
+ .booking-shell.premium-booking .map-surface.map-picker-active,
+ html[data-keyboard-open=true] .booking-shell.premium-booking .map-surface.map-picker-active{display:block!important;position:relative!important;inset:auto!important;flex:1 1 0!important;width:100%!important;height:auto!important;min-height:120px!important}
+ .booking-shell.premium-booking .booking-panel.map-picker-mode{position:relative!important;inset:auto!important;flex:0 1 auto!important;width:100%;height:auto!important;min-height:0!important;max-height:55%!important;overflow:auto!important;padding:12px 16px max(16px,env(safe-area-inset-bottom))!important}
+ .booking-shell .map-picker-active .map-picker-back,.booking-shell .map-picker-active .map-picker-locate{width:44px;height:44px}
+ .map-picker-pin:before{content:none}
+}
