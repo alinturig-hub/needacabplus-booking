@@ -1,0 +1,25 @@
+{
+  "contract": "nac.conversations.actions",
+  "contract_version": "1.0",
+  "action_id": "00000000-0000-4000-8000-000000000201",
+  "operation_key": "synthetic-flow-run:create:1",
+  "workspace_id": "needacabplus",
+  "flow_id": "synthetic-booking-support",
+  "flow_version": 1,
+  "run_id": "00000000-0000-4000-8000-000000000300",
+  "node_id": "create-booking",
+  "conversation_id": "synthetic-conversation",
+  "conversation_revision": 2,
+  "correlation_id": "00000000-0000-4000-8000-000000000100",
+  "action": "booking.create",
+  "customer_authorization_ref": "synthetic-unresolvable-authorization",
+  "requested_at": "2026-11-05T12:00:00Z",
+  "expires_at": "2026-11-05T12:05:00Z",
+  "mode": "DRY_RUN",
+  "parameters": {
+    "quote_ref": "synthetic-server-side-quote",
+    "journey_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "acknowledged": true
+  },
+  "confirmation_ref": "synthetic-unresolvable-confirmation"
+}
