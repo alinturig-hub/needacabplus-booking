@@ -114,7 +114,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    car.frame=requestAnimationFrame(animate);
   }
  },[nearbyVehicles]);
- useEffect(()=>{const map=mapRef.current;if(map&&cameraTarget)map.easeTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:Math.max(map.getZoom(),16.5),duration:700,offset:window.matchMedia('(max-width:700px)').matches?[0,-map.getContainer().clientHeight*.18]:[0,0]})},[cameraTarget]);
+ useEffect(()=>{const map=mapRef.current;if(!map||!cameraTarget)return;if(picker){map.stop();map.setPadding({top:0,bottom:0,left:0,right:0});map.jumpTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:16.5});return}map.easeTo({center:[cameraTarget.longitude,cameraTarget.latitude],zoom:Math.max(map.getZoom(),16.5),duration:700,offset:window.matchMedia('(max-width:700px)').matches?[0,-map.getContainer().clientHeight*.18]:[0,0]})},[cameraTarget,picker]);
  useEffect(()=>{autoFramed.current=null;userMoved.current=false},[cameraTarget]);
  useEffect(()=>{
   const map=mapRef.current;if(!map||picker||showRoute||!pickup||!nearbyVehicles.length||userMoved.current)return;
@@ -127,7 +127,7 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
  },[nearbyVehicles,pickup,picker,showRoute]);
 
  useEffect(()=>{
-  const map=mapRef.current;if(!map||!showRoute||pickupLatitude===null||pickupLongitude===null||destinationLatitude===null||destinationLongitude===null)return;
+  const map=mapRef.current;if(!map||picker||!showRoute||pickupLatitude===null||pickupLongitude===null||destinationLatitude===null||destinationLongitude===null)return;
   const controller=new AbortController();let active=true;
   const draw=async()=>{
    const routePickup={latitude:pickupLatitude,longitude:pickupLongitude},routeDestination={latitude:destinationLatitude,longitude:destinationLongitude};
@@ -147,12 +147,12 @@ export default function CustomerLiveMap({pickup,destination,waypoints=[],picker=
    if(map.getLayer('customer-route-outline'))map.removeLayer('customer-route-outline');
    if(map.getSource('customer-route'))map.removeSource('customer-route');
   };
- },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,showRoute,timingRouteKey]);
+ },[pickupLatitude,pickupLongitude,destinationLatitude,destinationLongitude,waypointKey,showRoute,timingRouteKey,picker]);
  useEffect(()=>{
-  const map=mapRef.current,coordinates=routeCoordinates.current;if(!map||!showRoute||!coordinates)return;
+  const map=mapRef.current,coordinates=routeCoordinates.current;if(!map||picker||!showRoute||!coordinates)return;
   const timer=window.setTimeout(()=>{map.resize();fitRoute(map,coordinates,420,routeBottomRatio,routeTopPadding)},260);
   return()=>window.clearTimeout(timer);
- },[routeBottomRatio,routeTopPadding,showRoute]);
+ },[routeBottomRatio,routeTopPadding,showRoute,picker]);
  useEffect(()=>{
   const map=mapRef.current;if(!map)return;const stops:Marker[]=[];
   const pickupPoint=pickupLatitude===null||pickupLongitude===null?null:{latitude:pickupLatitude,longitude:pickupLongitude},destinationPoint=destinationLatitude===null||destinationLongitude===null?null:{latitude:destinationLatitude,longitude:destinationLongitude};

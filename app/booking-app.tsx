@@ -110,7 +110,7 @@ export default function BookingApp({customer}:{customer:Customer|null}){
  async function resolveMapPoint(point:Coordinate){
   cancelMapLookup();const sequence=mapSequence.current,controller=new AbortController();mapRequest.current=controller;setMapChoice(null);setMapResolving(true);setError('');
   const timeout=setTimeout(()=>controller.abort(),12000);
-  try{const response=await fetch(`/api/address/current?latitude=${point.latitude}&longitude=${point.longitude}`,{cache:'no-store',signal:controller.signal}),data=await response.json() as {item?:AddressChoice;error?:string};if(sequence!==mapSequence.current)return;if(!response.ok||!data.item)throw new Error(data.error||'No address was found under the pin.');setMapChoice(data.item)}
+  try{const response=await fetch(`/api/address/current?latitude=${point.latitude}&longitude=${point.longitude}&exact=1`,{cache:'no-store',signal:controller.signal}),data=await response.json() as {item?:AddressChoice;error?:string};if(sequence!==mapSequence.current)return;if(!response.ok||!data.item)throw new Error(data.error||'No address was found under the pin.');setMapChoice(data.item)}
   catch(reason){if(sequence===mapSequence.current){setMapChoice(null);setError(controller.signal.aborted?'Address lookup took too long. Move the pin or search for the address.':reason instanceof Error?reason.message:'No address was found under the pin.')}}
   finally{clearTimeout(timeout);if(sequence===mapSequence.current)setMapResolving(false)}
  }
