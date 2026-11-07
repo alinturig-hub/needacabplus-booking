@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {inboxGateway} from '../lib/notifications/inbox-gateway';
+import {verifyService} from '../lib/whatsapp-service-auth';
+test('signed fixed-origin GET carries the exact query and no Meta token',async()=>{
+ const keys=['WHATSAPP_SHARED_ENABLED','WHATSAPP_GATEWAY_ORIGIN','WHATSAPP_NAC_KEY_ID','WHATSAPP_NAC_SECRET'] as const;const old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));Object.assign(process.env,{WHATSAPP_SHARED_ENABLED:'true',WHATSAPP_GATEWAY_ORIGIN:'https://crm.example',WHATSAPP_NAC_KEY_ID:'test-key',WHATSAPP_NAC_SECRET:'x'.repeat(48)});
+ try{let calls=0;const fake:typeof fetch=async(url,opts)=>{calls++;const request=new Request(url,opts);await verifyService(request,'','test-key','x'.repeat(48),async()=>true);assert.equal(request.method,'GET');assert.equal(request.headers.get('authorization'),null);return Response.json({conversations:[],next_cursor:null})};assert.deepEqual(await inboxGateway('/api/internal/whatsapp/v1/conversations?q=%2B4477',fake),{conversations:[],next_cursor:null});await assert.rejects(inboxGateway('/api/internal/whatsapp/v1/conversations/../../send',fake));assert.equal(calls,1)}finally{for(const k of keys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k]}}
+});
+test('disabled service cannot issue a network request',async()=>{const old=process.env.WHATSAPP_SHARED_ENABLED;process.env.WHATSAPP_SHARED_ENABLED='false';try{let calls=0;await assert.rejects(inboxGateway('/api/internal/whatsapp/v1/conversations',async()=>{calls++;return Response.json({})}));assert.equal(calls,0)}finally{if(old===undefined)delete process.env.WHATSAPP_SHARED_ENABLED;else process.env.WHATSAPP_SHARED_ENABLED=old}});

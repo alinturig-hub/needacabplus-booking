@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import Link from 'next/link';
 import {fields,nextButtonIndex,type Rule,type Decision} from '@/lib/notifications/model';
 import {sampleRule,fixture,scenarios,type Scenario} from '@/lib/notifications/fixtures';
 import {decide} from '@/lib/notifications/engine';
@@ -30,6 +31,7 @@ export default function NotificationsWorkspace(){
  const visible=history.filter(d=>(!filters.booking||d.bookingId.includes(filters.booking))&&(!filters.event||d.event===filters.event)&&(!filters.channel||d.channel===filters.channel)&&(!filters.rule||d.ruleId.includes(filters.rule))&&(!filters.result||d.result===filters.result));
  return <main className="notifications-workspace">
  <header><div><small>OPERATIONS / NOTIFICATIONS</small><h1>Notifications</h1><p>Manage booking notifications, templates and delivery rules.</p></div><span className="notification-badge">Development · no sending</span></header>
+ <p><Link href="/admin/notifications/inbox">Open WhatsApp inbox →</Link></p>
  <div className="notification-notice" role="status">{notice}</div>
  <nav className="notification-tabs" aria-label="Notifications sections">{tabs.map(t=><button key={t} onClick={()=>setTab(t)} aria-current={tab===t?'page':undefined}>{t}</button>)}</nav>
  {tab==='Overview'&&<>
