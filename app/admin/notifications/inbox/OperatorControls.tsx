@@ -1,19 +1,21 @@
 'use client';
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 
 type State={mode:string;revision:number;window_expires_at:string|null;controls_enabled:boolean;reply_enabled:boolean;unresolved_reply:boolean;recipient_available:boolean;suppressed:boolean};
-type Props={conversationId:string;onChanged:()=>void};
-export default function OperatorControls({conversationId,onChanged}:Props){
+type Props={conversationId:string;onChanged:()=>void;refreshSignal:number};
+export default function OperatorControls({conversationId,onChanged,refreshSignal}:Props){
  const [state,setState]=useState<State|null>(null),[text,setText]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[now,setNow]=useState<number|null>(null),[uncertain,setUncertain]=useState(false);
- const refresh=useCallback(async()=>{try{const p=new URLSearchParams({id:conversationId,state:'1'});const r=await fetch('/api/admin/notifications/inbox?'+p,{cache:'no-store'});if(!r.ok)throw Error();setState(await r.json() as State)}catch{setState(null);setMessage('Could not load operator controls. Refresh to try again.')}},[conversationId]);
+ const stateRequest=useRef(0);
+ const refresh=useCallback(async()=>{const seq=++stateRequest.current;try{const p=new URLSearchParams({id:conversationId,state:'1'});const r=await fetch('/api/admin/notifications/inbox?'+p,{cache:'no-store'});if(!r.ok)throw Error();const next=await r.json() as State;if(seq===stateRequest.current)setState(next)}catch{if(seq===stateRequest.current){setState(null);setMessage('Could not load operator controls. Refresh to try again.')}}},[conversationId]);
  useEffect(()=>{const initial=setTimeout(()=>{setNow(Date.now());void refresh()},0);const t=setInterval(()=>setNow(Date.now()),30000);return()=>{clearTimeout(initial);clearInterval(t)}},[refresh]);
+ useEffect(()=>{if(!refreshSignal||busy)return;const t=setTimeout(()=>void refresh(),0);return()=>clearTimeout(t)},[refreshSignal,refresh,busy]);
  const open=now!==null&&!!state?.window_expires_at&&new Date(state.window_expires_at).getTime()-now>8000;
  async function run(action:'takeover'|'release'|'reply'){
   if(!state||busy)return;
   if(action==='takeover'&&!window.confirm('Take over this conversation? Queued automatic notifications will be cancelled.'))return;
   if(action==='release'&&!window.confirm('Release this conversation to automation? Previously cancelled notifications will not be sent again.'))return;
   if(action==='reply'&&(!open||!text.trim()))return;
-  setBusy(true);setMessage('');const body={id:conversationId,action,command_id:crypto.randomUUID(),revision:state.revision,...(action==='reply'?{text}: {})};
+  stateRequest.current++;setBusy(true);setMessage('');const body={id:conversationId,action,command_id:crypto.randomUUID(),revision:state.revision,...(action==='reply'?{text}: {})};
   try{const r=await fetch('/api/admin/notifications/inbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({})) as {error?:string;status?:string};
    if(!r.ok){if(action==='reply'&&r.status>=500){setUncertain(true);setState(s=>s?{...s,unresolved_reply:true}:s);setMessage('The result is uncertain. Check the provider and history before sending again. No automatic retry was made.')}else setMessage(`Action could not be completed (${d.error||'unavailable'}). Refresh the conversation state.`);return;}
    if(action==='reply'){if(d.status==='ACCEPTED'){setText('');setMessage('Message accepted by WhatsApp. Delivery status will appear in the history.')}else if(d.status==='REJECTED'||d.status==='CANCELLED')setMessage(`Message ${String(d.status).toLowerCase()}. Review the conversation before trying again.`);else {setUncertain(true);setState(s=>s?{...s,unresolved_reply:true}:s);setMessage('The result is uncertain or still processing. Check the provider and history before sending again.')}}else setMessage(action==='takeover'?'Conversation taken over.':'Conversation released to automation.');
