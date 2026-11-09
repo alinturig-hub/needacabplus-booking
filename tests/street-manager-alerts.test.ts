@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import {activeClosure,approachingClosure,distanceToClosure,alertDay,type ActiveClosure,type DriverFix} from '../lib/street-manager/closure-alerts';
 import {claimDriverAlert} from '../lib/street-manager/alert-delivery';
-import {driverMessageBody,driverMessageUrl} from '../lib/street-manager/driver-message';
+import {vehicleMessageBody,vehicleMessageUrl,vehicleMessageOutcome,requestVehicleMessage} from '../lib/street-manager/driver-message';
 import type {PreviewRow} from '../lib/street-manager/preview-data';
 import {POST} from '../app/api/internal/street-manager/driver-alerts/route';
 const now=Date.parse('2026-11-09T12:00:00Z');
@@ -34,12 +34,24 @@ test('fresh approach produces a concise driver-targeted warning; noise, stale/mi
  for(const [a,b] of [[{...current,at:now-100000},previous],[current,{...previous,vehicleId:'other'}],[current,{...previous,driverId:'other'}],[{...current,driverId:'vehicle:456'},previous],[current,current],[current,{...previous,longitude:-4.141}],[{...current,at:now+6000},previous],[{...current,longitude:NaN},previous],[{...current,longitude:-4.15},previous],[current,{...previous,longitude:4.14}]])assert.equal(approachingClosure(a,b,closure,now),null);
  assert.equal(approachingClosure(current,previous,{...closure,endsAt:now},now),null);
 });
-test('configured message template targets exactly one driver with explicit JSON types and no guessed endpoint',()=>{
- assert.deepEqual(driverMessageBody({targetIds:['{{driverId:number}}'],text:'{{message}}',kind:'notice'},'123','Example'),{targetIds:[123],text:'Example',kind:'notice'});
- for(const template of [{text:'{{message}}'},{id:'{{driverId}}',other:'{{driverId}}',text:'{{message}}'},{id:'{{driverId}}',text:'hello {{message}}'},{}])assert.throws(()=>driverMessageBody(template,'123','Example'));
- assert.throws(()=>driverMessageBody({id:'{{driverId:number}}',text:'{{message}}'},'vehicle:123','Example'));
- assert.equal(driverMessageUrl('https://example.test/api/','driver/message','POST').pathname,'/api/driver/message');
- for(const [path,method] of [['https://evil.test/message','POST'],['/message','GET'],['https://user:pass@example.test/message','POST']])assert.throws(()=>driverMessageUrl('https://example.test/',path,method));
+test('documented transport targets exactly one numeric vehicle with all broadcast filters empty',()=>{
+ assert.deepEqual(vehicleMessageBody('456','North Rd West is reported closed nearby.'),{text:'North Rd West is reported closed nearby.',vehicles:[456],companies:[],capabilities:[],zones:[]});
+ for(const id of ['vehicle:456','0','-1','1,2','1.5','9007199254740992'])assert.throws(()=>vehicleMessageBody(id,'Example'));
+ assert.equal(vehicleMessageUrl('https://autocab-api.azure-api.net'), 'https://autocab-api.azure-api.net/vehicle/v1/vehicles/message');
+ for(const url of ['http://autocab-api.azure-api.net','https://evil.test','https://user:pass@autocab-api.azure-api.net','https://autocab-api.azure-api.net:8443'])assert.throws(()=>vehicleMessageUrl(url));
+});
+test('HTTP 200 is accepted only for the exact queued working vehicle; false/wrong targets are not success',()=>{
+ assert.equal(vehicleMessageOutcome({messagesQueued:true,vehicles:{workingVehicles:[456],nonWorkingVehicles:[]}},'456').status,'ACCEPTED');
+ assert.equal(vehicleMessageOutcome({messagesQueued:false,vehicles:{workingVehicles:[],nonWorkingVehicles:[11,2,7]}},'456').status,'REJECTED');
+ for(const payload of [null,{}, {messagesQueued:true}, {messagesQueued:true,vehicles:{workingVehicles:[123],nonWorkingVehicles:[]}},{messagesQueued:true,vehicles:{workingVehicles:[456],nonWorkingVehicles:[456]}},{messagesQueued:true,vehicles:{workingVehicles:[456,789],nonWorkingVehicles:[]}}])assert.equal(vehicleMessageOutcome(payload,'456').status,'UNKNOWN');
+});
+test('vehicle transport uses the vehicle ID and subscription header; timeout/5xx are never retried',async()=>{
+ const connection={url:vehicleMessageUrl('https://autocab-api.azure-api.net'),apiKey:'SYNTHETIC-KEY'};
+ let calls=0;
+ const fake:typeof fetch=async(url,init)=>{calls++;assert.equal(url,connection.url);assert.equal(new Headers(init?.headers).get('Ocp-Apim-Subscription-Key'),'SYNTHETIC-KEY');assert.equal(init?.redirect,'error');const body=JSON.parse(init?.body as string);assert.deepEqual(body.vehicles,[456]);assert.deepEqual(body.companies,[]);assert.deepEqual(body.capabilities,[]);assert.deepEqual(body.zones,[]);return Response.json({messagesQueued:true,vehicles:{workingVehicles:[456],nonWorkingVehicles:[]}})};
+ assert.equal((await requestVehicleMessage(connection,'456','Example',fake)).status,'ACCEPTED');assert.equal(calls,1);
+ for(const response of [new Response('down',{status:503}),new Response('denied',{status:403}),new Response('<html>error</html>',{status:200})]){calls=0;const result=await requestVehicleMessage(connection,'456','Example',async()=>{calls++;return response});assert.notEqual(result.status,'ACCEPTED');assert.equal(calls,1)}
+ calls=0;const timeout=await requestVehicleMessage(connection,'456','Example',async()=>{calls++;throw new TypeError('synthetic network failure')});assert.equal(timeout.status,'UNKNOWN');assert.equal(calls,1);
 });
 test('durable reservation prevents webhook replay/daily duplicates and applies a driver-wide cooldown',async()=>{
  const {PGlite}=await import('@electric-sql/pglite');const db=new PGlite();

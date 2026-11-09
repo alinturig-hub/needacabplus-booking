@@ -25,7 +25,7 @@ export async function POST(request:Request){
   const previous=day?(await client.query('SELECT driver_id,closure_key FROM street_manager_driver_alerts WHERE alert_day=$1',[day])).rows:[];
   const seen=new Set(previous.map(row=>JSON.stringify([row.driver_id,row.closure_key])));
   const cooling=new Set((await client.query("SELECT driver_id FROM street_manager_driver_alert_clock WHERE last_attempt_at>now()-interval '120 seconds'")).rows.map(row=>row.driver_id));
-  let attempted=0,accepted=0;
+  let attempted=0,accepted=0,rejected=0,unknown=0;
   for(const candidate of plan.candidates){
    if(attempted>=3)break;
    if(cooling.has(candidate.driverId)||seen.has(JSON.stringify([candidate.driverId,candidate.closureKey])))continue;
@@ -35,12 +35,12 @@ export async function POST(request:Request){
    if(!fresh)continue;
    const id=await claimDriverAlert(client,fresh);if(!id)continue;
    attempted++;cooling.add(fresh.driverId);
-   let result:{status:string;httpStatus:number|null};
-   try{result=await sendDriverClosureMessage(connection,fresh.driverId,fresh.message)}catch{result={status:'SUPPRESSED',httpStatus:null}}
-   await client.query('UPDATE street_manager_driver_alerts SET status=$2,http_status=$3,completed_at=now() WHERE id=$1',[id,result.status,result.httpStatus]);
-   if(result.status==='ACCEPTED')accepted++;
+   let result:{status:string;httpStatus:number|null;reason:string};
+   try{result=await sendDriverClosureMessage(connection,fresh.vehicleId,fresh.message)}catch{result={status:'SUPPRESSED',httpStatus:null,reason:'PRE_SEND_CHECK_FAILED'}}
+   await client.query('UPDATE street_manager_driver_alerts SET status=$2,http_status=$3,outcome_code=$4,completed_at=now() WHERE id=$1',[id,result.status,result.httpStatus,result.reason]);
+   if(result.status==='ACCEPTED')accepted++;else if(result.status==='REJECTED')rejected++;else unknown++;
   }
-  return Response.json({mode,activeClosures:plan.activeClosures,trackedDrivers:plan.trackedDrivers,attempted,accepted});
+  return Response.json({mode,activeClosures:plan.activeClosures,trackedDrivers:plan.trackedDrivers,attempted,accepted,rejected,unknown});
  }catch{return Response.json({error:'DRIVER_ALERT_WORKER_UNAVAILABLE'},{status:503})}
  finally{if(client){if(locked)await client.query("SELECT pg_advisory_unlock(hashtext('nac:road-closure-alert-worker'))").catch(()=>{});await client.query('RESET statement_timeout').catch(()=>{});client.release()}}
 }

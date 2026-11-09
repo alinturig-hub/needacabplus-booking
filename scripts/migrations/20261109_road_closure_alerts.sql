@@ -14,8 +14,11 @@ CREATE TABLE IF NOT EXISTS street_manager_driver_alerts (
  distance_metres integer NOT NULL CHECK(distance_metres>=0),
  status text NOT NULL CHECK(status IN ('SENDING','ACCEPTED','REJECTED','UNKNOWN','SUPPRESSED')),
  http_status integer,
+ outcome_code text,
  created_at timestamptz NOT NULL DEFAULT now(),
  completed_at timestamptz,
  UNIQUE(driver_id,closure_key,alert_day)
 );
 CREATE INDEX IF NOT EXISTS street_manager_driver_alerts_created ON street_manager_driver_alerts(created_at DESC);
+
+ALTER TABLE street_manager_driver_alerts ADD COLUMN IF NOT EXISTS outcome_code text;
