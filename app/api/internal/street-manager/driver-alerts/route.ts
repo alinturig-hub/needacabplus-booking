@@ -21,14 +21,20 @@ export async function POST(request:Request){
   if(mode==='observe')return Response.json({mode,activeClosures:plan.activeClosures,trackedDrivers:plan.trackedDrivers,candidates:plan.candidates.length,attempted:0});
   const connection=await driverMessageConnection();
   if(!connection)return Response.json({mode,reason:'DRIVER_MESSAGE_ENDPOINT_MISSING',attempted:0});
+  const day=plan.candidates[0]?.day;
+  const previous=day?(await client.query('SELECT driver_id,closure_key FROM street_manager_driver_alerts WHERE alert_day=$1',[day])).rows:[];
+  const seen=new Set(previous.map(row=>JSON.stringify([row.driver_id,row.closure_key])));
+  const cooling=new Set((await client.query("SELECT driver_id FROM street_manager_driver_alert_clock WHERE last_attempt_at>now()-interval '120 seconds'")).rows.map(row=>row.driver_id));
   let attempted=0,accepted=0;
-  for(const candidate of plan.candidates.slice(0,3)){
+  for(const candidate of plan.candidates){
+   if(attempted>=3)break;
+   if(cooling.has(candidate.driverId)||seen.has(JSON.stringify([candidate.driverId,candidate.closureKey])))continue;
    // Re-read time, road status, shift/driver identity and the latest GPS just
    // before reserving each send. Observation never creates delivery claims.
    const fresh=(await loadAlertPlan(client)).candidates.find(c=>c.driverId===candidate.driverId&&c.vehicleId===candidate.vehicleId&&c.closureKey===candidate.closureKey);
    if(!fresh)continue;
    const id=await claimDriverAlert(client,fresh);if(!id)continue;
-   attempted++;
+   attempted++;cooling.add(fresh.driverId);
    let result:{status:string;httpStatus:number|null};
    try{result=await sendDriverClosureMessage(connection,fresh.driverId,fresh.message)}catch{result={status:'SUPPRESSED',httpStatus:null}}
    await client.query('UPDATE street_manager_driver_alerts SET status=$2,http_status=$3,completed_at=now() WHERE id=$1',[id,result.status,result.httpStatus]);

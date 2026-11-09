@@ -25,8 +25,9 @@ export async function loadAlertPlan(client:Pick<PoolClient,'query'>,now=Date.now
  for(const track of tracks){
   const current:DriverFix={driverId:track.driver_id,vehicleId:track.vehicle_id,latitude:Number(track.latitude),longitude:Number(track.longitude),at:new Date(track.recorded_at).getTime()};
   const previous:DriverFix={...current,latitude:Number(track.previous_latitude),longitude:Number(track.previous_longitude),at:new Date(track.previous_at).getTime()};
-  const nearest=closures.map(c=>approachingClosure(current,previous,c,now)).filter((c):c is ClosureCandidate=>c!==null).sort((a,b)=>a.distanceMetres-b.distanceMetres)[0];
-  if(nearest)candidates.push(nearest);
+  const byStreet=new Map<string,ClosureCandidate>();
+  for(const closure of closures){const candidate=approachingClosure(current,previous,closure,now);if(candidate&&(!byStreet.has(candidate.closureKey)||byStreet.get(candidate.closureKey)!.distanceMetres>candidate.distanceMetres))byStreet.set(candidate.closureKey,candidate)}
+  candidates.push(...byStreet.values());
  }
  return {checkedAt:new Date(now).toISOString(),activeClosures:closures.length,trackedDrivers:tracks.length,candidates:candidates.sort((a,b)=>a.distanceMetres-b.distanceMetres)};
 }
