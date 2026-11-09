@@ -91,3 +91,13 @@ A 200 response is accepted only when `messagesQueued === true`, `workingVehicles
 Activation sequence: apply `scripts/migrations/20261109_road_closure_alerts.sql` as schema owner and grant the runtime role SELECT/INSERT/UPDATE on its two tables; verify in `observe` mode against real tracking and roadworks, then set `ROAD_CLOSURE_ALERTS_MODE=live`. The scheduler evaluates stored webhook data every 10 seconds. Set the mode to `off` to stop future attempts. Existing reservations are retained. The migration is not part of app startup. No WhatsApp/SMS settings or global integration controls are changed.
 
 Checks: `npx tsx --test tests/street-manager-alerts.test.ts tests/street-manager.test.ts tests/street-manager-preview.test.ts`. Tests use synthetic data and isolated embedded PostgreSQL; they do not establish real Driver Companion delivery.
+
+## Operations workspace
+
+Admin → Operations → **Roadworks & driver alerts** (`/admin/roadworks`) provides a permanent authenticated map, current closure/vehicle/candidate counts, source-record details, candidate decisions, paginated provider-attempt history and a read-only policy/feed view. The dashboard snapshot refreshes every 30 seconds while visible. History is refreshed explicitly and paginated with a validated `(created_at,id)` cursor; outcome filters do not reinterpret HTTP 200 as success. Call signs are current labels; the persisted driver and vehicle IDs remain visible for audit.
+
+`GET /api/admin/street-manager/operations` reads a consistent read-only database snapshot. `GET /api/admin/street-manager/history` provides 50 attempts per page and a next cursor. Both require the same administrator session as the page, use private/no-store responses, and expose no provider keys, raw webhook payloads or driver contact fields. The module has no write, send or mode-change endpoint/control. Previewing a candidate never reserves or sends a notification. The main worker's rules and delivery behavior are unchanged.
+
+**Current operator preference: keep `ROAD_CLOSURE_ALERTS_MODE=observe` (test only). Do not enable live sending unless the user explicitly requests it again.** Historical queue attempts, including the message accepted during earlier live operation, remain visible in test mode. Opening or publishing this workspace must preserve observe mode.
+
+Additional verification: `npx tsx --test tests/street-manager-operations.test.ts`. Local browser checks use clearly labelled synthetic alert/history fixtures and cover the actual workspace component/menu, map, both themes, record filters/details, candidate tab, history filters/pagination and mobile overflow. Local test harnesses are outside the repository and are not public/authentication bypass routes.

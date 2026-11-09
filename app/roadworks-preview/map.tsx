@@ -8,13 +8,13 @@ function bounds(items:PreviewItem[]):[number,number,number,number]|null{
  for(const item of items){if(!item.bounds)continue;b[0]=Math.min(b[0],item.bounds[0]);b[1]=Math.min(b[1],item.bounds[1]);b[2]=Math.max(b[2],item.bounds[2]);b[3]=Math.max(b[3],item.bounds[3])}
  return Number.isFinite(b[0])?b:null;
 }
-export default function MapView({items,selected,onSelect,fitVersion}:{items:PreviewItem[];selected:PreviewItem|null;onSelect:(id:string)=>void;fitVersion:number}){
+export default function MapView({items,selected,onSelect,fitVersion,theme='light'}:{items:PreviewItem[];selected:PreviewItem|null;onSelect:(id:string)=>void;fitVersion:number;theme?:'light'|'dark'}){
  const container=useRef<HTMLDivElement>(null),map=useRef<LibreMap|null>(null),itemsRef=useRef(items),selectRef=useRef(onSelect),didFit=useRef(false);
  const [ready,setReady]=useState(false),[mapError,setMapError]=useState(false);
  useEffect(()=>{itemsRef.current=items;selectRef.current=onSelect},[items,onSelect]);
  useEffect(()=>{
   if(!container.current)return;
-  const instance=new LibreMap({container:container.current,style:'https://tiles.openfreemap.org/styles/liberty',center:[-4.142,50.385],zoom:12,attributionControl:false,maxPitch:0});map.current=instance;
+  const instance=new LibreMap({container:container.current,style:theme==='dark'?'https://tiles.openfreemap.org/styles/fiord':'https://tiles.openfreemap.org/styles/liberty',center:[-4.142,50.385],zoom:12,attributionControl:false,maxPitch:0});map.current=instance;
   instance.addControl(new NavigationControl({showCompass:false}),'top-right');instance.addControl(new AttributionControl({compact:true}),'bottom-right');
   const collapseAttribution=()=>{const control=instance.getContainer().querySelector<HTMLDetailsElement>('details.maplibregl-ctrl-attrib');if(control?.classList.contains('maplibregl-compact')){control.classList.remove('maplibregl-compact-show');control.open=false}};
   instance.once('idle',collapseAttribution);
@@ -33,7 +33,7 @@ export default function MapView({items,selected,onSelect,fitVersion}:{items:Prev
   instance.on('error',()=>{if(!instance.isStyleLoaded())setMapError(true)});
   const observer=new ResizeObserver(()=>instance.resize());observer.observe(container.current);
   return()=>{observer.disconnect();instance.remove();map.current=null};
- },[]);
+ },[theme]);
  useEffect(()=>{
   const instance=map.current;if(!instance||!ready)return;
   const features:Feature[]=[];
