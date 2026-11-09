@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import {activeClosure,approachingClosure,distanceToClosure,alertDay,type ActiveClosure,type DriverFix} from '../lib/street-manager/closure-alerts';
-import {claimDriverAlert} from '../lib/street-manager/alert-delivery';
+import {claimDriverAlert,driverAlertDeliveryStatus} from '../lib/street-manager/alert-delivery';
 import {vehicleMessageBody,vehicleMessageUrl,vehicleMessageOutcome,requestVehicleMessage} from '../lib/street-manager/driver-message';
 import type {PreviewRow} from '../lib/street-manager/preview-data';
 import {POST} from '../app/api/internal/street-manager/driver-alerts/route';
@@ -67,6 +67,8 @@ test('durable reservation prevents webhook replay/daily duplicates and applies a
   assert.ok(await claimDriverAlert(client,{...c,closureKey:'different'},now+130000));
   assert.ok(await claimDriverAlert(client,{...c,driverId:'other'},now));
   const rows=(await db.query<{status:string;count:number}>('SELECT status,count(*)::int AS count FROM street_manager_driver_alerts GROUP BY status')).rows;assert.deepEqual(rows,[{status:'SENDING',count:3}]);
+  await db.query("UPDATE street_manager_driver_alerts SET status='REJECTED',http_status=200,outcome_code='NOT_QUEUED',completed_at=now() WHERE id=$1",[first]);
+  const status=await driverAlertDeliveryStatus(client);assert.equal(status.ready,true);assert.equal(status.statuses.find(s=>s.status==='REJECTED')?.count,1);assert.equal(status.outcomes[0].outcome_code,'NOT_QUEUED');assert.equal(JSON.stringify(status).includes(c.message),false);assert.equal(status.statuses.some(s=>'driver_id' in s||'vehicle_id' in s),false);
  }finally{await db.close()}
 });
 test('alert worker rejects anonymous calls and stays off without explicit mode',async()=>{

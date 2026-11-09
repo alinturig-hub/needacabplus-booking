@@ -71,7 +71,7 @@ Preview checks: `npx tsx --test tests/street-manager.test.ts tests/street-manage
 
 ## Driver closure warnings
 
-The prepared detector is driven by stored Autocab tracking webhooks and current Street Manager snapshots. It does not poll either provider. `GET /api/admin/street-manager/driver-alerts` is an authenticated, read-only plan showing active closure/eligible driver counts and candidate messages; it never sends or reserves a message. The internal worker requires `x-booking-writer-secret` and the existing `BOOKING_WRITER_JOB_SECRET`. `ROAD_CLOSURE_ALERTS_MODE` defaults to `off`; `observe` evaluates without writes/sends, and `live` enables attempts only after a configured transport is available.
+The prepared detector is driven by stored Autocab tracking webhooks and current Street Manager snapshots. It does not poll either provider. `GET /api/admin/street-manager/driver-alerts` is an authenticated, read-only plan showing active closure/eligible driver counts, candidate messages and aggregate delivery outcomes for the last 24 hours; it never sends or reserves a message. The internal worker requires `x-booking-writer-secret` and the existing `BOOKING_WRITER_JOB_SECRET`. `ROAD_CLOSURE_ALERTS_MODE` defaults to `off`; `observe` evaluates without writes/sends, and `live` enables attempts only after a configured transport is available.
 
 Eligibility is conservative:
 

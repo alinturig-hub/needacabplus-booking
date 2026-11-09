@@ -16,3 +16,10 @@ export async function claimDriverAlert(client:Pick<PoolClient,'query'>,candidate
  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
 }
 export {alertPolicy};
+export async function driverAlertDeliveryStatus(client:Pick<PoolClient,'query'>){
+ const ready=(await client.query("SELECT to_regclass('public.street_manager_driver_alerts') IS NOT NULL AS ready")).rows[0].ready;
+ if(!ready)return {ready:false,statuses:[],outcomes:[]};
+ const statuses=(await client.query("SELECT status,count(*)::int AS count,max(created_at) AS last_attempt,max(completed_at) AS last_completed FROM street_manager_driver_alerts WHERE created_at>=now()-interval '24 hours' GROUP BY status ORDER BY status")).rows;
+ const outcomes=(await client.query("SELECT outcome_code,count(*)::int AS count,max(completed_at) AS last_completed FROM street_manager_driver_alerts WHERE created_at>=now()-interval '24 hours' AND outcome_code IS NOT NULL GROUP BY outcome_code ORDER BY outcome_code")).rows;
+ return {ready:true,windowHours:24,statuses,outcomes};
+}
