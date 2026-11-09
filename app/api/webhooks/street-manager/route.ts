@@ -1,4 +1,5 @@
 import {database} from '@/lib/database';
+import {isPlymouthEvent} from '@/lib/street-manager/scope';
 import {boundedText,confirmationUrl,envelopeSchema,eventSchema,verifyEnvelope} from '@/lib/street-manager/sns';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -21,6 +22,8 @@ export async function POST(request:Request){
  }
  let event;
  try{event=eventSchema.parse(JSON.parse(envelope.Message))}catch{return Response.json({error:'Invalid Street Manager event.'},{status:400})}
+ // Acknowledge authenticated out-of-scope deliveries without storing or retrying them.
+ if(!isPlymouthEvent(event.object_data))return Response.json({received:true,ignored:true,reason:'OUTSIDE_PLYMOUTH'});
  try{
   const result=await database().query(`INSERT INTO street_manager_events(topic_arn,message_id,event_reference,event_type,object_type,object_reference,event_time,sns_timestamp,schema_version,event_data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING RETURNING message_id`,[envelope.TopicArn,envelope.MessageId,String(event.event_reference),event.event_type,event.object_type,event.object_reference,event.event_time,envelope.Timestamp,event.version,JSON.stringify(event)]);
   return Response.json({received:true,duplicate:result.rowCount===0});

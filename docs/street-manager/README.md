@@ -1,8 +1,8 @@
 # Street Manager open-data receiver
 
 Implemented route: `POST /api/webhooks/street-manager`.
-Proposed public endpoint after deployment: `https://webhook.needacabplus.app/api/webhooks/street-manager`.
-This change is prepared in development, not deployed, registered or subscribed.
+Public endpoint: `https://webhook.needacabplus.app/api/webhooks/street-manager`.
+The endpoint is live and all three production SNS subscriptions are confirmed.
 
 ## Source contracts
 
@@ -22,12 +22,13 @@ Street Manager pushes production events using AWS SNS; this is not a polling API
 - Check the subscription table exists before confirmation; record returned subscription ARN. UnsubscribeConfirmation is authenticated but does not auto-resubscribe.
 - Verify first, then validate the documented event core while retaining unknown fields for forward compatibility. Store full event JSON and source UTC timestamps.
 - Acknowledge notifications only after successful durable INSERT; duplicates are ignored by both (topic,message_id) and (topic,event_reference). Storage failures and temporary certificate/confirmation failures return 503 so SNS can retry. Bad envelopes/signatures return 400/403.
-- Persist all subscribed official events initially. Plymouth/authority filtering and mapping are downstream work; no authority SWA code is guessed.
+- After signature and event validation, persist only events whose object_data.highway_authority_swa_code is 1160 (Plymouth City Council), verified against production receipts on 2026-11-09. Town text and nearby Devon addresses do not qualify. Missing/other codes are acknowledged with 200 and ignored without a database write; the documented event contract requires this authority code. Confirmation handling remains unchanged for all three topics.
+- Historical national rows are retained; the admin status totals and topic counts use the same Plymouth authority filter. This does not add a map overlay or alter routing.
 - Append delayed events without overwriting a latest-state projection. Future projections must order by event_time and handle equal-time/reverted/cancelled events explicitly.
 
 WKT strings such as POINT/LINESTRING are retained as source geometry, not incorrectly treated as GeoJSON longitude/latitude. Confirm the source CRS before converting (the documented examples use British grid-style coordinates). Section 58 is a restriction on subsequent street works, not automatically a current road closure. Null *_time remains unspecified; it is not converted to midnight. This receiver does not modify route calculation, booking ETAs, live car displays or notifications.
 
-## Schema and runtime grants (not executed)
+## Schema and runtime grants
 
 Apply `scripts/migrations/20261108_street_manager_inbox.sql` to the approved database with the schema-owner connection. Do not use a migration-wide runtime owner or print connection secrets.
 

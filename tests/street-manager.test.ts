@@ -1,9 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {generateKeyPairSync,sign} from 'node:crypto';import {execFileSync} from 'node:child_process';import {mkdtempSync,readFileSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';
+import {createPrivateKey,generateKeyPairSync,sign} from 'node:crypto';import {execFileSync} from 'node:child_process';import {mkdtempSync,readFileSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {certificateUrl,checkSignature,confirmationUrl,envelopeSchema,eventSchema,signingText,boundedText,type SnsEnvelope} from '../lib/street-manager/sns';
 import {POST} from '../app/api/webhooks/street-manager/route';
+import {isPlymouthEvent} from '../lib/street-manager/scope';
 const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
-const base:SnsEnvelope={Type:'Notification',MessageId:'SYNTHETIC-MESSAGE',TopicArn:'arn:aws:sns:eu-west-2:287813576808:prod-permit-topic',Message:JSON.stringify({event_reference:1,event_type:'WORK_START',event_time:'2026-11-08T10:00:00Z',object_type:'PERMIT',object_reference:'SYNTHETIC-PERMIT',version:1,object_data:{town:'Plymouth',works_location_coordinates:'POINT(248000 55000)'},future_field:true}),Timestamp:'2026-11-08T10:00:00Z',SignatureVersion:'2',Signature:'placeholder',SigningCertURL:'https://sns.eu-west-2.amazonaws.com/SimpleNotificationService-synthetic.pem'};
+const base:SnsEnvelope={Type:'Notification',MessageId:'SYNTHETIC-MESSAGE',TopicArn:'arn:aws:sns:eu-west-2:287813576808:prod-permit-topic',Message:JSON.stringify({event_reference:1,event_type:'WORK_START',event_time:'2026-11-08T10:00:00Z',object_type:'PERMIT',object_reference:'SYNTHETIC-PERMIT',version:1,object_data:{highway_authority_swa_code:'1160',town:'Plymouth',works_location_coordinates:'POINT(248000 55000)'},future_field:true}),Timestamp:'2026-11-08T10:00:00Z',SignatureVersion:'2',Signature:'placeholder',SigningCertURL:'https://sns.eu-west-2.amazonaws.com/SimpleNotificationService-synthetic.pem'};
 function signed(input:SnsEnvelope,key=privateKey){return {...input,Signature:sign(input.SignatureVersion==='2'?'RSA-SHA256':'RSA-SHA1',Buffer.from(signingText(input)),key).toString('base64')}}
 test('official topics only; optional new event fields remain compatible',()=>{
  assert.equal(envelopeSchema.safeParse({...base,TopicArn:'arn:aws:sns:eu-west-2:999:other'}).success,false);
@@ -25,12 +26,14 @@ test('route rejects unsigned messages and never acknowledges valid signed data w
  const temp=mkdtempSync(join(tmpdir(),'street-manager-test-')),oldFetch=globalThis.fetch,oldDatabase=process.env.DATABASE_URL;
  try{
   execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(temp,'key.pem'),'-out',join(temp,'cert.pem'),'-days','1','-subj','/CN=synthetic-sns-test'],{stdio:'ignore'});
-  const key=readFileSync(join(temp,'key.pem')),cert=readFileSync(join(temp,'cert.pem'),'utf8');let calls=0;
+  const key=createPrivateKey(readFileSync(join(temp,'key.pem'))),cert=readFileSync(join(temp,'cert.pem'),'utf8');let calls=0;
   globalThis.fetch=async(input)=>{calls++;assert.equal(String(input),base.SigningCertURL);return new Response(cert)};process.env.DATABASE_URL='';
   const valid={...base,Signature:sign('RSA-SHA256',Buffer.from(signingText(base)),key).toString('base64')};
   const request=(x:unknown)=>new Request('https://example.test/api/webhooks/street-manager',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(x)});
   assert.equal((await POST(request({...valid,Signature:'bad'}))).status,403);assert.equal((await POST(request(valid))).status,503);assert.equal(calls,1);
   assert.equal((await POST(request({...valid,TopicArn:'not-dft'}))).status,400);
+  for(const code of ['1100',null]){const outside=signed({...base,Message:JSON.stringify({...JSON.parse(base.Message),object_data:{highway_authority_swa_code:code,town:'Plymouth'}})},key);const response=await POST(request(outside));assert.equal(response.status,200);assert.deepEqual(await response.json(),{received:true,ignored:true,reason:'OUTSIDE_PLYMOUTH'});}
+  const tampered={...valid,Message:JSON.stringify({...JSON.parse(base.Message),object_data:{highway_authority_swa_code:'1100'}})};assert.equal((await POST(request(tampered))).status,403);
  }finally{globalThis.fetch=oldFetch;if(oldDatabase===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=oldDatabase;rmSync(temp,{recursive:true,force:true})}
 });
 test('migration and unique keys retain delayed events but deduplicate SNS/event redelivery',async()=>{
@@ -46,10 +49,17 @@ test('migration and unique keys retain delayed events but deduplicate SNS/event 
 test('admin receipt status distinguishes pending, subscribed and receiving without returning payloads',async()=>{
  const {PGlite}=await import('@electric-sql/pglite');const {streetManagerStatus}=await import('../lib/street-manager/status');const db=new PGlite();
  try{await db.exec(readFileSync(join(process.cwd(),'scripts/migrations/20261108_street_manager_inbox.sql'),'utf8'));
- const client={query:async(sql:string)=>(await db.query(sql))} as unknown as Parameters<typeof streetManagerStatus>[0];
+ const client={query:async(sql:string,params:unknown[])=>(await db.query(sql,params))} as unknown as Parameters<typeof streetManagerStatus>[0];
  assert.equal((await streetManagerStatus(client)).state,'awaiting_confirmation');
  await db.query('INSERT INTO street_manager_subscriptions(topic_arn,subscription_arn) VALUES($1,$2)',[base.TopicArn,base.TopicArn+':SYNTHETIC']);assert.equal((await streetManagerStatus(client)).state,'subscribed_no_events');
  await db.query("INSERT INTO street_manager_events(topic_arn,message_id,event_reference,event_type,object_type,object_reference,event_time,sns_timestamp,schema_version,event_data) VALUES($1,'synthetic','1','WORK_START','PERMIT','test',now(),now(),1,'{}')",[base.TopicArn]);
- const report=await streetManagerStatus(client);assert.equal(report.state,'receiving');assert.equal(report.events.total,'1');assert.equal(report.subscriptions[0].topic,'prod-permit-topic');assert.equal('event_data' in report,false);assert.equal(JSON.stringify(report).includes('subscription_arn'),false);
+ assert.equal((await streetManagerStatus(client)).state,'subscribed_no_events');
+ await db.query("UPDATE street_manager_events SET event_data=$1 WHERE message_id='synthetic'",[JSON.stringify({object_data:{highway_authority_swa_code:'1160'}})]);
+ const report=await streetManagerStatus(client);assert.equal(report.scope.swaCode,'1160');assert.equal(report.state,'receiving');assert.equal(report.events.total,'1');assert.equal(report.subscriptions[0].topic,'prod-permit-topic');assert.equal('event_data' in report,false);assert.equal(JSON.stringify(report).includes('subscription_arn'),false);
  }finally{await db.close()}
+});
+
+test('Plymouth scope uses the authority code, never town names or venue text',()=>{
+ for(const code of ['1160',1160,' 1160 '])assert.equal(isPlymouthEvent({highway_authority_swa_code:code}),true);
+ for(const code of [undefined,null,'','1100','11600',true,{},['1160']])assert.equal(isPlymouthEvent({highway_authority_swa_code:code,highway_authority:'PLYMOUTH CITY COUNCIL',town:'Plymouth'}),false);
 });
