@@ -8,7 +8,7 @@ function bounds(items:PreviewItem[]):[number,number,number,number]|null{
  for(const item of items){if(!item.bounds)continue;b[0]=Math.min(b[0],item.bounds[0]);b[1]=Math.min(b[1],item.bounds[1]);b[2]=Math.max(b[2],item.bounds[2]);b[3]=Math.max(b[3],item.bounds[3])}
  return Number.isFinite(b[0])?b:null;
 }
-export default function MapView({items,selected,onSelect,fitVersion,theme='light'}:{items:PreviewItem[];selected:PreviewItem|null;onSelect:(id:string)=>void;fitVersion:number;theme?:'light'|'dark'}){
+export default function MapView({items,selected,onSelect,fitVersion,theme='light',supplementaryLegend=false}:{items:PreviewItem[];selected:PreviewItem|null;onSelect:(id:string)=>void;fitVersion:number;theme?:'light'|'dark';supplementaryLegend?:boolean}){
  const container=useRef<HTMLDivElement>(null),map=useRef<LibreMap|null>(null),itemsRef=useRef(items),selectRef=useRef(onSelect),didFit=useRef(false);
  const [ready,setReady]=useState(false),[mapError,setMapError]=useState(false);
  useEffect(()=>{itemsRef.current=items;selectRef.current=onSelect},[items,onSelect]);
@@ -44,5 +44,5 @@ export default function MapView({items,selected,onSelect,fitVersion,theme='light
  },[items,ready]);
  useEffect(()=>{const b=bounds(itemsRef.current);if(ready&&b)map.current?.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:45,maxZoom:15,duration:0})},[fitVersion,ready]);
  useEffect(()=>{const b=selected?.bounds;if(ready&&b)map.current?.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:65,maxZoom:16,duration:0})},[selected,ready]);
- return <section className="rw-map" aria-label="Map of received Plymouth roadworks"><div className="rw-canvas" ref={container}/>{!ready&&<div className="rw-map-message" role="status">{mapError?'Map could not load. Roadworks details remain available in the list.':'Loading Plymouth map…'}</div>}<div className="rw-map-note">Select a marker or a street in the list</div><div className="rw-legend"><span><i style={{background:'#f87171'}}/>Closure reported</span><span><i style={{background:'#f5be58'}}/>Works / activity</span><span><i style={{background:'#a78bfa'}}/>Section 58</span><span><i style={{background:'#8b99a5'}}/>Ended / review</span></div></section>;
+ return <section className="rw-map" aria-label="Map of received Plymouth roadworks"><div className="rw-canvas" ref={container}/>{!ready&&<div className="rw-map-message" role="status">{mapError?'Map could not load. Roadworks details remain available in the list.':'Loading Plymouth map…'}</div>}<div className="rw-map-note">Select a marker or a street in the list</div><div className="rw-legend"><span><i style={{background:'#f87171'}}/>Closure reported</span><span><i style={{background:'#f5be58'}}/>Works / activity</span><span><i style={{background:'#a78bfa'}}/>Section 58</span><span><i style={{background:'#8b99a5'}}/>Ended / review</span>{supplementaryLegend&&<span><i style={{background:'#6ac4ce'}}/>Council notice</span>}</div></section>;
 }

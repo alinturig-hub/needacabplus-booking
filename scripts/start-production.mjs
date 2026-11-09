@@ -108,3 +108,14 @@ if(['observe','live'].includes(process.env.ROAD_CLOSURE_ALERTS_MODE)&&process.en
  }catch{console.error('ROAD_CLOSURE_ALERT_WORKER_UNAVAILABLE')}finally{roadAlertsBusy=false}};
  setInterval(pollRoadAlerts,10000).unref();setTimeout(pollRoadAlerts,15000).unref();
 }
+
+// Supplementary public records only. This job never sends driver messages and
+// does not change ROAD_CLOSURE_ALERTS_MODE. Successful council fetches are due 6-hourly.
+if(process.env.STREET_MANAGER_COUNCIL_SYNC_ENABLED==='true'&&process.env.BOOKING_WRITER_JOB_SECRET){
+ let supplementaryBusy=false;
+ const syncSupplementary=async()=>{if(closing||supplementaryBusy)return;supplementaryBusy=true;try{
+  const response=await fetch(`http://127.0.0.1:${process.env.PORT||'3000'}/api/internal/street-manager/supplementary-sync`,{method:'POST',headers:{'x-booking-writer-secret':process.env.BOOKING_WRITER_JOB_SECRET},signal:AbortSignal.timeout(90000)});
+  const result=await response.json();console.info('STREET_MANAGER_SUPPLEMENTARY_SYNC '+JSON.stringify({httpStatus:response.status,enabled:result.enabled,archive:result.archive,council:result.council,error:result.error}));
+ }catch{console.error('STREET_MANAGER_SUPPLEMENTARY_SYNC_UNAVAILABLE')}finally{supplementaryBusy=false}};
+ setTimeout(syncSupplementary,20000).unref();setInterval(syncSupplementary,6*3600000).unref();
+}
