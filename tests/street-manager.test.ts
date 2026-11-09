@@ -43,3 +43,13 @@ test('migration and unique keys retain delayed events but deduplicate SNS/event 
   assert.equal((await db.query<{message_id:string}>('SELECT message_id FROM street_manager_events ORDER BY event_time DESC LIMIT 1')).rows[0].message_id,'message-new');
  }finally{await db.close()}
 });
+test('admin receipt status distinguishes pending, subscribed and receiving without returning payloads',async()=>{
+ const {PGlite}=await import('@electric-sql/pglite');const {streetManagerStatus}=await import('../lib/street-manager/status');const db=new PGlite();
+ try{await db.exec(readFileSync(join(process.cwd(),'scripts/migrations/20261108_street_manager_inbox.sql'),'utf8'));
+ const client={query:async(sql:string)=>(await db.query(sql))} as unknown as Parameters<typeof streetManagerStatus>[0];
+ assert.equal((await streetManagerStatus(client)).state,'awaiting_confirmation');
+ await db.query('INSERT INTO street_manager_subscriptions(topic_arn,subscription_arn) VALUES($1,$2)',[base.TopicArn,base.TopicArn+':SYNTHETIC']);assert.equal((await streetManagerStatus(client)).state,'subscribed_no_events');
+ await db.query("INSERT INTO street_manager_events(topic_arn,message_id,event_reference,event_type,object_type,object_reference,event_time,sns_timestamp,schema_version,event_data) VALUES($1,'synthetic','1','WORK_START','PERMIT','test',now(),now(),1,'{}')",[base.TopicArn]);
+ const report=await streetManagerStatus(client);assert.equal(report.state,'receiving');assert.equal(report.events.total,'1');assert.equal(report.subscriptions[0].topic,'prod-permit-topic');assert.equal('event_data' in report,false);assert.equal(JSON.stringify(report).includes('subscription_arn'),false);
+ }finally{await db.close()}
+});
