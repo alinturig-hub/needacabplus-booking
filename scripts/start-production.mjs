@@ -96,3 +96,14 @@ if(process.env.WHATSAPP_SHARED_ENABLED==='true'&&process.env.WHATSAPP_WORKER_SEC
  }catch{console.error('WHATSAPP_SHARED_JOB_UNAVAILABLE');}finally{whatsappBusy=false;}};
  setInterval(pollWhatsApp,60000).unref();setTimeout(pollWhatsApp,15000).unref();
 }
+
+// This evaluates locally stored GPS webhooks, never polls Autocab or DfT.
+// Off until explicitly configured; observe mode cannot send or reserve messages.
+if(['observe','live'].includes(process.env.ROAD_CLOSURE_ALERTS_MODE)&&process.env.BOOKING_WRITER_JOB_SECRET){
+ let roadAlertsBusy=false;
+ const pollRoadAlerts=async()=>{if(closing||roadAlertsBusy)return;roadAlertsBusy=true;try{
+  const result=await fetch(`http://127.0.0.1:${process.env.PORT||'3000'}/api/internal/street-manager/driver-alerts`,{method:'POST',headers:{'x-booking-writer-secret':process.env.BOOKING_WRITER_JOB_SECRET},signal:AbortSignal.timeout(55000)});
+  if(!result.ok)console.error('ROAD_CLOSURE_ALERT_WORKER_UNAVAILABLE',result.status);
+ }catch{console.error('ROAD_CLOSURE_ALERT_WORKER_UNAVAILABLE')}finally{roadAlertsBusy=false}};
+ setInterval(pollRoadAlerts,10000).unref();setTimeout(pollRoadAlerts,15000).unref();
+}

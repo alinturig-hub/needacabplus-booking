@@ -68,3 +68,24 @@ The page refreshes our stored receipts every minute; it does not poll DfT. It se
 BNG EPSG:27700 GeoJSON/WKT points, lines and areas are converted to WGS84 with the standard seven-parameter Helmert transform (approximate map positions, not survey-grade OSTN15). Unknown payload fields and SNS envelopes are never returned. Missing source times remain unspecified; dates and timestamps are labelled separately and displayed in Europe/London.
 
 Preview checks: `npx tsx --test tests/street-manager.test.ts tests/street-manager-preview.test.ts`. Browser verification covers map loading, list/marker selection, search, filters and mobile layout; synthetic fixtures are explicitly labelled in local screenshots.
+
+## Driver closure warnings
+
+The prepared detector is driven by stored Autocab tracking webhooks and current Street Manager snapshots. It does not poll either provider. `GET /api/admin/street-manager/driver-alerts` is an authenticated, read-only plan showing active closure/eligible driver counts and candidate messages; it never sends or reserves a message. The internal worker requires `x-booking-writer-secret` and the existing `BOOKING_WRITER_JOB_SECRET`. `ROAD_CLOSURE_ALERTS_MODE` defaults to `off`; `observe` evaluates without writes/sends, and `live` enables attempts only after a configured transport is available.
+
+Eligibility is conservative:
+
+- Plymouth authority 1160; latest source event per work reference (or object reference), so a cancelled replacement permit suppresses the older snapshot. Reverted/equal-time ambiguous updates and Section 58 are excluded.
+- A permit must be reported in progress, have an actual start (or WORK_START), report road-closure traffic management, and be within its current window. Explicit current management overrides the proposed management. A future proposed clock narrows the window; it cannot start a planned permit. End date without a supplied clock includes the London calendar day; this is not presented as an exact reopening time. No end bound means no alert. Activities require explicit start/end clocks.
+- Current canonical driver/vehicle pairing, active correlated shift, neither suspended/archived, and a committed matching GPS fix no older than 90 seconds and no more than 5 seconds ahead of server time. Two fixes on the same driver/vehicle must show at least 10 m of approach. Implausible movement above 180 km/h is discarded.
+- Within 300 m of the actual converted point/segment/polygon, including polygon holes. This is proximity, not a route or a statement that the driver's chosen road is blocked. The nearest qualifying closure per driver is considered. Example wording: `North Rd West is reported closed nearby.`
+
+The worker rechecks status, time, GPS and driver identity immediately before each reservation. Unique `(driver_id,closure_key,alert_day)` prevents repeats for the same USRN/street per London day. A transactional driver clock enforces a two-minute gap across different closures. A PostgreSQL advisory lock prevents overlapping workers. Up to three candidates are attempted per pass. Provider 2xx means accepted, not verified delivery/read in Driver Companion. Timeout/5xx/crash outcomes are not automatically replayed because an unconfirmed provider write could already have delivered the message. `SENDING` rows after a crash require reconciliation; no expiry retries them.
+
+### Transport contract required before activation
+
+The live configuration audit on 2026-11-09 found fresh identified tracking positions but no saved message/Companion endpoint. No driver message has been sent or API payload guessed. A documented POST endpoint and recipient/payload contract are still required. The transport adapter uses an explicitly configured API action `driver.road-closure-message` on an Autocab connection. Its request example is an exact JSON template containing one `{{driverId}}` (string) or `{{driverId:number}}` (numeric ID) and one `{{message}}`. This is a mapping contract, not a proposed Autocab request schema. Verify the real API's recipient semantics, required fields and acceptance/error response before enabling it. Only same-origin HTTPS POST and configured authenticated connections are accepted; redirects are rejected. Do not paste API keys into chat or logs.
+
+Before setting live mode, apply `scripts/migrations/20261109_road_closure_alerts.sql` as the schema owner and grant the approved runtime role SELECT/INSERT/UPDATE on `street_manager_driver_alert_clock` and `street_manager_driver_alerts`. This migration is prepared and tested, not automatically applied at startup. Live mode must not be enabled without these tables and the verified transport. No WhatsApp/SMS settings are changed.
+
+Checks: `npx tsx --test tests/street-manager-alerts.test.ts tests/street-manager.test.ts tests/street-manager-preview.test.ts`. Tests use synthetic data and isolated embedded PostgreSQL; they do not establish real Driver Companion delivery.
