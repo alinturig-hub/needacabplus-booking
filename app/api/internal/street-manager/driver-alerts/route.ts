@@ -21,7 +21,7 @@ export async function POST(request:Request){
   if(!locked)return Response.json({mode,reason:'WORKER_BUSY',attempted:0});
   await client.query("SET statement_timeout='8s'");
   const plan=await loadAlertPlan(client);
-  if(mode==='observe')return Response.json({mode,activeClosures:plan.activeClosures,trackedDrivers:plan.trackedDrivers,candidates:plan.candidates.length,attempted:0});
+  if(mode==='observe')return Response.json({mode,activeClosures:plan.activeClosures,activeRoadworks:plan.activeRoadworks,activeRestrictions:plan.activeRestrictions,activeEvents:plan.activeEvents,trackedDrivers:plan.trackedDrivers,candidates:plan.candidates.length,attempted:0});
   const connection=await driverMessageConnection();
   if(!connection)return Response.json({mode,reason:'DRIVER_MESSAGE_ENDPOINT_MISSING',attempted:0});
   const candidates=pilotCandidates(plan.candidates,pilot);
@@ -45,7 +45,7 @@ export async function POST(request:Request){
    await client.query('UPDATE street_manager_driver_alerts SET status=$2,http_status=$3,outcome_code=$4,completed_at=now() WHERE id=$1',[id,result.status,result.httpStatus,result.reason]);
    if(result.status==='ACCEPTED')accepted++;else if(result.status==='REJECTED')rejected++;else if(result.status==='SUPPRESSED')suppressed++;else unknown++;
   }
-  return Response.json({mode,activeClosures:plan.activeClosures,trackedDrivers:plan.trackedDrivers,pilot,candidates:candidates.length,attempted,accepted,rejected,unknown,suppressed});
+  return Response.json({mode,activeClosures:plan.activeClosures,activeRoadworks:plan.activeRoadworks,activeRestrictions:plan.activeRestrictions,activeEvents:plan.activeEvents,trackedDrivers:plan.trackedDrivers,pilot,candidates:candidates.length,attempted,accepted,rejected,unknown,suppressed});
  }catch{return Response.json({error:'DRIVER_ALERT_WORKER_UNAVAILABLE'},{status:503})}
  finally{if(client){if(locked)await client.query("SELECT pg_advisory_unlock(hashtext('nac:road-closure-alert-worker'))").catch(()=>{});await client.query('RESET statement_timeout').catch(()=>{});client.release()}}
 }

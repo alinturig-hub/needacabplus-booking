@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
-import {activeClosure,approachingClosure,distanceToClosure,alertDay,type ActiveClosure,type DriverFix} from '../lib/street-manager/closure-alerts';
+import {activeClosure,activeRoadEvent,approachingClosure,distanceToClosure,alertDay,type ActiveClosure,type DriverFix} from '../lib/street-manager/closure-alerts';
 import {claimDriverAlert,driverAlertDeliveryStatus} from '../lib/street-manager/alert-delivery';
 import {vehicleMessageBody,vehicleMessageUrl,vehicleMessageOutcome,requestVehicleMessage} from '../lib/street-manager/driver-message';
 import type {PreviewRow} from '../lib/street-manager/preview-data';
@@ -102,10 +102,31 @@ test('plan uses committed webhook GPS and current shift identity; newer cancella
   assert.equal((await loadAlertPlan(client,clock)).candidates.length,0,'GPS cannot open a shift');
   await db.exec(`INSERT INTO "DriverShift" VALUES('s1','AUTOCAB','d1','v1','ACTIVE',now()-interval '1 hour',NULL,NULL)`);
   const plan=await loadAlertPlan(client,clock);assert.equal(plan.activeClosures,1);assert.equal(plan.candidates.length,1);
+  await db.query(rowInsert,['works','WORK_START','permit-works',new Date(clock-3400000),JSON.stringify({object_data:{...source,work_reference_number:'WORK-TWO',traffic_management_type_ref:'two_way_signals'}})]);
+  const combined=await loadAlertPlan(client,clock);assert.equal(combined.activeEvents,2);assert.equal(combined.activeClosures,1);assert.equal(combined.activeRoadworks,1);assert.deepEqual(combined.candidates.map(c=>c.kind),['closure','roadworks']);assert.ok(combined.candidates[1].message.includes('temporary two-way traffic lights'));
+  await db.exec("DELETE FROM street_manager_events WHERE message_id='works'");
   await db.exec(`INSERT INTO street_manager_message_bans(id,callsign,driver_id,driver_name,vehicle_id,association_source) VALUES('test-ban','62','123','Synthetic driver','456','current_vehicle')`);assert.equal((await loadAlertPlan(client,clock)).candidates.length,0,'Banned vehicle must not be an alert candidate');await db.exec("UPDATE street_manager_message_bans SET active=false");
   await db.exec('UPDATE "Driver" SET suspended=true');assert.equal((await loadAlertPlan(client,clock)).candidates.length,0);
   await db.exec('UPDATE "Driver" SET suspended=false');
   await db.query(rowInsert,['two','PERMIT_CANCELLED','permit-two',new Date(clock-10000),JSON.stringify({object_data:{...source,permit_status:'cancelled'}})]);
   const cancelled=await loadAlertPlan(client,clock);assert.equal(cancelled.activeClosures,0);assert.equal(cancelled.candidates.length,0);
  }finally{await db.close()}
+});
+
+test('active non-closure permits generate accurate roadworks warnings, with current management taking priority',()=>{
+ for(const [ref,phrase] of [['lane_closure','lane closure'],['two_way_signals','two-way traffic lights'],['multi_way_signals','multi-way traffic lights'],['give_and_take','give-and-take'],['no_carriageway_incursion','no carriageway incursion'],['some_carriageway_incursion','affecting the carriageway'],['temp_obstruction_15_minute_delay','15-minute delay']]){
+  const event=activeRoadEvent(changed({traffic_management_type_ref:ref}),now);assert.ok(event);assert.equal(event.kind,'roadworks');
+  const candidate=approachingClosure(current,previous,{...closure,kind:event.kind,management:event.management},now)!;assert.ok(candidate.message.includes(phrase));assert.equal(candidate.message.includes('is reported closed'),false);assert.equal(candidate.closureKey,'roadworks:SYNTHETIC');
+ }
+ const overridden=activeRoadEvent(changed({current_traffic_management_type_ref:'lane_closure'}),now)!;assert.equal(overridden.kind,'roadworks');assert.equal(overridden.management,'lane_closure');
+ const unspecified=activeRoadEvent(changed({traffic_management_type_ref:null,traffic_management_type:null}),now)!;assert.equal(unspecified.kind,'roadworks');assert.match(approachingClosure(current,previous,{...closure,kind:unspecified.kind,management:null},now)!.message,/Roadworks reported nearby/);
+});
+test('roadworks retain live-source, status, clock and precise-geometry requirements',()=>{
+ for(const r of [changed({traffic_management_type_ref:'lane_closure',highway_authority_swa_code:'1100'}),changed({traffic_management_type_ref:'lane_closure',work_status_ref:'planned'},{event_type:'PERMIT_GRANTED'}),changed({traffic_management_type_ref:'lane_closure',actual_end_date_time:'2026-11-09T11:00:00Z'}),changed({traffic_management_type_ref:'lane_closure',proposed_end_time:'2026-11-09T11:00:00Z'}),changed({traffic_management_type_ref:'lane_closure',proposed_start_time:'2026-11-09T13:00:00Z'}),changed({traffic_management_type_ref:'lane_closure',proposed_end_date:null}),changed({traffic_management_type_ref:'lane_closure',works_location_coordinates:'invalid'}),changed({traffic_management_type_ref:'lane_closure'},{source:'archive'}),changed({traffic_management_type_ref:'lane_closure'},{object_type:'SECTION_58'}),changed({traffic_management_type_ref:'lane_closure'},{event_type:'WORK_STOP_REVERTED'}),changed({traffic_management_type_ref:'lane_closure'},{same_time_versions:2})])assert.equal(activeRoadEvent(r,now),null);
+ const restriction=changed({traffic_management_type_ref:'two_way_signals',start_time:'2026-11-09T11:00:00Z',end_time:'2026-11-09T13:00:00Z'},{object_type:'ACTIVITY',event_type:'ACTIVITY_UPDATED'});assert.equal(activeRoadEvent(restriction,now)?.kind,'restriction');assert.equal(activeRoadEvent({...restriction,event_data:{object_data:{...restriction.event_data.object_data,end_time:null}}},now),null);
+ assert.equal(activeRoadEvent(changed({traffic_management_type_ref:'no_carriageway_incursion',start_time:'2026-11-09T11:00:00Z',end_time:'2026-11-09T13:00:00Z'},{object_type:'ACTIVITY',event_type:'ACTIVITY_UPDATED'}),now),null);
+});
+test('roadworks cannot consume a later closure warning key and all messages fit the provider limit with the pilot prefix',()=>{
+ const works=approachingClosure(current,previous,{...closure,kind:'roadworks',management:'temp_obstruction_15_minute_delay',street:'A'.repeat(120)},now)!;assert.ok(('[TRAFFIC TEST] '+works.message).length<=200);
+ const closed=approachingClosure(current,previous,closure,now)!;assert.notEqual(works.closureKey,closed.closureKey);assert.equal(closed.closureKey,'SYNTHETIC');
 });

@@ -3,9 +3,11 @@ import {streetGeometry} from './geometry';
 import {isPlymouthEvent} from './scope';
 import type {PreviewRow} from './preview-data';
 import {autocabTime} from '../autocab-time.mjs';
-export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean};
+export type TrafficEventKind='closure'|'roadworks'|'restriction';
+export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;kind?:TrafficEventKind;management?:string|null};
+export type ActiveRoadEvent=ActiveClosure&{kind:TrafficEventKind;management:string|null};
 export type DriverFix={driverId:string;vehicleId:string;latitude:number;longitude:number;at:number};
-export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string};
+export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string;kind?:TrafficEventKind};
 export const alertPolicy={radiusMetres:300,maxFixAgeMs:90000,maxFutureMs:5000,minApproachMetres:10,maxPreviousAgeMs:120000,driverCooldownMs:120000} as const;
 const londonDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'});
 export function alertDay(now:number){return londonDay.format(now)}
@@ -16,13 +18,21 @@ function endOfLondonDate(value:unknown){
  const next=new Date(date+'T12:00:00Z');if(!Number.isFinite(next.getTime()))return NaN;next.setUTCDate(next.getUTCDate()+1);
  return autocabTime(next.toISOString().slice(0,10)+'T00:00:00');
 }
-export function activeClosure(row:PreviewRow,now:number):ActiveClosure|null{
+const managementText:Record<string,string>={
+ lane_closure:'lane closure reported',two_way_signals:'temporary two-way traffic lights',multi_way_signals:'temporary multi-way traffic lights',three_way_signals:'temporary three-way traffic lights',
+ give_and_take:'give-and-take traffic control',stop_go_boards:'stop/go traffic control',stop_go_board:'stop/go traffic control',priority_working:'priority traffic control',convoy_working:'convoy traffic control',
+ some_carriageway_incursion:'works affecting the carriageway',no_carriageway_incursion:'no carriageway incursion reported',temp_obstruction_15_minute_delay:'temporary obstruction (15-minute delay reported)',temporary_speed_limit:'temporary speed restriction',
+};
+export function activeRoadEvent(row:PreviewRow,now:number):ActiveRoadEvent|null{
  const d=row.event_data.object_data;
- if(!d||!isPlymouthEvent(d)||!['PERMIT','ACTIVITY'].includes(row.object_type)||Number(row.same_time_versions)>1||row.event_type.endsWith('_REVERTED')||/(?:CANCELLED|REVOKED|REFUSED|CLOSED|WORK_STOP$)/.test(row.event_type))return null;
+ if(row.source==='archive'||!d||!isPlymouthEvent(d)||!['PERMIT','ACTIVITY'].includes(row.object_type)||Number(row.same_time_versions)>1||row.event_type.endsWith('_REVERTED')||/(?:CANCELLED|REVOKED|REFUSED|CLOSED|WORK_STOP$)/.test(row.event_type))return null;
  if(['completed','cancelled','historical'].includes(String(d.work_status_ref))||['cancelled','revoked','refused','closed'].includes(String(d.permit_status))||d.cancelled==='Yes'||d.cancelled===true||string(d.actual_end_date_time))return null;
  const current=string(d.current_traffic_management_type_ref)??string(d.current_traffic_management_type);
  const management=current??string(d.traffic_management_type_ref)??string(d.traffic_management_type);
- if(management?.toLowerCase().replace(/[ _-]+/g,'_')!=='road_closure')return null;
+ const normalized=management?.toLowerCase().replace(/[ _-]+/g,'_')??null;
+ const kind:TrafficEventKind=normalized==='road_closure'?'closure':row.object_type==='PERMIT'?'roadworks':'restriction';
+ // Non-work activities must describe a known restriction, not an arbitrary event.
+ if(kind==='restriction'&&(!normalized||!managementText[normalized]||normalized==='no_carriageway_incursion'))return null;
  const street=string(d.street_name)?.replace(/[\r\n\t\x00-\x1f]/g,' ').slice(0,120);if(!street)return null;
  let startsAt:number,endsAt:number;
  if(row.object_type==='PERMIT'){
@@ -34,14 +44,17 @@ export function activeClosure(row:PreviewRow,now:number):ActiveClosure|null{
   endsAt=instant(d.proposed_end_time);if(!Number.isFinite(endsAt))endsAt=endOfLondonDate(d.proposed_end_date);
  }else{
   // Activities have no WORK_START notification. Require explicit start/end clocks,
-  // not guessed midnight boundaries, before reporting a scheduled closure.
+  // not guessed midnight boundaries, before reporting a scheduled restriction.
   startsAt=instant(d.start_time);endsAt=instant(d.end_time);
  }
  if(!Number.isFinite(startsAt)||!Number.isFinite(endsAt)||startsAt>=endsAt||now<startsAt||now>=endsAt||new Date(row.event_time).getTime()>now+5000)return null;
  const geometry=streetGeometry(d.works_location_coordinates??d.activity_coordinates);if(!geometry)return null;
  const key=string(d.usrn)??street.toUpperCase().replace(/\s+/g,' ');
- return {key,street,geometry,startsAt,endsAt,reportedOnly:current===null};
+ return {key,street,geometry,startsAt,endsAt,reportedOnly:current===null,kind,management:normalized};
 }
+// Retained for callers that explicitly need road closures only.
+export function activeClosure(row:PreviewRow,now:number):ActiveClosure|null{const event=activeRoadEvent(row,now);return event?.kind==='closure'?event:null}
+export function trafficEventPriority(kind:TrafficEventKind|undefined){return kind===undefined||kind==='closure'?0:kind==='restriction'?1:2}
 // Local tangent-plane distances are sufficient for a 300 m warning radius.
 // Measure against the actual segment/area, never just a street centroid.
 export function distanceToClosure(lat:number,lng:number,geometry:Geometry):number{
@@ -71,5 +84,11 @@ export function approachingClosure(current:DriverFix,previous:DriverFix,closure:
  const moved=distanceToClosure(current.latitude,current.longitude,{type:'Point',coordinates:[previous.longitude,previous.latitude]});
  if(moved/elapsed>50||!Number.isFinite(distanceMetres)||distanceMetres>alertPolicy.radiusMetres||previousDistanceMetres-distanceMetres<alertPolicy.minApproachMetres)return null;
  const street=closure.street===closure.street.toUpperCase()?closure.street.toLowerCase().replace(/\b\p{L}/gu,c=>c.toUpperCase()):closure.street;
- return {driverId:current.driverId,vehicleId:current.vehicleId,closureKey:closure.key,street,distanceMetres:Math.round(distanceMetres),previousDistanceMetres:Math.round(previousDistanceMetres),fixAt:current.at,day:alertDay(now),message:street+' is reported closed nearby.'};
+ const kind=closure.kind??'closure',detail=closure.management?managementText[closure.management]:null;
+ const prefix=(kind==='roadworks'?'Roadworks':'Traffic restrictions')+' reported nearby on ',suffix=detail?': '+detail+'.':'.';
+ const maxStreet=185-prefix.length-suffix.length,displayStreet=street.length>maxStreet?street.slice(0,maxStreet-1)+'…':street;
+ const message=kind==='closure'?street+' is reported closed nearby.':prefix+displayStreet+suffix;
+ // A previous roadworks warning must not suppress a later closure on the same street.
+ const closureKey=kind==='closure'?closure.key:kind+':'+closure.key;
+ return {driverId:current.driverId,vehicleId:current.vehicleId,closureKey,street,distanceMetres:Math.round(distanceMetres),previousDistanceMetres:Math.round(previousDistanceMetres),fixAt:current.at,day:alertDay(now),message,kind};
 }
