@@ -65,5 +65,5 @@ test('combined API requires Admin before requesting either source and returns in
  const code=ts.transpileModule(readFileSync('app/api/admin/traffic/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  new Function('require','module','exports',code)(requireMock,routeModule,routeModule.exports);
  assert.equal((await routeModule.exports.GET()).status,403);assert.equal(queries,0);assert.equal(providerCalls,0);
- authorized=true;streetFails=true;const response=await routeModule.exports.GET(),body=await response.json();assert.equal(response.status,200);assert.equal(body.street.status,'unavailable');assert.equal(body.tomtom.status,'ok');assert.equal(released,1);assert.ok(!JSON.stringify(body).includes('private database error'));assert.match(response.headers.get('cache-control')||'',/no-store/);
+ authorized=true;streetFails=true;const response=await routeModule.exports.GET(),body=await response.json() as TrafficSnapshot;assert.equal(response.status,200);assert.equal(body.street.status,'unavailable');assert.equal(body.tomtom.status,'ok');assert.equal(released,1);assert.ok(!JSON.stringify(body).includes('private database error'));assert.match(response.headers.get('cache-control')||'',/no-store/);
 });
