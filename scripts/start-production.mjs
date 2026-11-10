@@ -97,14 +97,15 @@ if(process.env.WHATSAPP_SHARED_ENABLED==='true'&&process.env.WHATSAPP_WORKER_SEC
  setInterval(pollWhatsApp,60000).unref();setTimeout(pollWhatsApp,15000).unref();
 }
 
-// This evaluates locally stored GPS webhooks, never polls Autocab or DfT.
+// Evaluates stored GPS webhooks. The separately enabled driver-62 TomTom pilot
+// refreshes incident data at most every two minutes while its GPS is eligible.
 // Off until explicitly configured; observe mode cannot send or reserve messages.
 if(['observe','live','pilot'].includes(process.env.ROAD_CLOSURE_ALERTS_MODE)&&process.env.BOOKING_WRITER_JOB_SECRET){
  let roadAlertsBusy=false,lastRoadAlertReport=0;
  const pollRoadAlerts=async()=>{if(closing||roadAlertsBusy)return;roadAlertsBusy=true;try{
   const result=await fetch(`http://127.0.0.1:${process.env.PORT||'3000'}/api/internal/street-manager/driver-alerts`,{method:'POST',headers:{'x-booking-writer-secret':process.env.BOOKING_WRITER_JOB_SECRET},signal:AbortSignal.timeout(55000)});
   if(!result.ok)console.error('ROAD_CLOSURE_ALERT_WORKER_UNAVAILABLE',result.status);
-  else{const data=await result.json();if(data.attempted>0||Date.now()-lastRoadAlertReport>=60000){console.info('ROAD_CLOSURE_ALERT_RUN '+JSON.stringify({mode:data.mode,pilot:data.pilot,suppressed:data.suppressed,activeClosures:data.activeClosures,activeRoadworks:data.activeRoadworks,activeRestrictions:data.activeRestrictions,activeEvents:data.activeEvents,trackedDrivers:data.trackedDrivers,candidates:data.candidates,attempted:data.attempted,accepted:data.accepted,rejected:data.rejected,unknown:data.unknown,reason:data.reason}));lastRoadAlertReport=Date.now()}}
+  else{const data=await result.json();if(data.attempted>0||Date.now()-lastRoadAlertReport>=60000){console.info('ROAD_CLOSURE_ALERT_RUN '+JSON.stringify({mode:data.mode,pilot:data.pilot,suppressed:data.suppressed,activeClosures:data.activeClosures,activeRoadworks:data.activeRoadworks,activeRestrictions:data.activeRestrictions,activeEvents:data.activeEvents,activeIncidents:data.activeIncidents,activeCongestion:data.activeCongestion,tomtom:data.tomtom,trackedDrivers:data.trackedDrivers,candidates:data.candidates,attempted:data.attempted,accepted:data.accepted,rejected:data.rejected,unknown:data.unknown,reason:data.reason}));lastRoadAlertReport=Date.now()}}
  }catch{console.error('ROAD_CLOSURE_ALERT_WORKER_UNAVAILABLE')}finally{roadAlertsBusy=false}};
  setInterval(pollRoadAlerts,10000).unref();setTimeout(pollRoadAlerts,15000).unref();
 }

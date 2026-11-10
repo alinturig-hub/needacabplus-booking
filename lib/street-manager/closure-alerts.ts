@@ -3,11 +3,11 @@ import {streetGeometry} from './geometry';
 import {isPlymouthEvent} from './scope';
 import type {PreviewRow} from './preview-data';
 import {autocabTime} from '../autocab-time.mjs';
-export type TrafficEventKind='closure'|'roadworks'|'restriction';
-export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;kind?:TrafficEventKind;management?:string|null};
+export type TrafficEventKind='closure'|'roadworks'|'restriction'|'incident'|'congestion';
+export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;kind?:TrafficEventKind;management?:string|null;source?:'tomtom'|'street-manager';message?:string};
 export type ActiveRoadEvent=ActiveClosure&{kind:TrafficEventKind;management:string|null};
 export type DriverFix={driverId:string;vehicleId:string;latitude:number;longitude:number;at:number};
-export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string;kind?:TrafficEventKind};
+export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string;kind?:TrafficEventKind;source?:'tomtom'|'street-manager';closureBaseKey?:string};
 export const alertPolicy={radiusMetres:300,maxFixAgeMs:90000,maxFutureMs:5000,minApproachMetres:10,maxPreviousAgeMs:120000,driverCooldownMs:120000} as const;
 const londonDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'});
 export function alertDay(now:number){return londonDay.format(now)}
@@ -54,7 +54,7 @@ export function activeRoadEvent(row:PreviewRow,now:number):ActiveRoadEvent|null{
 }
 // Retained for callers that explicitly need road closures only.
 export function activeClosure(row:PreviewRow,now:number):ActiveClosure|null{const event=activeRoadEvent(row,now);return event?.kind==='closure'?event:null}
-export function trafficEventPriority(kind:TrafficEventKind|undefined){return kind===undefined||kind==='closure'?0:kind==='restriction'?1:2}
+export function trafficEventPriority(kind:TrafficEventKind|undefined){return kind===undefined||kind==='closure'?0:kind==='restriction'||kind==='incident'?1:kind==='congestion'?3:2}
 // Local tangent-plane distances are sufficient for a 300 m warning radius.
 // Measure against the actual segment/area, never just a street centroid.
 export function distanceToClosure(lat:number,lng:number,geometry:Geometry):number{
@@ -87,8 +87,8 @@ export function approachingClosure(current:DriverFix,previous:DriverFix,closure:
  const kind=closure.kind??'closure',detail=closure.management?managementText[closure.management]:null;
  const prefix=(kind==='roadworks'?'Roadworks':'Traffic restrictions')+' reported nearby on ',suffix=detail?': '+detail+'.':'.';
  const maxStreet=185-prefix.length-suffix.length,displayStreet=street.length>maxStreet?street.slice(0,maxStreet-1)+'…':street;
- const message=kind==='closure'?street+' is reported closed nearby.':prefix+displayStreet+suffix;
+ const message=closure.message|| (kind==='closure'?street+' is reported closed nearby.':prefix+displayStreet+suffix);
  // A previous roadworks warning must not suppress a later closure on the same street.
  const closureKey=kind==='closure'?closure.key:kind+':'+closure.key;
- return {driverId:current.driverId,vehicleId:current.vehicleId,closureKey,street,distanceMetres:Math.round(distanceMetres),previousDistanceMetres:Math.round(previousDistanceMetres),fixAt:current.at,day:alertDay(now),message,kind};
+ return {driverId:current.driverId,vehicleId:current.vehicleId,closureKey,street,distanceMetres:Math.round(distanceMetres),previousDistanceMetres:Math.round(previousDistanceMetres),fixAt:current.at,day:alertDay(now),message,kind,source:closure.source,closureBaseKey:closure.key};
 }
