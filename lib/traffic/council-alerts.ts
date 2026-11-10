@@ -1,3 +1,4 @@
+import {composeTrafficMessage,type AlertTiming} from './message-timing';
 import type {PoolClient} from 'pg';
 import type {Geometry} from 'geojson';
 import {z} from 'zod';
@@ -8,6 +9,7 @@ import type {ActiveRoadEvent} from '../street-manager/closure-alerts';
 import type {PreviewItem} from '../street-manager/preview-data';
 import {driver62PilotMatches} from './driver62-alerts';
 import {londonDateWindow,reportsMatch,sameRoadArea} from './correlation';
+const clockFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'});
 const point=z.tuple([z.number().min(-4.26).max(-3.93),z.number().min(50.30).max(50.51)]);
 const councilGeometry=z.union([z.object({type:z.literal('Point'),coordinates:point}),z.object({type:z.literal('LineString'),coordinates:z.array(point).min(2).max(10000)})]);
@@ -46,8 +48,10 @@ export function councilAlert(row:CouncilAlertRow,now:number):ActiveRoadEvent|nul
  const text=n.traffic.toLowerCase(),kind=/road closure/.test(text)?'closure':/signals|lane closure|stop.go|give.and.take/.test(text)?'restriction':/roadworks|works|traffic management/.test(text)?'roadworks':null;
  if(!kind)return null;
  const street=n.street.replace(/[\x00-\x1f\x7f]/g,' ').replace(/\s+/g,' ').trim().slice(0,120);if(!street)return null;
- const label=kind==='closure'?'a scheduled road closure':kind==='restriction'?'scheduled traffic restrictions':'scheduled roadworks',prefix=`Council notice: ${label} nearby on `,suffix='. Check signs.',available=185-prefix.length-suffix.length;
- return {key:'COUNCIL:'+n.id,street,geometry:g.data,startsAt:window[0],endsAt:window[1],kind,management:null,reportedOnly:true,source:'council',message:prefix+(street.length>available?street.slice(0,available-1)+'…':street)+suffix};
+ const label=kind==='closure'?'a scheduled road closure':kind==='restriction'?'scheduled traffic restrictions':'scheduled roadworks',prefix=`Council notice: ${label} nearby on `,suffix='. Check signs.';
+ const wholeDay=/\b24\s*(?:hrs?|hours?)\b|\b24\s*\/\s*7\b/.test(text),firstClock=clockFormat.format(new Date(window[0])),lastClock=clockFormat.format(new Date(window[1]));
+ const timing:AlertTiming={from:n.startDate,to:n.endDate,hours:wholeDay?'24h':firstClock+'-'+lastClock,overnight:!wholeDay&&lastClock<firstClock,weekdaysOnly:/\b(?:mon(?:day)?\s*(?:to|-)\s*fri(?:day)?|weekdays|except weekends|excluding weekends)\b/.test(text)};
+ return {key:'COUNCIL:'+n.id,street,geometry:g.data,startsAt:window[0],endsAt:window[1],kind,management:null,reportedOnly:true,source:'council',message:composeTrafficMessage(prefix,street,suffix,timing),timing};
 }
 export function councilFallbacks(rows:CouncilAlertRow[],knownReports:PreviewItem[],active:ActiveRoadEvent[],now:number){
  const events:ActiveRoadEvent[]=[],relatedEvents:ActiveRoadEvent[]=[];let matched=0,needsReview=0;
