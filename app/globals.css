@@ -868,6 +868,18 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
 .pickup-inline-editor .address-search>input{padding-right:48px;box-sizing:border-box;margin:0}
 .pickup-inline-editor .address-search>.address-clear-button{position:absolute;top:0;right:0;bottom:auto;transform:none;width:44px;height:44px;margin:0;padding:12px}
 .pickup-inline-editor .address-results{box-sizing:border-box;margin:8px 0 0}
+
+/* Nearby venues label the GPS pickup without moving its pin. */
+.booking-shell.stage-0 dialog.pickup-confirmation .pickup-nearby-places{grid-column:1/-1;min-width:0;display:block}
+.pickup-nearby-places p{margin:0 0 10px;font-size:12px;line-height:1.5;color:var(--muted-foreground)}
+.pickup-nearby-places .pickup-gps-accuracy{margin-bottom:14px}
+.pickup-nearby-places>div{display:grid;gap:8px}
+.pickup-nearby-places button{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:12px;text-align:left;border:1px solid var(--border);border-radius:12px;background:var(--background);color:var(--foreground);cursor:pointer}
+.pickup-nearby-places button>span{flex:1;min-width:0;font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.pickup-nearby-places button>small{flex:none;font-size:12px;color:var(--muted-foreground)}
+.pickup-nearby-places button>svg{flex:none}
+.pickup-nearby-places button[aria-pressed=true]{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,var(--background))}
+.pickup-nearby-places button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .pickup-inline-editor .address-results button{width:100%;min-width:0;text-align:left}
 
 /* Quiet, compact address typography; touch targets remain unchanged. */
@@ -899,3 +911,8 @@ html[data-theme=dark] .ride-service-brand sup{color:#efdaa0}
  .booking-shell .map-picker-active .map-picker-back,.booking-shell .map-picker-active .map-picker-locate{width:44px;height:44px}
  .map-picker-pin:before{content:none}
 }
+
+.booking-shell.stage-0 dialog.pickup-confirmation>.pickup-confirmation-details{display:contents}
+.booking-shell.stage-0 dialog.pickup-confirmation>.pickup-confirmation-icon{grid-column:1;grid-row:1/span 2}
+.booking-shell.stage-0 dialog.pickup-confirmation>.pickup-confirmation-details>span,.booking-shell.stage-0 dialog.pickup-confirmation>.pickup-confirmation-details>h2{grid-column:2;margin:0}
+.booking-shell.stage-0 dialog.pickup-confirmation .pickup-edit-address,.booking-shell.stage-0 dialog.pickup-confirmation>.pickup-confirmation-details>small{grid-column:1/-1;min-width:0}
