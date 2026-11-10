@@ -1,3 +1,4 @@
+import {trafficPilot,pilotCandidates} from '@/lib/street-manager/live-scope';
 import {isAdmin} from '@/lib/security';
 import {database} from '@/lib/database';
 import {loadAlertPlan,alertPolicy} from '@/lib/street-manager/alert-plan';
@@ -12,7 +13,8 @@ export async function GET(){
  try{
   client=await database().connect();await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');await client.query("SET LOCAL statement_timeout='8s'");
   const now=Date.now(),roadworks=await loadStreetPreview(client),alerts=await loadAlertPlan(client,now),feed=await streetManagerStatus(client),delivery=await driverAlertDeliveryStatus(client);await client.query('COMMIT');client.release();client=undefined;
+  const pilot=trafficPilot();alerts.candidates=pilotCandidates(alerts.candidates,pilot);
   let transport='missing';try{transport=await driverMessageConnection()?'configured':'missing'}catch{transport='invalid'}
-  return Response.json({checkedAt:new Date(now).toISOString(),mode:process.env.ROAD_CLOSURE_ALERTS_MODE||'off',transport,policy:alertPolicy,roadworks,alerts,delivery,feed:{state:feed.state,subscriptions:feed.subscriptions.map(row=>({topic:row.topic,confirmedAt:row.confirmed_at})),topics:feed.topics.map(row=>({topic:row.topic,total:Number(row.total),lastReceived:row.last_received}))}},{headers:{'Cache-Control':'private, no-store'}});
+  return Response.json({checkedAt:new Date(now).toISOString(),mode:process.env.ROAD_CLOSURE_ALERTS_MODE||'off',pilot,transport,policy:alertPolicy,roadworks,alerts,delivery,feed:{state:feed.state,subscriptions:feed.subscriptions.map(row=>({topic:row.topic,confirmedAt:row.confirmed_at})),topics:feed.topics.map(row=>({topic:row.topic,total:Number(row.total),lastReceived:row.last_received}))}},{headers:{'Cache-Control':'private, no-store'}});
  }catch{await client?.query('ROLLBACK').catch(()=>{});return Response.json({error:'Roadworks operations are temporarily unavailable.'},{status:503,headers:{'Cache-Control':'private, no-store'}})}finally{client?.release()}
 }

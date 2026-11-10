@@ -5,6 +5,8 @@ import {PGlite} from '@electric-sql/pglite';
 import {mutateTrafficBans,listTrafficBans,trafficMessageBlocked,parseBanCallsigns,BanListError} from '../lib/street-manager/message-bans';
 import {deliverTrafficMessage,vehicleMessageEndpoint} from '../lib/street-manager/driver-message';
 import {POST} from '../app/api/admin/street-manager/ban-list/route';
+import {POST as pilotWorker} from '../app/api/internal/street-manager/driver-alerts/route';
+import {trafficPilot,pilotCandidates} from '../lib/street-manager/live-scope';
 async function fixture(){
  const db=new PGlite();
  await db.exec(readFileSync('scripts/migrations/20261110_traffic_message_bans.sql','utf8'));
@@ -58,7 +60,7 @@ test('edit re-resolves association, rejects stale versions, retains overlapping 
  }finally{await db.close()}
 });
 test('final send gate suppresses offline banned vehicles before transport; unknown DB state fails closed',async()=>{
- const {db,client,queries}=await fixture();let sends=0;
+ const {db,client,queries}=await fixture();let sends=0;const previousMode=process.env.ROAD_CLOSURE_ALERTS_MODE;process.env.ROAD_CLOSURE_ALERTS_MODE='live';
  const transport:Parameters<typeof deliverTrafficMessage>[5]=async()=>{sends++;return {status:'ACCEPTED',httpStatus:200,reason:'QUEUED_FOR_VEHICLE'}};
  try{
   await mutateTrafficBans(client,{action:'add',callsigns:'62'});await db.exec('UPDATE "Vehicle" SET "currentDriverId"=NULL');
@@ -68,8 +70,42 @@ test('final send gate suppresses offline banned vehicles before transport; unkno
   assert.ok(queries.some(q=>q.includes('pg_advisory_xact_lock')));
   await db.exec('DROP TABLE street_manager_message_ban_audit;DROP TABLE street_manager_message_bans');
   await assert.rejects(deliverTrafficMessage(client,connection,'999','Synthetic test','other',transport));assert.equal(sends,1,'No send when the block list cannot be read');
- }finally{await db.close()}
+ }finally{if(previousMode===undefined)delete process.env.ROAD_CLOSURE_ALERTS_MODE;else process.env.ROAD_CLOSURE_ALERTS_MODE=previousMode;await db.close()}
 });
 test('ban mutation rejects cross-origin requests before any database access',async()=>{
  const response=await POST(new Request('https://webapp.needacabplus.app/api/admin/street-manager/ban-list',{method:'POST',headers:{Origin:'https://untrusted.example','Content-Type':'application/json'},body:JSON.stringify({action:'add',callsigns:'62'})}));assert.equal(response.status,403);
+});
+
+test('pilot scope fails closed without a configured numeric driver ID and callsign, and filters every other driver',()=>{
+ assert.equal(trafficPilot({ROAD_CLOSURE_ALERTS_MODE:'observe'}),null);
+ for(const env of [{ROAD_CLOSURE_ALERTS_MODE:'pilot'},{ROAD_CLOSURE_ALERTS_MODE:'pilot',ROAD_CLOSURE_PILOT_DRIVER_ID:'101'},{ROAD_CLOSURE_ALERTS_MODE:'pilot',ROAD_CLOSURE_PILOT_DRIVER_ID:'not-id',ROAD_CLOSURE_PILOT_CALLSIGN:'62'}])assert.equal(trafficPilot(env)?.configured,false);
+ const pilot=trafficPilot({ROAD_CLOSURE_ALERTS_MODE:'pilot',ROAD_CLOSURE_PILOT_DRIVER_ID:'101',ROAD_CLOSURE_PILOT_CALLSIGN:'62'});
+ assert.deepEqual(pilotCandidates([{driverId:'101'},{driverId:'102'},{driverId:'999'}],pilot),[{driverId:'101'}]);
+ assert.deepEqual(pilotCandidates([{driverId:'101'}],{configured:false,driverId:null,callsign:null}),[]);
+});
+test('pilot final sender requires exact driver/callsign, fresh current vehicle and an active shift; bans still win',async()=>{
+ const {db,client}=await fixture();let sends=0;const keys=['ROAD_CLOSURE_ALERTS_MODE','ROAD_CLOSURE_PILOT_DRIVER_ID','ROAD_CLOSURE_PILOT_CALLSIGN'];const saved=keys.map(k=>process.env[k]);
+ process.env.ROAD_CLOSURE_ALERTS_MODE='pilot';process.env.ROAD_CLOSURE_PILOT_DRIVER_ID='101';process.env.ROAD_CLOSURE_PILOT_CALLSIGN='62';
+ const connection={url:vehicleMessageEndpoint,apiKey:'SYNTHETIC_NOT_A_REAL_KEY'};const transport:Parameters<typeof deliverTrafficMessage>[5]=async()=>{sends++;return {status:'ACCEPTED',httpStatus:200,reason:'QUEUED_FOR_VEHICLE'}};
+ try{
+  await db.exec('ALTER TABLE "Vehicle" ADD COLUMN "isActive" boolean DEFAULT true,ADD COLUMN "isSuspended" boolean DEFAULT false');
+  assert.equal((await deliverTrafficMessage(client,connection,'201','Synthetic','101',transport)).reason,'OUTSIDE_LIVE_SCOPE','No active shift');
+  await db.exec(`INSERT INTO "DriverShift" VALUES('AUTOCAB','d1','v1','ACTIVE',now(),NULL)`);
+  assert.equal((await deliverTrafficMessage(client,connection,'201','Synthetic','101',transport)).status,'ACCEPTED');assert.equal(sends,1);
+  for(const [vehicleId,driverId] of [['201','102'],['202','101'],['201',undefined]] as [string,string|undefined][])assert.equal((await deliverTrafficMessage(client,connection,vehicleId,'Synthetic',driverId,transport)).reason,'OUTSIDE_LIVE_SCOPE');
+  await db.exec(`UPDATE "Driver" SET callsign='99' WHERE id='d1'`);assert.equal((await deliverTrafficMessage(client,connection,'201','Synthetic','101',transport)).reason,'OUTSIDE_LIVE_SCOPE');
+  await db.exec(`UPDATE "Driver" SET callsign='62' WHERE id='d1';UPDATE "Vehicle" SET "lastSeenAt"=now()-interval '10 minutes' WHERE id='v1'`);assert.equal((await deliverTrafficMessage(client,connection,'201','Synthetic','101',transport)).reason,'OUTSIDE_LIVE_SCOPE');
+  await db.exec(`UPDATE "Vehicle" SET "lastSeenAt"=now() WHERE id='v1'`);await mutateTrafficBans(client,{action:'add',callsigns:'62'});
+  assert.equal((await deliverTrafficMessage(client,connection,'201','Synthetic','101',transport)).reason,'TRAFFIC_BAN_LIST');assert.equal(sends,1);
+  process.env.ROAD_CLOSURE_ALERTS_MODE='observe';assert.equal((await deliverTrafficMessage(client,connection,'201','Synthetic','101',transport)).reason,'OUTSIDE_LIVE_SCOPE');assert.equal(sends,1);
+ }finally{keys.forEach((k,i)=>{if(saved[i]===undefined)delete process.env[k];else process.env[k]=saved[i]});await db.close()}
+});
+
+test('pilot worker with a missing target cannot fall back to unrestricted live sending',async()=>{
+ const keys=['ROAD_CLOSURE_ALERTS_MODE','ROAD_CLOSURE_PILOT_DRIVER_ID','ROAD_CLOSURE_PILOT_CALLSIGN','BOOKING_WRITER_JOB_SECRET'];const saved=keys.map(k=>process.env[k]);
+ try{
+  process.env.ROAD_CLOSURE_ALERTS_MODE='pilot';delete process.env.ROAD_CLOSURE_PILOT_DRIVER_ID;delete process.env.ROAD_CLOSURE_PILOT_CALLSIGN;process.env.BOOKING_WRITER_JOB_SECRET='SYNTHETIC_JOB_SECRET';
+  const response=await pilotWorker(new Request('https://app.example/api/internal/street-manager/driver-alerts',{method:'POST',headers:{'x-booking-writer-secret':'SYNTHETIC_JOB_SECRET'}}));
+  assert.equal(response.status,200);const body=await response.json() as {reason:string;attempted:number};assert.equal(body.reason,'PILOT_NOT_CONFIGURED');assert.equal(body.attempted,0);
+ }finally{keys.forEach((k,i)=>{if(saved[i]===undefined)delete process.env[k];else process.env[k]=saved[i]})}
 });

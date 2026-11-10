@@ -3,6 +3,7 @@ import {decryptWebhookSecret} from '../autocab/webhook-secret';
 import {requireAutocabIntegration} from '../integration-control';
 import type {PoolClient} from 'pg';
 import {trafficBanLock,trafficMessageBlocked} from './message-bans';
+import {trafficRecipientAllowed} from './live-scope';
 import {boundedText} from './sns';
 export const driverMessageAction='vehicle.send-message';
 export const vehicleMessageEndpoint='https://autocab-api.azure-api.net/vehicle/v1/vehicles/message';
@@ -29,10 +30,13 @@ export function vehicleMessageOutcome(payload:unknown,vehicleId:string):VehicleM
  return {status:'ACCEPTED',httpStatus:200,reason:'QUEUED_FOR_VEHICLE'};
 }
 export async function driverMessageConnection():Promise<VehicleMessageConnection|null>{
- // Reuse the same enabled shared Autocab credential used for the vehicle registry.
- // Neither a sample vehicle ID nor a driver ID is ever used as a recipient.
+ // Traffic can use its separately configured, verified messaging credential.
+ // The registry credential remains the fallback; neither connection is rewritten.
  const configuration=(await database().query<{baseUrl:string;apiKeyEncrypted:string|null;isEnabled:boolean}>(`SELECT "baseUrl","apiKeyEncrypted","isEnabled" FROM public."AutocabApiConfiguration" WHERE provider='AUTOCAB'`)).rows[0];
- if(!configuration?.isEnabled||!configuration.apiKeyEncrypted)return null;
+ if(!configuration?.isEnabled)return null;
+ const dedicated=process.env.ROAD_CLOSURE_MESSAGE_API_KEY;
+ if(dedicated!==undefined)return dedicated.trim()?{url:vehicleMessageUrl(configuration.baseUrl),apiKey:dedicated.trim()}:null;
+ if(!configuration.apiKeyEncrypted)return null;
  return {url:vehicleMessageUrl(configuration.baseUrl),apiKey:decryptWebhookSecret(configuration.apiKeyEncrypted)};
 }
 export async function requestVehicleMessage(connection:VehicleMessageConnection,vehicleId:string,message:string,request:typeof fetch=fetch):Promise<VehicleMessageResult>{
@@ -50,7 +54,10 @@ export async function requestVehicleMessage(connection:VehicleMessageConnection,
 export async function deliverTrafficMessage(client:Pick<PoolClient,'query'>,connection:VehicleMessageConnection,vehicleId:string,message:string,driverId?:string,transport=requestVehicleMessage):Promise<VehicleMessageResult>{
  try{
   await client.query('BEGIN');await client.query("SET LOCAL statement_timeout='12s'");await client.query(trafficBanLock);
-  const result=await trafficMessageBlocked(client,vehicleId,driverId)?{status:'SUPPRESSED' as const,httpStatus:null,reason:'TRAFFIC_BAN_LIST'}:await transport(connection,vehicleId,message);
+  let result:VehicleMessageResult;
+  if(!await trafficRecipientAllowed(client,vehicleId,driverId))result={status:'SUPPRESSED',httpStatus:null,reason:'OUTSIDE_LIVE_SCOPE'};
+  else if(await trafficMessageBlocked(client,vehicleId,driverId))result={status:'SUPPRESSED',httpStatus:null,reason:'TRAFFIC_BAN_LIST'};
+  else result=await transport(connection,vehicleId,message);
   await client.query('COMMIT');return result;
  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
 }
