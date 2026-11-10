@@ -82,12 +82,13 @@ test('plan uses committed webhook GPS and current shift identity; newer cancella
  const {PGlite}=await import('@electric-sql/pglite');const {loadAlertPlan}=await import('../lib/street-manager/alert-plan');const db=new PGlite();
  try{
   await db.exec(readFileSync('scripts/migrations/20261108_street_manager_inbox.sql','utf8'));
-  await db.exec(`CREATE TABLE "Driver"(id text,"externalId" text,active boolean,suspended boolean,archived boolean);
+  await db.exec(readFileSync('scripts/migrations/20261110_traffic_message_bans.sql','utf8'));
+  await db.exec(`CREATE TABLE "Driver"(id text,"externalId" text,active boolean,suspended boolean,archived boolean,callsign text);
    CREATE TABLE "Vehicle"(id text,provider text,"externalId" text,"currentDriverId" text,"currentStatus" text,"currentBookingId" int,"lastSeenAt" timestamptz,"isActive" boolean,"isSuspended" boolean);
    CREATE TABLE "DriverShift"(id text,provider text,"driverId" text,"vehicleId" text,status text,"startedAt" timestamptz,"endedAt" timestamptz,"modifiedAt" timestamptz);
    CREATE TABLE "Booking"(id text,provider text,"externalId" text,"driverId" text,"vehicleId" text,status text,"dispatchedAt" timestamptz,"acceptedAt" timestamptz,"arrivedAt" timestamptz,"pickedUpAt" timestamptz,"completedAt" timestamptz,"cancelledAt" timestamptz,"noFareAt" timestamptz);
    CREATE TABLE driver_positions(driver_id text,vehicle_id text,latitude double precision,longitude double precision,recorded_at timestamptz,received_at timestamptz DEFAULT now());
-   INSERT INTO "Driver" VALUES('d1','123',true,false,false);
+   INSERT INTO "Driver" VALUES('d1','123',true,false,false,'62');
    INSERT INTO "Vehicle" VALUES('v1','AUTOCAB','456','d1','Clear',NULL,now(),true,false);`);
   const clock=Date.now(),at=new Date(clock-1000),before=new Date(clock-21000);
   const source={...data,work_reference_number:'WORK-ONE',actual_start_date_time:new Date(clock-3600000).toISOString(),proposed_end_time:new Date(clock+3600000).toISOString()};
@@ -101,6 +102,7 @@ test('plan uses committed webhook GPS and current shift identity; newer cancella
   assert.equal((await loadAlertPlan(client,clock)).candidates.length,0,'GPS cannot open a shift');
   await db.exec(`INSERT INTO "DriverShift" VALUES('s1','AUTOCAB','d1','v1','ACTIVE',now()-interval '1 hour',NULL,NULL)`);
   const plan=await loadAlertPlan(client,clock);assert.equal(plan.activeClosures,1);assert.equal(plan.candidates.length,1);
+  await db.exec(`INSERT INTO street_manager_message_bans(id,callsign,driver_id,driver_name,vehicle_id,association_source) VALUES('test-ban','62','123','Synthetic driver','456','current_vehicle')`);assert.equal((await loadAlertPlan(client,clock)).candidates.length,0,'Banned vehicle must not be an alert candidate');await db.exec("UPDATE street_manager_message_bans SET active=false");
   await db.exec('UPDATE "Driver" SET suspended=true');assert.equal((await loadAlertPlan(client,clock)).candidates.length,0);
   await db.exec('UPDATE "Driver" SET suspended=false');
   await db.query(rowInsert,['two','PERMIT_CANCELLED','permit-two',new Date(clock-10000),JSON.stringify({object_data:{...source,permit_status:'cancelled'}})]);

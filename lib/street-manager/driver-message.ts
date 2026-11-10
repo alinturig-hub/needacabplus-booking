@@ -1,11 +1,13 @@
 import {database} from '../database';
 import {decryptWebhookSecret} from '../autocab/webhook-secret';
 import {requireAutocabIntegration} from '../integration-control';
+import type {PoolClient} from 'pg';
+import {trafficBanLock,trafficMessageBlocked} from './message-bans';
 import {boundedText} from './sns';
 export const driverMessageAction='vehicle.send-message';
 export const vehicleMessageEndpoint='https://autocab-api.azure-api.net/vehicle/v1/vehicles/message';
 export type VehicleMessageConnection={url:string;apiKey:string};
-export type VehicleMessageResult={status:'ACCEPTED'|'REJECTED'|'UNKNOWN';httpStatus:number|null;reason:string};
+export type VehicleMessageResult={status:'ACCEPTED'|'REJECTED'|'UNKNOWN'|'SUPPRESSED';httpStatus:number|null;reason:string};
 export function vehicleMessageBody(vehicleId:string,message:string){
  if(!/^[1-9]\d*$/.test(vehicleId)||!Number.isSafeInteger(Number(vehicleId)))throw Error('INVALID_VEHICLE_ID');
  if(!message.trim()||message.length>200||/[\r\n]/.test(message))throw Error('INVALID_VEHICLE_MESSAGE');
@@ -43,7 +45,17 @@ export async function requestVehicleMessage(connection:VehicleMessageConnection,
   try{const payload=JSON.parse(await boundedText(response,16384));return vehicleMessageOutcome(payload,vehicleId)}catch{return {status:'UNKNOWN',httpStatus:200,reason:'INVALID_QUEUE_RESPONSE'}}
  }catch{return {status:'UNKNOWN',httpStatus:null,reason:'UNCONFIRMED_PROVIDER_WRITE'}}
 }
-export async function sendDriverClosureMessage(connection:VehicleMessageConnection,vehicleId:string,message:string){
+// Ban changes and final sends share a transaction lock. Once a save completes,
+// no later traffic send can use the old list. Already queued messages cannot be recalled.
+export async function deliverTrafficMessage(client:Pick<PoolClient,'query'>,connection:VehicleMessageConnection,vehicleId:string,message:string,driverId?:string,transport=requestVehicleMessage):Promise<VehicleMessageResult>{
+ try{
+  await client.query('BEGIN');await client.query("SET LOCAL statement_timeout='12s'");await client.query(trafficBanLock);
+  const result=await trafficMessageBlocked(client,vehicleId,driverId)?{status:'SUPPRESSED' as const,httpStatus:null,reason:'TRAFFIC_BAN_LIST'}:await transport(connection,vehicleId,message);
+  await client.query('COMMIT');return result;
+ }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
+}
+export async function sendDriverClosureMessage(connection:VehicleMessageConnection,vehicleId:string,message:string,driverId?:string){
  await requireAutocabIntegration();
- return requestVehicleMessage(connection,vehicleId,message);
+ const client=await database().connect();
+ try{return await deliverTrafficMessage(client,connection,vehicleId,message,driverId)}finally{client.release()}
 }

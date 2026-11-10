@@ -20,7 +20,8 @@ export async function loadAlertPlan(client:Pick<PoolClient,'query'>,now=Date.now
  JOIN LATERAL (SELECT p.* FROM driver_positions p WHERE p.driver_id=driver."externalId" AND p.vehicle_id=vehicle."externalId" AND p.recorded_at<position.recorded_at AND p.recorded_at>=position.recorded_at-interval '120 seconds' ORDER BY p.recorded_at DESC,p.received_at DESC LIMIT 1) previous ON true
  WHERE vehicle.provider='AUTOCAB' AND ${fleetLiveEligibility} AND driver.active AND NOT driver.suspended AND NOT driver.archived
  AND position.recorded_at=vehicle."lastSeenAt" AND position.recorded_at BETWEEN $1::timestamptz-interval '90 seconds' AND $1::timestamptz+interval '5 seconds'
- AND fleet_state.status<>'NotWorking'`,[new Date(now)])).rows;
+ AND fleet_state.status<>'NotWorking'
+ AND NOT EXISTS(SELECT 1 FROM street_manager_message_bans b WHERE b.active AND (b.vehicle_id=vehicle."externalId" OR b.driver_id=driver."externalId" OR b.callsign=upper(btrim(driver.callsign))))`,[new Date(now)])).rows;
  const candidates:ClosureCandidate[]=[];
  for(const track of tracks){
   const current:DriverFix={driverId:track.driver_id,vehicleId:track.vehicle_id,latitude:Number(track.latitude),longitude:Number(track.longitude),at:new Date(track.recorded_at).getTime()};

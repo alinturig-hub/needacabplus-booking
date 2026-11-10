@@ -36,7 +36,7 @@ export async function POST(request:Request){
    const id=await claimDriverAlert(client,fresh);if(!id)continue;
    attempted++;cooling.add(fresh.driverId);
    let result:{status:string;httpStatus:number|null;reason:string};
-   try{result=await sendDriverClosureMessage(connection,fresh.vehicleId,fresh.message)}catch{result={status:'SUPPRESSED',httpStatus:null,reason:'PRE_SEND_CHECK_FAILED'}}
+   try{result=await sendDriverClosureMessage(connection,fresh.vehicleId,fresh.message,fresh.driverId)}catch{result={status:'SUPPRESSED',httpStatus:null,reason:'PRE_SEND_CHECK_FAILED'}}
    await client.query('UPDATE street_manager_driver_alerts SET status=$2,http_status=$3,outcome_code=$4,completed_at=now() WHERE id=$1',[id,result.status,result.httpStatus,result.reason]);
    if(result.status==='ACCEPTED')accepted++;else if(result.status==='REJECTED')rejected++;else unknown++;
   }
