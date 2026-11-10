@@ -1,3 +1,4 @@
+import {composeTrafficMessage,type AlertTiming} from './message-timing';
 import {sameRoadArea,normalizedRoadNames,reportBounds} from './correlation';
 import {loadTomtomTraffic,trafficRefreshSeconds,type TrafficFeed} from './tomtom';
 import type {PreviewItem} from '../street-manager/preview-data';
@@ -25,8 +26,9 @@ export function tomtomAlert(item:PreviewItem,now:number):ActiveRoadEvent|null{
  if(!from||from==='Location reported by TomTom')return null;
  const location=to&&to!==from?`${from} to ${to}`:from;
  const prefix=`TomTom reports ${description} nearby (`,delay=kind==='congestion'&&p.delaySeconds!==null?` Delay ~${Math.max(1,Math.round(p.delaySeconds/60))} min.`:'',suffix=').'+delay;
- const available=185-prefix.length-suffix.length,message=prefix+(location.length>available?location.slice(0,available-1)+'…':location)+suffix;
- return {key:'TOMTOM:'+item.reference,street:location.slice(0,120),geometry:item.geometry,startsAt,endsAt:Math.min(end,fetched+ttl),kind,management:null,reportedOnly:true,source:'tomtom',message};
+ const timing:AlertTiming={from:p.startsAt,to:p.endsAt,expectedEnd:true};
+ const message=composeTrafficMessage(prefix,location,suffix,timing);
+ return {key:'TOMTOM:'+item.reference,street:location.slice(0,120),geometry:item.geometry,startsAt,endsAt:Math.min(end,fetched+ttl),kind,management:null,reportedOnly:true,source:'tomtom',message,timing};
 }
 export const sameReportedRoad=sameRoadArea;
 export function combineAlertEvents(street:ActiveRoadEvent[],tomtom:ActiveRoadEvent[]){

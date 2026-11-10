@@ -1,10 +1,11 @@
+import {composeTrafficMessage,type AlertTiming} from '../traffic/message-timing';
 import type {Geometry,Position} from 'geojson';
 import {streetGeometry} from './geometry';
 import {isPlymouthEvent} from './scope';
 import type {PreviewRow} from './preview-data';
 import {autocabTime} from '../autocab-time.mjs';
 export type TrafficEventKind='closure'|'roadworks'|'restriction'|'incident'|'congestion';
-export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;aliases?:string[];kind?:TrafficEventKind;management?:string|null;source?:'tomtom'|'street-manager'|'council';message?:string};
+export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;timing?:AlertTiming;aliases?:string[];kind?:TrafficEventKind;management?:string|null;source?:'tomtom'|'street-manager'|'council';message?:string};
 export type ActiveRoadEvent=ActiveClosure&{kind:TrafficEventKind;management:string|null};
 export type DriverFix={driverId:string;vehicleId:string;latitude:number;longitude:number;at:number};
 export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string;kind?:TrafficEventKind;source?:'tomtom'|'street-manager'|'council';closureBaseKey?:string;dedupKeys?:string[]};
@@ -50,7 +51,9 @@ export function activeRoadEvent(row:PreviewRow,now:number):ActiveRoadEvent|null{
  if(!Number.isFinite(startsAt)||!Number.isFinite(endsAt)||startsAt>=endsAt||now<startsAt||now>=endsAt||new Date(row.event_time).getTime()>now+5000)return null;
  const geometry=streetGeometry(d.works_location_coordinates??d.activity_coordinates);if(!geometry)return null;
  const key=string(d.usrn)??street.toUpperCase().replace(/\s+/g,' ');
- return {key,street,geometry,startsAt,endsAt,reportedOnly:current===null,kind,management:normalized};
+ const actual=Number.isFinite(instant(d.actual_start_date_time))?string(d.actual_start_date_time):null,planned=(Number.isFinite(instant(d.proposed_start_time))?string(d.proposed_start_time):null)??string(d.proposed_start_date)?.slice(0,10),plannedEnd=(Number.isFinite(instant(d.proposed_end_time))?string(d.proposed_end_time):null)??string(d.proposed_end_date)?.slice(0,10);
+ const timing:AlertTiming=row.object_type==='PERMIT'?{from:actual??planned,to:plannedEnd,startPlanned:!actual,expectedEnd:true}:{from:string(d.start_time),to:string(d.end_time),startPlanned:true,expectedEnd:true};
+ return {key,street,geometry,startsAt,endsAt,reportedOnly:current===null,kind,management:normalized,timing};
 }
 // Retained for callers that explicitly need road closures only.
 export function activeClosure(row:PreviewRow,now:number):ActiveClosure|null{const event=activeRoadEvent(row,now);return event?.kind==='closure'?event:null}
@@ -86,8 +89,7 @@ export function approachingClosure(current:DriverFix,previous:DriverFix,closure:
  const street=closure.street===closure.street.toUpperCase()?closure.street.toLowerCase().replace(/\b\p{L}/gu,c=>c.toUpperCase()):closure.street;
  const kind=closure.kind??'closure',detail=closure.management?managementText[closure.management]:null;
  const prefix=(kind==='roadworks'?'Roadworks':'Traffic restrictions')+' reported nearby on ',suffix=detail?': '+detail+'.':'.';
- const maxStreet=185-prefix.length-suffix.length,displayStreet=street.length>maxStreet?street.slice(0,maxStreet-1)+'…':street;
- const message=closure.message|| (kind==='closure'?street+' is reported closed nearby.':prefix+displayStreet+suffix);
+ const message=closure.message|| (kind==='closure'?composeTrafficMessage('',street,' is reported closed nearby.',closure.timing):composeTrafficMessage(prefix,street,suffix,closure.timing));
  // A previous roadworks warning must not suppress a later closure on the same street.
  const closureKey=kind==='closure'?closure.key:kind+':'+closure.key;
  const baseKeys=[...new Set([closure.key,...(closure.aliases||[])])].slice(0,128),eventKeys=kind==='closure'?baseKeys:baseKeys.map(k=>kind+':'+k),dedupKeys=kind==='closure'?eventKeys:[...eventKeys,...baseKeys];
