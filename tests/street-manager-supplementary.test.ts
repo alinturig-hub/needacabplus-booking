@@ -33,5 +33,12 @@ test('archive import is idempotent and never inserts unsigned data in the SNS in
   assert.equal((await syncPlymouthCouncil(client)).status,'error');
   assert.equal((await db.query<{count:number}>('SELECT count(*)::int AS count FROM street_manager_council_notices WHERE in_current_snapshot')).rows[0].count,1);
   assert.equal((await db.query<{count:number}>('SELECT count(*)::int AS count FROM street_manager_events')).rows[0].count,0);
+  // A trusted operator can supply a freshly fetched official publication while
+  // direct server access is unavailable; freshness and provenance stay explicit.
+  globalThis.fetch=async(input)=>{assert.equal(String(input).includes('plymouth.gov.uk'),false);return Response.json({elements:[]});};
+  const snapshot=await syncPlymouthCouncil(client,{html,fetchedAt:new Date().toISOString()});assert.equal(snapshot.status,'ok');
+  const saved=(await db.query<{details:{transport:string;pageSha256:string};item_count:number}>("SELECT details,item_count FROM street_manager_source_runs WHERE source='plymouth_council'")).rows[0];
+  assert.equal(saved.details.transport,'operator_snapshot');assert.match(saved.details.pageSha256,/^[a-f0-9]{64}$/);assert.equal(saved.item_count,10);
+  assert.equal((await syncPlymouthCouncil(client)).status,'not_due');
  }finally{globalThis.fetch=original;await db.close()}
 });

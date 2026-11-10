@@ -28,30 +28,32 @@ export async function importPlymouthArchive(client:Pick<PoolClient,'query'>){
   await client.query('COMMIT');return {imported:events.length,total:events.length};
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e}
 }
-export async function syncPlymouthCouncil(client:Pick<PoolClient,'query'>){
- const previous=(await client.query("SELECT last_success_at,checked_at,status,item_count FROM street_manager_source_runs WHERE source='plymouth_council'")).rows[0];
- if(previous?.last_success_at&&Date.now()-new Date(previous.last_success_at).getTime()<6*3600000)return {status:'not_due',notices:previous.item_count};
- if(previous?.status==='error'&&Date.now()-new Date(previous.checked_at).getTime()<15*60000)return {status:'backoff',notices:previous.item_count};
+export async function syncPlymouthCouncil(client:Pick<PoolClient,'query'>,snapshot?:{html:string;fetchedAt:string}){
+ const previous=(await client.query("SELECT last_success_at,checked_at,status,item_count,error_code,details FROM street_manager_source_runs WHERE source='plymouth_council'")).rows[0];
+ if(!snapshot&&previous?.last_success_at&&Date.now()-new Date(previous.last_success_at).getTime()<6*3600000)return {status:'not_due',notices:previous.item_count};
+ if(!snapshot&&previous?.status==='error'&&Date.now()-new Date(previous.checked_at).getTime()<15*60000)return {status:'backoff',notices:previous.item_count};
  try{
-  const response=await fetch(councilSourceUrl,{headers:{Accept:'text/html','User-Agent':councilUserAgent},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(15000)});
-  if(!response.ok)throw Error('COUNCIL_HTTP_'+response.status);
-  const notices=parseCouncilNotices(await boundedText(response,1500000));
+  let html=snapshot?.html;
+  if(snapshot&&(!Number.isFinite(Date.parse(snapshot.fetchedAt))||Date.now()-Date.parse(snapshot.fetchedAt)>300000||Date.parse(snapshot.fetchedAt)>Date.now()+5000))throw Error('COUNCIL_SNAPSHOT_EXPIRED');
+  if(!snapshot){const response=await fetch(councilSourceUrl,{headers:{Accept:'text/html','User-Agent':councilUserAgent},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('COUNCIL_HTTP_'+response.status);html=await boundedText(response,1500000);}
+  const notices=parseCouncilNotices(html||'');
   if(previous?.item_count&&notices.length<previous.item_count*.5)throw Error('COUNCIL_COUNT_DROP_REVIEW_REQUIRED');
   const existing=(await client.query('SELECT id,geometry,location_quality,location_basis,location_source,location_checked_at FROM street_manager_council_notices')).rows;
-  const existingIds=new Set(existing.map(r=>r.id));
+  const verifiedIds=new Set(existing.filter(r=>r.location_quality==='verified').map(r=>r.id));
   let cached:Record<string,CouncilLocation>={};try{cached=JSON.parse(await readFile(join(process.cwd(),'data/street-manager/council-locations.json'),'utf8'))}catch{}
-  const missing=notices.filter(n=>!existingIds.has(n.id)&&!cached[n.id]);
+  const missing=notices.filter(n=>!verifiedIds.has(n.id)&&cached[n.id]?.quality!=='verified');
   const fresh=await fetchCouncilLocations(missing),locations={...cached,...fresh};
-  const prepared=notices.map(n=>{const previous=existing.find(e=>e.id===n.id);const location=locations[n.id];return {id:n.id,notice_data:n,geometry:previous?.geometry??location?.geometry??null,location_quality:previous?.location_quality??location?.quality??'unmapped',location_basis:previous?.location_basis??location?.basis??null,location_source:previous?.location_source??location?.source??null,location_checked_at:previous?.location_checked_at??location?.checkedAt??null}});
+  const prepared=notices.map(n=>{const previous=existing.find(e=>e.id===n.id);const location=locations[n.id],upgrade=previous?.location_quality!=='verified'&&location?.quality==='verified';return {id:n.id,notice_data:n,geometry:upgrade?location.geometry:previous?.geometry??location?.geometry??null,location_quality:upgrade?location.quality:previous?.location_quality??location?.quality??'unmapped',location_basis:upgrade?location.basis:previous?.location_basis??location?.basis??null,location_source:upgrade?location.source:previous?.location_source??location?.source??null,location_checked_at:upgrade?location.checkedAt:previous?.location_checked_at??location?.checkedAt??null}});
   const hash=createHash('sha256').update(JSON.stringify(notices.map(n=>[n.id,n.contentHash]).sort())).digest('hex');
   await client.query('BEGIN');
   await client.query('UPDATE street_manager_council_notices SET in_current_snapshot=false WHERE in_current_snapshot');
   await client.query(`INSERT INTO street_manager_council_notices(id,notice_data,geometry,location_quality,location_basis,location_source,location_checked_at)
    SELECT id,notice_data,geometry,location_quality,location_basis,location_source,location_checked_at FROM jsonb_to_recordset($1::jsonb) AS x(id text,notice_data jsonb,geometry jsonb,location_quality text,location_basis text,location_source text,location_checked_at timestamptz)
    ON CONFLICT(id) DO UPDATE SET notice_data=EXCLUDED.notice_data,in_current_snapshot=true,last_listed_at=now(),source_checked_at=now(),geometry=EXCLUDED.geometry,location_quality=EXCLUDED.location_quality,location_basis=EXCLUDED.location_basis,location_source=EXCLUDED.location_source,location_checked_at=EXCLUDED.location_checked_at`,[JSON.stringify(prepared)]);
-  await client.query(`INSERT INTO street_manager_source_runs(source,last_success_at,status,item_count,content_hash,source_url) VALUES('plymouth_council',now(),'ok',$1,$2,$3)
-   ON CONFLICT(source) DO UPDATE SET checked_at=now(),last_success_at=now(),status='ok',item_count=EXCLUDED.item_count,content_hash=EXCLUDED.content_hash,error_code=NULL`,[notices.length,hash,councilSourceUrl]);
-  await client.query('COMMIT');return {status:'ok',notices:notices.length,mapped:prepared.filter(n=>n.geometry).length,unmapped:prepared.filter(n=>!n.geometry).length};
+  const details={transport:snapshot?'operator_snapshot':'direct',fetchedAt:snapshot?.fetchedAt||new Date().toISOString(),pageSha256:createHash('sha256').update(html||'').digest('hex'),directFetchError:snapshot?(previous?.error_code||previous?.details?.directFetchError||null):null};
+  await client.query(`INSERT INTO street_manager_source_runs(source,last_success_at,status,item_count,content_hash,source_url,details) VALUES('plymouth_council',now(),'ok',$1,$2,$3,$4)
+   ON CONFLICT(source) DO UPDATE SET checked_at=now(),last_success_at=now(),status='ok',item_count=EXCLUDED.item_count,content_hash=EXCLUDED.content_hash,error_code=NULL,details=EXCLUDED.details`,[notices.length,hash,councilSourceUrl,JSON.stringify(details)]);
+  await client.query('COMMIT');return {status:'ok',transport:details.transport,notices:notices.length,verified:prepared.filter(n=>n.location_quality==='verified').length,mapped:prepared.filter(n=>n.geometry).length,unmapped:prepared.filter(n=>!n.geometry).length};
  }catch(error){
   await client.query('ROLLBACK').catch(()=>{});
   const code=error instanceof Error&&/^COUNCIL_[A-Z0-9_]+$/.test(error.message)?error.message:'COUNCIL_SYNC_UNAVAILABLE';

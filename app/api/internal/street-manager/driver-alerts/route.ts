@@ -3,7 +3,7 @@ import {database} from '@/lib/database';
 import {autocabIntegrationEnabled} from '@/lib/integration-control';
 import {loadAlertPlan} from '@/lib/street-manager/alert-plan';
 import {trafficPilot,pilotCandidates} from '@/lib/street-manager/live-scope';
-import {claimDriverAlert} from '@/lib/street-manager/alert-delivery';
+import {claimDriverAlert,rememberDriverAlertAlias} from '@/lib/street-manager/alert-delivery';
 import {driverMessageConnection,sendDriverClosureMessage} from '@/lib/street-manager/driver-message';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function POST(request:Request){
@@ -21,7 +21,7 @@ export async function POST(request:Request){
   if(!locked)return Response.json({mode,reason:'WORKER_BUSY',attempted:0});
   await client.query("SET statement_timeout='8s'");
   const plan=await loadAlertPlan(client,Date.now(),{refreshTomtom:mode==='pilot'});
-  if(mode==='observe')return Response.json({mode,activeClosures:plan.activeClosures,activeRoadworks:plan.activeRoadworks,activeRestrictions:plan.activeRestrictions,activeEvents:plan.activeEvents,activeIncidents:plan.activeIncidents,activeCongestion:plan.activeCongestion,tomtom:plan.tomtom,trackedDrivers:plan.trackedDrivers,candidates:plan.candidates.length,attempted:0});
+  if(mode==='observe')return Response.json({mode,activeClosures:plan.activeClosures,activeRoadworks:plan.activeRoadworks,activeRestrictions:plan.activeRestrictions,activeEvents:plan.activeEvents,activeIncidents:plan.activeIncidents,activeCongestion:plan.activeCongestion,tomtom:plan.tomtom,council:plan.council,trackedDrivers:plan.trackedDrivers,candidates:plan.candidates.length,attempted:0});
   const connection=await driverMessageConnection();
   if(!connection)return Response.json({mode,reason:'DRIVER_MESSAGE_ENDPOINT_MISSING',attempted:0});
   const candidates=pilotCandidates(plan.candidates,pilot);
@@ -32,7 +32,11 @@ export async function POST(request:Request){
   let attempted=0,accepted=0,rejected=0,unknown=0,suppressed=0;
   for(const candidate of candidates){
    if(attempted>=3)break;
-   if(cooling.has(candidate.driverId)||seen.has(JSON.stringify([candidate.driverId,candidate.closureKey]))||candidate.kind!=='closure'&&candidate.closureBaseKey&&seen.has(JSON.stringify([candidate.driverId,candidate.closureBaseKey])))continue;
+   if(seen.has(JSON.stringify([candidate.driverId,candidate.closureKey])))continue;
+   if((candidate.dedupKeys||[]).some(key=>seen.has(JSON.stringify([candidate.driverId,key])))){
+    await rememberDriverAlertAlias(client,pilot?{...candidate,message:'[TRAFFIC TEST] '+candidate.message}:candidate);seen.add(JSON.stringify([candidate.driverId,candidate.closureKey]));suppressed++;continue;
+   }
+   if(cooling.has(candidate.driverId)||candidate.kind!=='closure'&&candidate.closureBaseKey&&seen.has(JSON.stringify([candidate.driverId,candidate.closureBaseKey])))continue;
    // Re-read time, road status, shift/driver identity and the latest GPS just
    // before reserving each send. Observation never creates delivery claims.
    const fresh=(await loadAlertPlan(client)).candidates.find(c=>c.driverId===candidate.driverId&&c.vehicleId===candidate.vehicleId&&c.closureKey===candidate.closureKey);
@@ -45,7 +49,7 @@ export async function POST(request:Request){
    await client.query('UPDATE street_manager_driver_alerts SET status=$2,http_status=$3,outcome_code=$4,completed_at=now() WHERE id=$1',[id,result.status,result.httpStatus,result.reason]);
    if(result.status==='ACCEPTED')accepted++;else if(result.status==='REJECTED')rejected++;else if(result.status==='SUPPRESSED')suppressed++;else unknown++;
   }
-  return Response.json({mode,activeClosures:plan.activeClosures,activeRoadworks:plan.activeRoadworks,activeRestrictions:plan.activeRestrictions,activeEvents:plan.activeEvents,activeIncidents:plan.activeIncidents,activeCongestion:plan.activeCongestion,tomtom:plan.tomtom,trackedDrivers:plan.trackedDrivers,pilot,candidates:candidates.length,attempted,accepted,rejected,unknown,suppressed});
+  return Response.json({mode,activeClosures:plan.activeClosures,activeRoadworks:plan.activeRoadworks,activeRestrictions:plan.activeRestrictions,activeEvents:plan.activeEvents,activeIncidents:plan.activeIncidents,activeCongestion:plan.activeCongestion,tomtom:plan.tomtom,council:plan.council,trackedDrivers:plan.trackedDrivers,pilot,candidates:candidates.length,attempted,accepted,rejected,unknown,suppressed});
  }catch{return Response.json({error:'DRIVER_ALERT_WORKER_UNAVAILABLE'},{status:503})}
  finally{if(client){if(locked)await client.query("SELECT pg_advisory_unlock(hashtext('nac:road-closure-alert-worker'))").catch(()=>{});await client.query('RESET statement_timeout').catch(()=>{});client.release()}}
 }

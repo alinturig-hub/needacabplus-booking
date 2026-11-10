@@ -4,7 +4,7 @@ import type {PreviewItem} from '../street-manager/preview-data';
 
 export const trafficBounds=[-4.25,50.32,-4.02,50.46] as const;
 export const trafficRefreshSeconds=120;
-export type TrafficFeed={status:'ok'|'unavailable'|'not_configured';checkedAt:string;error:string|null;items:PreviewItem[];total:number;omitted:number;retryAfterSeconds?:number;lastReceived?:string|null};
+export type TrafficFeed={status:'ok'|'unavailable'|'not_configured';checkedAt:string;error:string|null;items:PreviewItem[];total:number;omitted:number;retryAfterSeconds?:number;lastReceived?:string|null;council?:{status:string;lastCheckedAt:string|null;lastSuccessAt:string|null;stale:boolean;errorCode:string|null;transport?:string;directErrorCode?:string|null}};
 const point=z.tuple([z.number().min(-180).max(180),z.number().min(-90).max(90)]);
 const geometry=z.union([z.object({type:z.literal('Point'),coordinates:point}),z.object({type:z.literal('LineString'),coordinates:z.array(point).min(2).max(10000)})]);
 const incident=z.object({geometry,properties:z.object({id:z.string().min(1).max(500),iconCategory:z.number().int(),from:z.string().max(3000).nullish(),to:z.string().max(3000).nullish(),startTime:z.string().nullish(),endTime:z.string().nullish(),lastReportTime:z.string().nullish(),delay:z.number().nonnegative().nullish(),length:z.number().nonnegative().nullish(),magnitudeOfDelay:z.number().nullish(),roadNumbers:z.array(z.string()).max(100).nullish(),events:z.array(z.object({description:z.string().max(3000),code:z.number().optional(),iconCategory:z.number().optional()})).max(100),timeValidity:z.string().nullish()})});
