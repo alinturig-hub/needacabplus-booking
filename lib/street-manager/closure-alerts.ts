@@ -4,10 +4,10 @@ import {isPlymouthEvent} from './scope';
 import type {PreviewRow} from './preview-data';
 import {autocabTime} from '../autocab-time.mjs';
 export type TrafficEventKind='closure'|'roadworks'|'restriction'|'incident'|'congestion';
-export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;kind?:TrafficEventKind;management?:string|null;source?:'tomtom'|'street-manager';message?:string};
+export type ActiveClosure={key:string;street:string;geometry:Geometry;startsAt:number;endsAt:number;reportedOnly:boolean;aliases?:string[];kind?:TrafficEventKind;management?:string|null;source?:'tomtom'|'street-manager'|'council';message?:string};
 export type ActiveRoadEvent=ActiveClosure&{kind:TrafficEventKind;management:string|null};
 export type DriverFix={driverId:string;vehicleId:string;latitude:number;longitude:number;at:number};
-export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string;kind?:TrafficEventKind;source?:'tomtom'|'street-manager';closureBaseKey?:string};
+export type ClosureCandidate={driverId:string;vehicleId:string;closureKey:string;street:string;distanceMetres:number;previousDistanceMetres:number;fixAt:number;day:string;message:string;kind?:TrafficEventKind;source?:'tomtom'|'street-manager'|'council';closureBaseKey?:string;dedupKeys?:string[]};
 export const alertPolicy={radiusMetres:300,maxFixAgeMs:90000,maxFutureMs:5000,minApproachMetres:10,maxPreviousAgeMs:120000,driverCooldownMs:120000} as const;
 const londonDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'});
 export function alertDay(now:number){return londonDay.format(now)}
@@ -90,5 +90,6 @@ export function approachingClosure(current:DriverFix,previous:DriverFix,closure:
  const message=closure.message|| (kind==='closure'?street+' is reported closed nearby.':prefix+displayStreet+suffix);
  // A previous roadworks warning must not suppress a later closure on the same street.
  const closureKey=kind==='closure'?closure.key:kind+':'+closure.key;
- return {driverId:current.driverId,vehicleId:current.vehicleId,closureKey,street,distanceMetres:Math.round(distanceMetres),previousDistanceMetres:Math.round(previousDistanceMetres),fixAt:current.at,day:alertDay(now),message,kind,source:closure.source,closureBaseKey:closure.key};
+ const baseKeys=[...new Set([closure.key,...(closure.aliases||[])])].slice(0,128),eventKeys=kind==='closure'?baseKeys:baseKeys.map(k=>kind+':'+k),dedupKeys=kind==='closure'?eventKeys:[...eventKeys,...baseKeys];
+ return {dedupKeys,driverId:current.driverId,vehicleId:current.vehicleId,closureKey,street,distanceMetres:Math.round(distanceMetres),previousDistanceMetres:Math.round(previousDistanceMetres),fixAt:current.at,day:alertDay(now),message,kind,source:closure.source,closureBaseKey:closure.key};
 }

@@ -61,10 +61,10 @@ test('durable reservation prevents webhook replay/daily duplicates and applies a
   const c=approachingClosure(current,previous,closure,now)!;
   const first=await claimDriverAlert(client,c,now);assert.ok(first);
   assert.equal(await claimDriverAlert(client,c,now),null);
-  assert.equal(await claimDriverAlert(client,{...c,closureKey:'different'},now+10000),null);
+  assert.equal(await claimDriverAlert(client,{...c,closureKey:'different',dedupKeys:['different']},now+10000),null);
   assert.equal(await claimDriverAlert(client,c,now+130000),null);
   // Daily duplicate rolls back the clock update, allowing a different closure.
-  assert.ok(await claimDriverAlert(client,{...c,closureKey:'different'},now+130000));
+  assert.ok(await claimDriverAlert(client,{...c,closureKey:'different',dedupKeys:['different']},now+130000));
   assert.ok(await claimDriverAlert(client,{...c,driverId:'other'},now));
   const rows=(await db.query<{status:string;count:number}>('SELECT status,count(*)::int AS count FROM street_manager_driver_alerts GROUP BY status')).rows;assert.deepEqual(rows,[{status:'SENDING',count:3}]);
   await db.query("UPDATE street_manager_driver_alerts SET status='REJECTED',http_status=200,outcome_code='NOT_QUEUED',completed_at=now() WHERE id=$1",[first]);
