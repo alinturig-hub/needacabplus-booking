@@ -1,7 +1,10 @@
 # Closure-aware routing preview
 
-Internal pilot: `/admin/traffic/route-preview` and authenticated, same-origin POST
+Internal pilot (activated 11 Nov 2026): `/admin/traffic/route-preview` and authenticated, same-origin POST
 `/api/admin/traffic/route-preview`. Body: `{ "points": [{"latitude":50.389,"longitude":-4.137},{"latitude":50.375,"longitude":-4.142}] }`.
+
+Read-only diagnostic calls may also authenticate with the existing internal job
+secret header; same-origin and payload limits still apply.
 
 The current customer route and Autocab fare remain unchanged. This preview is not
 connected to live quotes, driver messages, dispatch assignment, or fare signing.
@@ -43,10 +46,13 @@ and verified road associations are required before customer activation.
 
 ## Own OSRM service
 
-Neither `TRAFFIC_ROUTING_OSRM_URL` nor `DISPATCH_OSRM_URL` is configured in the
-production application (checked 11 Nov 2026). Preview returns 503 until the former
-is set. It never adds production traffic to the public demo service automatically.
-The existing customer's public-OSRM route is unchanged.
+Private OSRM Devon service is deployed in Coolify, application
+`eocwbm5gz0azxt3jfsyy0r1c`, on the booking application's existing private Docker
+network. No public domain/host port is assigned. Runtime limits are 2 CPUs/2GB;
+graph preparation uses two threads. Application runtime setting:
+`TRAFFIC_ROUTING_OSRM_URL=http://nac-traffic-routing:5000`.
+The pinned Dockerfile builds a 58MB Devon extract into the image; restarts do not
+rebuild/download the graph. Update/redeploy the image to refresh road data.
 
 `deploy/traffic-routing/compose.yaml` is a deployment recipe, not an installed
 service. Prepare graph files in `deploy/traffic-routing/data` on a host with spare
@@ -63,8 +69,8 @@ docker run --rm --cpus 2 --memory 4g -v "$PWD/data:/data" ghcr.io/project-osrm/o
 docker compose up -d
 ```
 
-Container image/graph preparation commands are provided for deployment review;
-they have NOT been executed or validated in this task. Keep the service on a
+The equivalent pinned multi-stage Dockerfile has been deployed via Coolify.
+The standalone compose commands above remain an alternative host recipe. Keep the service on a
 private container network or behind authenticated private ingress. localhost in
 the compose recipe is host-only; from the app container use an approved internal
 network address, not its own localhost. Set `TRAFFIC_ROUTING_OSRM_URL` at runtime.

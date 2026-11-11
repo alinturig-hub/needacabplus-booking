@@ -28,3 +28,11 @@ test('endpoints inside a closure never cause an unchecked route to be returned',
  const atPickup={...closure,id:'pickup',geometry:{type:'Point' as const,coordinates:[start.longitude,start.latitude]}};
  await assert.rejects(closureAwareRoute([start,end],[atPickup],now,async()=>[direct,detour]),NoVerifiedRoute);
 });
+test('internal read-only route diagnostics require the exact job credential',async()=>{
+ const {validRouteJobSecret}=await import('../lib/routing/preview-auth');
+ const request=(value?:string)=>new Request('https://example.test',{headers:value?{'x-booking-writer-secret':value}:{}});
+ assert.equal(validRouteJobSecret(request(),'configured-secret'),false);
+ assert.equal(validRouteJobSecret(request('wrong'),'configured-secret'),false);
+ assert.equal(validRouteJobSecret(request('configured-secret'),'configured-secret'),true);
+ assert.equal(validRouteJobSecret(request('configured-secret'),''),false);
+});

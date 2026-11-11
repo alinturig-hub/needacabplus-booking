@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {validRouteJobSecret} from '@/lib/routing/preview-auth';
 import {isAdmin,sameOrigin} from '@/lib/security';
 import {database} from '@/lib/database';
 import {storedClosures} from '@/lib/routing/stored-closures';
@@ -9,7 +10,7 @@ const input=z.object({points:z.array(point).min(2).max(5)}).strict();
 const headers={'Cache-Control':'private, no-store'};
 let running=0;
 export async function POST(request:Request){
- if(!await isAdmin())return Response.json({error:'Admin access required.'},{status:403,headers});
+ if(!validRouteJobSecret(request)&&!await isAdmin())return Response.json({error:'Admin access required.'},{status:403,headers});
  if(!sameOrigin(request))return Response.json({error:'Invalid origin.'},{status:403,headers});
  const base=process.env.TRAFFIC_ROUTING_OSRM_URL;
  if(!base)return Response.json({error:'Configure TRAFFIC_ROUTING_OSRM_URL for an OSRM service approved for production use. The public demo is not used automatically.'},{status:503,headers});
