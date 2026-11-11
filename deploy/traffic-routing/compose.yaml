@@ -1,0 +1,11 @@
+services:
+  routing:
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    command: osrm-routed --algorithm mld --max-alternatives 3 /data/devon-latest.osrm
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "127.0.0.1:5000:5000"
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: 2
