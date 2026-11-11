@@ -5,6 +5,7 @@ FROM ghcr.io/project-osrm/osrm-backend:v5.27.1@sha256:855614a38f464b0558a2ad6eaa
 COPY --from=download /data /data
 RUN osrm-extract --threads 2 -p /opt/car.lua /data/devon-latest.osm.pbf && osrm-partition --threads 2 /data/devon-latest.osrm && osrm-customize --threads 2 /data/devon-latest.osrm && rm /data/devon-latest.osm.pbf
 FROM ghcr.io/project-osrm/osrm-backend:v5.27.1@sha256:855614a38f464b0558a2ad6eaa7cb8c139f39887da9b38b485ce453c6e6e6124
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=graph /data /data
 EXPOSE 5000
 CMD ["osrm-routed", "--algorithm", "mld", "--threads", "2", "--max-alternatives", "3", "/data/devon-latest.osrm"]
