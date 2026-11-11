@@ -1,0 +1,12 @@
+{
+  "contract": "nac.conversations.actions",
+  "contract_version": "1.0",
+  "action_id": "00000000-0000-4000-8000-000000000200",
+  "operation_key": "synthetic-flow-run:read:1",
+  "status": "BLOCKED",
+  "reason": "ACTION_ADAPTER_NOT_IMPLEMENTED",
+  "result": null,
+  "checked_at": "2026-11-05T12:00:01Z",
+  "correlation_id": "00000000-0000-4000-8000-000000000100",
+  "provider_called": false
+}
