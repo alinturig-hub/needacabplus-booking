@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Private en-GB Need A Cab Plus Alexa skill
+Parameters:
+  SkillId:
+    Type: String
+    AllowedPattern: 'amzn1.ask.skill.[a-zA-Z0-9-]+'
+Resources:
+  SkillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: index.handler
+      CodeUri: lambda/
+      Timeout: 8
+      MemorySize: 128
+      Environment:
+        Variables:
+          ALEXA_SKILL_ID: !Ref SkillId
+          BOOKING_BACKEND_ORIGIN: https://webapp.needacabplus.app
+  AlexaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SkillFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: alexa-appkit.amazon.com
+      EventSourceToken: !Ref SkillId
+Outputs:
+  LambdaArn:
+    Value: !GetAtt SkillFunction.Arn
