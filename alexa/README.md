@@ -2,8 +2,9 @@
 
 Status: implemented and tested locally. **Not installed on Alexa, not published,
 not enabled in production, and no real taxi has been requested in this task.**
-The owner does not yet have an Amazon Developer account. The first end-to-end
-Amazon simulator/device test therefore remains outstanding.
+The owner has created an Amazon Developer account and supplied a private skill ID.
+The first account-linked Amazon simulator/device test remains outstanding.
+Current skill setup: see `SETUP-OWNER.md`.
 
 ## What it does
 
@@ -89,7 +90,7 @@ Amazon validation; the generic “Alexa, book me a taxi” invocation is not pro
    “This is a test. No taxi will be sent.” Follow the acceptance cases below.
 
 `ALEXA_SKILL_ENABLED` defaults off and the mode defaults to preview. The repo
-contains no real OAuth secrets, Alexa skill ID, Lambda ARN or developer credentials.
+contains the public skill ID, but no OAuth secret, Lambda ARN or developer credentials.
 
 ## Confirmation, replay and account controls
 
