@@ -27,3 +27,19 @@ code or interaction model in Amazon. The backend remains disabled and undeployed
 Publishing/certification, production migration, OAuth credentials, exact callback
 allowlist and Amazon simulator/device testing remain outstanding. Account linking
 will not work until those backend setup steps in README are complete.
+
+## Owner callbacks (copied from Account Linking screenshot)
+
+- https://pitangui.amazon.com/api/skill/link/M3NKLXHRHFLX1G
+- https://layla.amazon.com/api/skill/link/M3NKLXHRHFLX1G
+- https://alexa.amazon.co.jp/api/skill/link/M3NKLXHRHFLX1G
+
+Client ID: `needacabplus-alexa`. Client secret is generated/stored only in Coolify
+runtime variables; copy it directly into Amazon's Your Secret field.
+
+Use web linking only: turn off app/website-initiated linking, mobile-app
+authentication and voice-based account linking. Those flows are not implemented.
+Keep Auth Code Grant and PKCE enabled. Scope: `bookings:voice`; token lifetime:
+3600 seconds. iOS/Android authorization fields and Your Redirect URLs are unused
+when those advanced flows are disabled. Amazon's displayed Alexa Redirect URLs
+are the callback allowlist on our backend, not app-initiated redirect URLs.

@@ -1,7 +1,8 @@
 # Need A Cab Plus — private Alexa prototype (en-GB)
 
-Status: implemented and tested locally. **Not installed on Alexa, not published,
-not enabled in production, and no real taxi has been requested in this task.**
+Status: private prototype, configured for a preview-only backend rollout.
+Amazon code/model installation and the first account-linked simulator/device test
+remain unverified. No real taxi has been requested by this task.
 The owner has created an Amazon Developer account and supplied a private skill ID.
 The first account-linked Amazon simulator/device test remains outstanding.
 Current skill setup: see `SETUP-OWNER.md`.
@@ -63,10 +64,13 @@ Amazon validation; the generic “Alexa, book me a taxi” invocation is not pro
 
 ## Backend setup after the skill exists
 
-1. Review and apply `db/20261117_alexa_private_skill.sql` as schema owner. Grant
-   SELECT/INSERT/UPDATE/DELETE only on the three new tables to the app runtime
-   role. The existing booking schema is not changed. Migration was tested on
-   PGlite; it has not been applied to production.
+1. Review `db/20261117_alexa_private_skill.sql`. When the skill is enabled,
+   `start-production.mjs` runs `migrate-alexa.mjs` using `NAC_GRANT_DATABASE_URL`
+   (or the runtime DSN for a schema-owning installation). It verifies the owner
+   and runtime target are the same database, grants CRUD only on the three Alexa
+   tables, and verifies runtime access. Existing booking tables are unchanged.
+   `ALEXA_SCHEMA_READY` confirms success; failure disables Alexa for that process
+   while allowing the existing application to start. Migration is idempotent.
 2. Set Coolify **runtime only** variables (never put secrets in chat):
    - `ALEXA_SKILL_ENABLED=true`
    - `ALEXA_BOOKING_MODE=preview`

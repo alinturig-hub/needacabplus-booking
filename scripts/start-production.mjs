@@ -24,6 +24,10 @@ try{
 }
 finally{await pool.end()}
 
+if(process.env.ALEXA_SKILL_ENABLED==='true'){
+ const migration=spawnSync(process.execPath,['scripts/migrate-alexa.mjs'],{stdio:'inherit',env:process.env});
+ if(migration.status!==0){process.env.ALEXA_SKILL_ENABLED='false';console.error('Alexa remains disabled because its schema check failed.');}
+}
 const child=spawn(process.execPath,['server.js'],{stdio:'inherit',env:process.env});
 if(process.env.TAXICRM_BOOTSTRAP_DATABASE_URL||process.env.TAXICRM_READER_PASSWORD){
  void import('./bootstrap-taxicrm-reader.mjs').then(({bootstrapTaxiCrmReader})=>bootstrapTaxiCrmReader()).catch(error=>console.error(`TaxiCRM bootstrap failed (${typeof error?.code==='string'?error.code:error instanceof Error?error.name:'unknown'}).`));
