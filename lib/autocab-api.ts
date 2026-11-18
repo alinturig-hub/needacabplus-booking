@@ -38,7 +38,7 @@ async function call(actionKey:string,options?:{query?:Record<string,string|numbe
  if(!endpoint)throw new AutocabConfigurationError(`Add an enabled Autocab endpoint with action key “${actionKey}” in Configuration → API.`);
  const url=actionKey==='booking.create'?bookingCreateUrl(endpoint.base_url,endpoint.path,endpoint.method):new URL(endpoint.path,`${endpoint.base_url.replace(/\/$/,'')}/`);
  if(url.protocol!=='https:')throw new AutocabConfigurationError('The Autocab connection must use HTTPS.');
- if(options?.directProvider&&url.hostname!=='autocab-api.azure-api.net')throw new AutocabConfigurationError('Alexa direct booking requires the Autocab API host.');
+ if(options?.directProvider){if(url.origin!=='https://autocab-api.azure-api.net'||url.username||url.password)throw new AutocabConfigurationError('Alexa direct booking requires the Autocab API host.');url.search='';url.hash='';}
  if(actionKey==='booking.quote'&&(endpoint.method.toUpperCase()!=='POST'||url.pathname.replace(/\/$/,'')!=='/booking/v1/quote'))throw new AutocabConfigurationError('Configure booking.quote as POST /booking/v1/quote.');
  if(options?.readCapabilities){if(url.hostname!=='autocab-api.azure-api.net')throw new AutocabConfigurationError('Capabilities require a direct Autocab booking connection.');url.pathname='/booking/v1/capabilities';url.search='';}
  if(options?.readBookingId){
