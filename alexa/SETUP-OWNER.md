@@ -58,3 +58,13 @@ login. No customer authorization code or real booking was created by these check
 The client secret is available only in Coolify → Need A Cab Plus → Environment
 Variables → `ALEXA_OAUTH_CLIENT_SECRET`; copy it directly into Amazon's Your Secret
 field. Token expiration is 3600 seconds. Optional Domain List: `webapp.needacabplus.app`.
+
+## Autocab-only pricing
+
+Alexa reads and rechecks the Autocab API fare directly. It does not load Need A
+Cab Plus pricing, membership, smart-fare or promotion rules. A live booking omits
+manual pricing/tariff fields so Autocab remains the pricing authority. Account
+linking, saved addresses and replay protection remain technical backend functions.
+Company defaults to 1, no customer/account is inherited, and capabilities default
+to empty. See README for explicit Autocab-only profile environment variables.
+The deployed mode remains preview; no taxi is sent by a test confirmation.
