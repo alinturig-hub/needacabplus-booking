@@ -1,0 +1,88 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "need a cab plus",
+      "intents": [
+        {
+          "name": "BookTaxiIntent",
+          "slots": [
+            {
+              "name": "Pickup",
+              "type": "SAVED_PLACE"
+            },
+            {
+              "name": "Destination",
+              "type": "SAVED_PLACE"
+            }
+          ],
+          "samples": [
+            "book a taxi from {Pickup} to {Destination}",
+            "book me a taxi to {Destination}",
+            "take me to {Destination}",
+            "go to {Destination}",
+            "{Destination}"
+          ]
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": [
+        {
+          "name": "SAVED_PLACE",
+          "values": [
+            {
+              "name": {
+                "value": "Home",
+                "synonyms": [
+                  "my home",
+                  "my house"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "Work",
+                "synonyms": [
+                  "my work",
+                  "the office"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "Plymouth Station",
+                "synonyms": [
+                  "the station",
+                  "Plymouth train station",
+                  "Plymouth railway station"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-GB": {
+          "name": "Need A Cab Plus",
+          "summary": "Request a taxi using your saved Need A Cab Plus places.",
+          "description": "Private pilot. Link your account, select saved places and hear the cash fare before confirming. Test mode does not send a taxi.",
+          "examplePhrases": [
+            "Alexa, open need a cab plus",
+            "Alexa, ask need a cab plus to book a taxi to Work"
+          ]
+        }
+      },
+      "isAvailableWorldwide": false,
+      "distributionCountries": [
+        "GB"
+      ],
+      "category": "GETTING_AROUND"
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "REPLACE_WITH_LAMBDA_ARN"
+        }
+      }
+    },
+    "manifestVersion": "1.0"
+  }
+}

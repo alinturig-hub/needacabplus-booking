@@ -25,6 +25,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/dist/notification-tools ./notification-tools
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.mjs ./scripts/start-production.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-alexa.mjs ./scripts/migrate-alexa.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/db/20261117_alexa_private_skill.sql ./db/20261117_alexa_private_skill.sql
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/normalize-api-connections.mjs ./scripts/normalize-api-connections.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-local-drivers.mjs ./scripts/migrate-local-drivers.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrations/20261015_local_drivers.sql ./scripts/migrations/20261015_local_drivers.sql
