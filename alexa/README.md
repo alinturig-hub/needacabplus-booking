@@ -1,6 +1,7 @@
 # Need A Cab Plus — private Alexa prototype (en-GB)
 
-Status: private prototype, configured for a preview-only backend rollout.
+Status: private prototype. The web backend is deployed in preview mode, with its
+schema/runtime access and OAuth endpoint behavior verified.
 Amazon code/model installation and the first account-linked simulator/device test
 remain unverified. No real taxi has been requested by this task.
 The owner has created an Amazon Developer account and supplied a private skill ID.
