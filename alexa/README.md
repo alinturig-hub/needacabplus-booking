@@ -11,18 +11,51 @@ Current skill setup: see `SETUP-OWNER.md`.
 ## What it does
 
 “Alexa, open Need A Cab Plus.” → “Where would you like to go from Home?” →
-“Work” → read exact saved addresses, cash fare and one passenger/no luggage →
+“Work” → read exact saved addresses, the Autocab cash quote and one passenger/no luggage →
 “Yes”. Test mode explicitly says no taxi will be sent before and after review.
 Home, Work and a favourite named “Plymouth Station” are supported. Save these
 addresses in the existing app first. Unknown/ambiguous names are rejected; no
 venue or nearby address is guessed. Custom saved-place names require adding
 sample slot values and testing recognition in Amazon's console.
 
-Live adapter is limited to an ASAP saloon for one passenger, no luggage, cash.
-Existing quote, membership, payment-policy, Autocab integration and durable cash
-booking-attempt guards are reused. No new card charges, prebooking, guest access,
-ride cancellation, device-address permission or Amazon Pay flow is implemented.
-A stopped request does not cancel a confirmed ride.
+## Pricing and booking authority: Autocab
+
+Alexa calls the configured Autocab booking API directly for its fare, reading
+`outward.price` in GBP. It does not call the Need A Cab Plus quote engine, price
+policy, memberships, smart fares, discounts, cashback or payment-policy rules.
+The technical backend retains account linking, saved addresses and duplicate
+protection. The skill/brand name and OAuth fields do not change.
+
+Immediate cash journeys support one passenger with no luggage. Autocab selects
+its default vehicle/profile unless explicit operator capability IDs are configured;
+Alexa does not promise a saloon when no such capability is set.
+
+Optional runtime configuration, independent of Plus settings:
+- `ALEXA_AUTOCAB_COMPANY_ID`: defaults to Autocab company 1.
+- `ALEXA_AUTOCAB_CASH_CUSTOMER_ID`: absent by default; optionally an explicit
+  Autocab cash-compatible account ID. No Plus account ID is inherited.
+- `ALEXA_AUTOCAB_CAPABILITIES`: comma-separated Autocab capability IDs, empty
+  by default. No Plus service, membership or discount capabilities are inherited.
+
+The direct transports require `autocab-api.azure-api.net`, fixed documented quote
+and booking paths, and refuse redirects. The existing configured Autocab credentials
+and technical integration kill switch are reused; ordinary webapp pricing stays
+on its existing path.
+
+Only unadjusted, valid two-decimal GBP provider prices are spoken. Before a live
+submission the fare is refreshed from Autocab: a changed price/profile needs a
+new quote and a new explicit Yes. The booking request contains **no pricing object,
+manual tariff, cost/price override, local surcharge or discount**. Autocab calculates
+the booking itself; this is not a manually locked fare. There can still be operator
+recalculation between quote and creation, as with a normal Autocab booking.
+
+Reviews use a distinct encrypted `aa1` Autocab-only token; old Plus `q2` reviews
+cannot submit a new Alexa booking. Durable attempts reuse `web_booking_attempts`
+and the `NAC-<uuid>` technical correlation reference for reconciliation, but do not
+create a local Plus booking/pricing copy. Autocab/webhooks remain the booking record.
+No card charges, prebooking, guest access, actual ride cancellation, device-address
+permission or Amazon Pay flow is implemented. Stopping a request does not cancel
+an already confirmed ride.
 
 ## First owner step
 
@@ -123,7 +156,8 @@ contains the public skill ID, but no OAuth secret, Lambda ARN or developer crede
   preserving uncertain attempts until reconciled under existing booking policy.
 
 Live cash mode exists for later controlled testing, but **has not been enabled**.
-It additionally requires live cash/ASAP access in the existing booking settings.
+It requires the dedicated Alexa mode and an enabled, correctly configured Autocab
+API connection. Need A Cab Plus live-quote/cash/membership toggles do not govern it.
 Never change the mode to live during a pending preview. The backend rejects that
 review rather than silently turning a simulation into a real booking. First live
 exercise should use a known linked tester and one explicit voice confirmation,
@@ -132,7 +166,7 @@ with operator visibility; no automated real-booking tests are included here.
 ## Local verification
 
 ```sh
-node --test tests/alexa-lambda.test.mjs tests/alexa-backend.test.cjs
+node --test tests/alexa-lambda.test.mjs tests/alexa-backend.test.cjs tests/alexa-autocab-direct.test.cjs
 node_modules/.bin/tsx --test tests/alexa-policy.test.ts
 node alexa/tools/rehearse.mjs
 node_modules/.bin/tsc --noEmit

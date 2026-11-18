@@ -25,5 +25,5 @@ export function fareSpeech(pickup:string,destination:string,pence:number,mode:'l
  if(!Number.isSafeInteger(pence)||pence<=0)throw Error('INVALID_FARE');
  const clean=(s:string)=>s.replace(/[\x00-\x1f\x7f]/g,' ').slice(0,250);
  const price=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(pence/100);
- return `${mode==='preview'?'This is a test. No taxi will be sent. ':''}From ${clean(pickup)} to ${clean(destination)}. For one passenger with no luggage, in a saloon. The fare is ${price}, paid in cash to the driver. ${mode==='preview'?'Shall I simulate this booking?':'Shall I book this taxi?'}`;
+ return `${mode==='preview'?'This is a test. No taxi will be sent. ':''}For an immediate pickup, from ${clean(pickup)} to ${clean(destination)}. For one passenger with no luggage. The quoted fare is ${price}, paid in cash to the driver. ${mode==='preview'?'Shall I simulate this booking?':'Shall I book this taxi?'}`;
 }
