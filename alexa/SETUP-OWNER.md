@@ -3,8 +3,9 @@
 Skill ID: `amzn1.ask.skill.98ba95c6-7892-4739-8faf-6a26e41cbccd`
 Locale: en-GB. Invocation name: `need a cab plus`.
 
-The public skill ID is now configured in the handler. This does not install the
-code or interaction model in Amazon. The backend remains disabled and undeployed.
+The public skill ID is configured in the handler. The web backend is deployed
+in preview mode; its three tables and runtime privileges were verified. This
+does not install the code or interaction model in Amazon.
 
 ## Amazon Developer Console
 
@@ -24,9 +25,10 @@ code or interaction model in Amazon. The backend remains disabled and undeployed
    will be generated and configured privately, never put into these source files.
 5. Keep Development testing and backend preview mode for the first linked test.
 
-Publishing/certification, production migration, OAuth credentials, exact callback
-allowlist and Amazon simulator/device testing remain outstanding. Account linking
-will not work until those backend setup steps in README are complete.
+Backend migration, client credentials and the exact callback allowlist are
+configured. Complete and save the Account Linking form in Amazon, install/build
+the model and handler, then run the first linked simulator/device test. Public
+publication/certification and real booking activation remain outstanding.
 
 ## Owner callbacks (copied from Account Linking screenshot)
 
@@ -43,3 +45,16 @@ Keep Auth Code Grant and PKCE enabled. Scope: `bookings:voice`; token lifetime:
 3600 seconds. iOS/Android authorization fields and Your Redirect URLs are unused
 when those advanced flows are disabled. Amazon's displayed Alexa Redirect URLs
 are the callback allowlist on our backend, not app-initiated redirect URLs.
+
+## Verified preview deployment
+
+Backend release: `8bb52028b87077da2192cb0cce8b3ef1811d2cc9`.
+Startup confirmed `ALEXA_SCHEMA_READY` for three tables with runtime CRUD access.
+Health returned 200; unauthenticated conversation returned 401. Valid client
+credentials with an unissued code returned `invalid_grant`; wrong credentials
+returned `invalid_client`. A valid authorization request redirected to customer
+login. No customer authorization code or real booking was created by these checks.
+
+The client secret is available only in Coolify → Need A Cab Plus → Environment
+Variables → `ALEXA_OAUTH_CLIENT_SECRET`; copy it directly into Amazon's Your Secret
+field. Token expiration is 3600 seconds. Optional Domain List: `webapp.needacabplus.app`.
