@@ -1,0 +1,19 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+function load(file,mocks={}){const module={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>id in mocks?mocks[id]:require(id),module,module.exports);return module.exports;}
+const quote=load('lib/alexa/autocab-quote.ts',{'../autocab-api':{},'../integration-control':{}}),ranking=load('lib/address-ranking.ts'),station=load('lib/station-search.ts');
+const {searchGuestAddresses}=load('lib/alexa/guest-search.ts',{'./autocab-quote':quote,'../autocab-api':{},'../address-ranking':ranking,'../station-search':station});
+const point=text=>({text,coordinate:{latitude:50.38,longitude:-4.14},zoneId:1});
+const unavailable=async()=>{throw Error('synthetic lookup failure')};
+test('Places search returns alternatives and preserves venue names with resolved coordinates',async()=>{
+ let resolves=0;const found=await searchGuestAddresses('Need a Cab Plymouth',{lookup:async()=>[{address:'Need-A-Cab, Devonport Road, Plymouth',placeID:'office-one'},{address:'Need-A-Cab, Albert Road, Plymouth',placeID:'office-two'}],resolve:async()=>{resolves++;return point('Resolved street Plymouth')},search:unavailable});
+ assert.equal(found.length,2);assert.equal(resolves,2);assert.match(found[0].text,/Need-A-Cab/);assert.equal(found[0].coordinate.latitude,50.38);
+});
+test('Plymouth venues rank before remote results and duplicate suggestions resolve once',async()=>{
+ let resolves=0;const found=await searchGuestAddresses('station',{lookup:async()=>[{address:'Station, London',placeID:'remote'},{address:'Station, Plymouth',placeID:'local'},{address:'Station, Plymouth',placeID:'local'}],resolve:async()=>{resolves++;return point('Resolved address')},search:unavailable});assert.equal(found[0].text,'Station, Plymouth');assert.equal(found.length,2);assert.equal(resolves,2);
+});
+test('known station addresses need no remote place resolution',async()=>{const address=point('Raw street');const found=await searchGuestAddresses('Plymouth railway station',{lookup:async q=>{assert.equal(q,'Plymouth train station');return [{address:'PLYMOUTH TRAIN STATION, NORTH CROSS, Plymouth',fullAddress:address}]},resolve:unavailable,search:unavailable});assert.equal(found.length,1);assert.match(found[0].text,/PLYMOUTH TRAIN STATION/)});
+test('operator address search is a fallback and unresolved coordinates never reach quotes',async()=>{
+ const found=await searchGuestAddresses('67 Synthetic Road',{lookup:unavailable,search:async()=>[point('67 Synthetic Road Plymouth')],resolve:unavailable});assert.equal(found.length,1);
+ const missing=await searchGuestAddresses('Unknown venue',{lookup:async()=>[{address:'Unknown venue',placeID:'unknown'}],search:unavailable,resolve:async()=>({text:'No coordinates'})});assert.deepEqual(missing,[]);
+});
+test('lookup failure and guest home/work aliases do not invent an address',async()=>{assert.deepEqual(await searchGuestAddresses('Unknown place',{lookup:unavailable,search:unavailable,resolve:unavailable}),[]);assert.deepEqual(await searchGuestAddresses('Home',{lookup:unavailable,search:unavailable,resolve:unavailable}),[])});

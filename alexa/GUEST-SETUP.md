@@ -59,3 +59,16 @@ This endpoint/model can be tested only after the owner changes the Amazon consol
 settings. Local mocked tests do not prove Amazon model build or a live device flow.
 
 Amazon endpoint/hosting reference: https://developer.amazon.com/en-AU/docs/alexa/hosted-skills/build-a-skill-end-to-end-using-an-alexa-hosted-skill.html
+
+## Place search and shorter prompts
+
+The voice flow now uses the same named-place lookup as the webapp, with the
+operator address API as fallback. It ranks Plymouth results first, resolves
+coordinates/zone and keeps the venue label. Up to three alternatives can be
+read one at a time: Yes accepts the address just read; No offers the next one.
+No route or fare is requested until both endpoints are explicitly accepted.
+
+Reimport the updated guest interaction model and Build Model to add:
+`pick up is ...`, `I am at ...`, `the address is ...`, `collect me from ...`.
+Existing `pick me up from Need a Cab Plymouth` also works with the previous model.
+A bare `need a cab` is a booking command; it does not specify a pickup place.
