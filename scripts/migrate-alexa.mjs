@@ -12,7 +12,7 @@ export async function migrateAlexa({env=process.env,Client=pg.Client,readSchema=
   await owner.connect();if((await owner.query('SELECT current_database() AS database')).rows[0].database!==identity.database)throw Error('ALEXA_DATABASE_MISMATCH');
   await owner.query('BEGIN');transaction=true;await owner.query("SET LOCAL lock_timeout='5s'");await owner.query("SET LOCAL statement_timeout='15s'");await owner.query('SET LOCAL search_path=public');await owner.query("SELECT pg_advisory_xact_lock(hashtext('nac:alexa-schema:v1'))");
   await owner.query(await readSchema());
-  const tables=['alexa_authorization_codes','alexa_grants','alexa_conversations'];
+  const tables=['alexa_authorization_codes','alexa_grants','alexa_conversations','alexa_guest_sessions','alexa_guest_requests'];
   for(const table of tables){const sql=(await owner.query("SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.%I TO %I',$1::text,$2::text) AS sql",[table,identity.role])).rows[0].sql;await owner.query(sql);}
   await owner.query('COMMIT');transaction=false;
   const ready=(await runtime.query("SELECT bool_and(has_table_privilege(current_user,t.name,p.name)) AS ready FROM unnest($1::text[]) AS t(name) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) AS p(name)",[tables.map(t=>'public.'+t)])).rows[0]?.ready;

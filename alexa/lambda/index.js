@@ -1,8 +1,53 @@
-// AWS Lambda only. Do not expose a public Function URL or an unsigned HTTP proxy.
-// The SAM resource policy restricts invocation to Alexa and this exact skill ID.
+// AWS Lambda only: invocation permission must be restricted to this skill ID.
+// Native HTTPS keeps this handler compatible with Alexa-hosted Node.js 16.
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- AWS Lambda CommonJS runtime.
+const https = require('https');
+const DEFAULT_SKILL_ID = 'amzn1.ask.skill.98ba95c6-7892-4739-8faf-6a26e41cbccd';
+function createHttpsFetcher(requester = https.request, timeoutMs = 6500) {
+  return function fetchBackend(url, options) {
+    return new Promise(function(resolve, reject) {
+      var req, timer, settled = false;
+      function fail(error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (req) req.destroy();
+        reject(error);
+      }
+      try {
+        var target = new URL(url);
+        if (target.protocol !== 'https:' || target.username || target.password) throw new Error('Invalid HTTPS target.');
+        var body = options.body || '';
+        var headers = Object.assign({}, options.headers, {'Content-Length': Buffer.byteLength(body)});
+        req = requester(target, {method: options.method, headers: headers}, function(res) {
+          var status = res.statusCode;
+          if (status >= 300 && status < 400) { res.resume(); fail(new Error('Backend redirects are not followed.')); return; }
+          var chunks = [], bytes = 0;
+          res.on('error', fail);
+          res.on('aborted', function() { fail(new Error('Backend response aborted.')); });
+          res.on('data', function(chunk) {
+            bytes += chunk.length;
+            if (bytes > 65536) { res.destroy(); fail(new Error('Backend response too large.')); return; }
+            chunks.push(chunk);
+          });
+          res.on('end', function() {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            var text = Buffer.concat(chunks).toString('utf8');
+            resolve({status: status, ok: status >= 200 && status < 300, json: async function() { return JSON.parse(text); }});
+          });
+        });
+        req.on('error', fail);
+        timer = setTimeout(function() { fail(new Error('Backend request timed out.')); }, timeoutMs);
+        req.end(body);
+      } catch (error) { fail(error); }
+    });
+  };
+}
 const response=(text,attributes={},end=false,link=false)=>({version:'1.0',sessionAttributes:attributes,response:{outputSpeech:{type:'PlainText',text},shouldEndSession:end,...(!end?{reprompt:{outputSpeech:{type:'PlainText',text:attributes.conversationId?'Say yes to confirm, or no to stop.':'Say a saved destination, such as Work, or say stop.'}}}:{}),...(link?{card:{type:'LinkAccount'}}:{})}});
 function slot(intent,name){const s=intent?.slots?.[name];const matches=[...new Set((s?.resolutions?.resolutionsPerAuthority||[]).filter(r=>r.status?.code==='ER_SUCCESS_MATCH').flatMap(r=>(r.values||[]).map(v=>v.value?.name).filter(Boolean)))];return matches.length===1?matches[0]:s?.value;}
-function createHandler({env=process.env,fetcher=fetch,now=Date.now}={}){
+function createHandler({env=process.env,fetcher=createHttpsFetcher(),now=Date.now}={}){
  return async function handler(event){
   const expected=env.ALEXA_SKILL_ID,system=event?.context?.System,request=event?.request,attributes=event?.session?.attributes||{};
   if(!expected||system?.application?.applicationId!==expected||event?.session?.application?.applicationId!==expected)throw Error('Invalid skill application.');
@@ -24,7 +69,7 @@ function createHandler({env=process.env,fetcher=fetch,now=Date.now}={}){
   try{
    const root=new URL(env.BOOKING_BACKEND_ORIGIN||'https://webapp.needacabplus.app');
    if(root.protocol!=='https:'||root.origin!=='https://webapp.needacabplus.app')throw Error('Invalid backend.');
-   const result=await fetcher(new URL('/api/alexa/conversation',root),{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:'Bearer '+accessToken},signal:AbortSignal.timeout(6500),body:JSON.stringify({action:cancel?'cancel':confirm?'confirm':'quote',requestId:request.requestId,sessionId:event.session.sessionId,...(cancel||confirm?{conversationId:attributes.conversationId}:{pickup,destination})})});
+   const result=await fetcher(new URL('/api/alexa/conversation',root),{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:'Bearer '+accessToken},body:JSON.stringify({action:cancel?'cancel':confirm?'confirm':'quote',requestId:request.requestId,sessionId:event.session.sessionId,...(cancel||confirm?{conversationId:attributes.conversationId}:{pickup,destination})})});
    if(result.status===401)return response('Please relink your Need A Cab Plus account in the Alexa app.',{},true,true);
    if(!result.ok)throw Error('Booking backend unavailable.');const data=await result.json();
    if(typeof data.speech!=='string'||data.speech.length>6000)throw Error('Invalid speech.');
@@ -33,5 +78,5 @@ function createHandler({env=process.env,fetcher=fetch,now=Date.now}={}){
  };
 }
 exports.createHandler=createHandler;
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- Alexa-hosted Node.js uses CommonJS for its public skill configuration.
-exports.handler=createHandler({env:{...process.env,ALEXA_SKILL_ID:process.env.ALEXA_SKILL_ID||require('./skill-config.json').skillId}});
+exports.createHttpsFetcher=createHttpsFetcher;
+exports.handler=createHandler({env:Object.assign({},process.env,{ALEXA_SKILL_ID:process.env.ALEXA_SKILL_ID||DEFAULT_SKILL_ID})});

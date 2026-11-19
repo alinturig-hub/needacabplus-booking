@@ -1,3 +1,6 @@
+For guest booking without account linking, use [GUEST-SETUP.md](GUEST-SETUP.md).
+The linked-account pilot below remains available on its separate endpoint.
+
 # Need A Cab Plus — private Alexa prototype (en-GB)
 
 Status: private prototype. The web backend is deployed in preview mode, with its
@@ -65,11 +68,24 @@ will test with. Open https://developer.amazon.com/alexa/console/ask and create a
 submit it for public certification yet.
 
 Recommended private setup: Alexa-hosted Node.js, if available for the account.
-Replace the sample handler with `lambda/index.js`, retain `lambda/package.json`,
-and add `lambda/skill-config.json` with the exact public skill ID shown in the
-console. No packages are required. Alexa-hosted manages the Lambda invocation
-permission; keep the trigger bound to this exact skill. Replace the sample handler
+Build an Alexa-hosted import archive (the root `lambda/` directory is required):
+
+```sh
+python alexa/package.py --format alexa-hosted --skill-id amzn1.ask.skill.REPLACE --output /tmp/alexa-hosted.zip
+```
+
+Open Code → Import Code, upload this archive, select all supplied files and
+replace the sample files. Then Deploy and wait for deployment to succeed.
+The handler uses native HTTPS and supports the observed Alexa-hosted Node.js
+16.20.2 runtime as well as newer Node.js runtimes, without dependencies or global
+fetch. The public skill ID is embedded by the packager; `skill-config.json` is
+included for reference but is not required at startup. Keep the Amazon-managed
+invocation permission bound to this exact skill. Replace the sample handler
 rather than adding a second exported handler to the existing sample.
+
+If testing says “You just triggered BookTaxiIntent”, the sample code is still
+running. The interaction model already recognized the intent; import and deploy
+the handler. An unlinked account should receive the account-linking prompt.
 
 For an independently managed AWS Lambda, use `template.yaml` with AWS SAM in
 `eu-west-1` and provide `SkillId`. The template grants invocation only to

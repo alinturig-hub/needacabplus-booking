@@ -26,6 +26,8 @@
     "@terraformer/wkt": "^2.2.2",
     "@types/leaflet": "^1.9.22",
     "@watergis/maplibre-gl-terradraw": "^1.17.0",
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-express-adapter": "^2.14.0",
     "cheerio": "^1.2.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

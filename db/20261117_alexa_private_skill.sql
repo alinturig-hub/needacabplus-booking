@@ -36,3 +36,26 @@ CREATE TABLE IF NOT EXISTS alexa_conversations (
  UNIQUE(grant_id,request_id)
 );
 CREATE INDEX IF NOT EXISTS alexa_conversations_session ON alexa_conversations(grant_id,session_hash,created_at DESC);
+
+-- Guest voice state does not create a customer account or an OAuth grant.
+CREATE TABLE IF NOT EXISTS alexa_guest_sessions (
+ id uuid PRIMARY KEY,
+ principal text NOT NULL,
+ session_hash text NOT NULL,
+ phase text NOT NULL,
+ details jsonb NOT NULL DEFAULT '{}',
+ expires_at timestamptz NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(principal,session_hash)
+);
+CREATE INDEX IF NOT EXISTS alexa_guest_sessions_principal ON alexa_guest_sessions(principal,phase);
+CREATE TABLE IF NOT EXISTS alexa_guest_requests (
+ principal text NOT NULL,
+ request_hash text NOT NULL,
+ response jsonb NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(principal,request_hash)
+);
+
+CREATE INDEX IF NOT EXISTS alexa_guest_requests_created ON alexa_guest_requests(created_at);
+CREATE INDEX IF NOT EXISTS alexa_guest_sessions_expiry ON alexa_guest_sessions(expires_at);

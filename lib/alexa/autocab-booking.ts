@@ -3,7 +3,7 @@ import type {Pool} from 'pg';
 import {createDirectAutocabCashBooking} from '../autocab-api';
 import {readLiveAttempt} from '../live-cash-booking';
 import type {AlexaAutocabQuote,AlexaAutocabRequest} from './autocab-quote';
-const passenger=z.object({name:z.string().trim().min(2).max(100),telephoneNumber:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),customerEmail:z.string().email().max(250)}).strict();
+const passenger=z.object({name:z.string().trim().min(2).max(100),telephoneNumber:z.string().trim().regex(/^\+?[0-9 ()-]{7,25}$/),customerEmail:z.string().email().max(250).optional()}).strict();
 export function directBookingBody(quote:AlexaAutocabQuote,request:AlexaAutocabRequest,identity:z.infer<typeof passenger>){
  const person=passenger.parse(identity);
  // Deliberately no pricing object, manual tariff, cost override or Plus rules.
