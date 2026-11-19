@@ -26,3 +26,12 @@ test('live guest confirmation uses direct Autocab cash body without customer acc
 test('changed live fare never dispatches',async t=>{const f=await fixture(t);process.env.ALEXA_GUEST_BOOKING_MODE='live';await f.ready();f.change=true;const r=await f.run('AMAZON.YesIntent');assert.doesNotMatch(r.response.outputSpeech.text,/taxi is booked/);assert.equal(f.sends,0);});
 test('uncertain send blocks another session for the same Alexa user',async t=>{const f=await fixture(t);process.env.ALEXA_GUEST_BOOKING_MODE='live';await f.ready();f.pending=true;const r=await f.run('AMAZON.YesIntent');assert.match(r.response.outputSpeech.text,/awaiting confirmation/);const next=await f.run('BookTaxiIntent',undefined,undefined,'another-synthetic-session');assert.match(next.response.outputSpeech.text,/earlier booking/);assert.equal(f.sends,1);});
 test('contact number validation excludes uncallable and non-UK numbers',async t=>{const f=await fixture(t);for(const v of ['123','hello','+407700900123','07700900123abc'])assert.equal(f.guest.guestPhone(v),null);assert.equal(f.guest.guestPhone('+44 7700 900123'),'+447700900123');});
+test('address search resolves placeID results and refuses mixed unresolved candidates',async t=>{
+ const f=await fixture(t);const point={text:'Synthetic Station Plymouth',coordinate:{latitude:50.38,longitude:-4.14},zoneId:1};let results=[{address:'Synthetic Station Plymouth',placeID:'synthetic-place-id',fullAddress:null}],resolved=0;
+ const quote=load('lib/alexa/autocab-quote.ts',{'../autocab-api':{},'../integration-control':{}});
+ const guest=load('lib/alexa/guest.ts',{'../database':{},'../autocab-api':{searchAddresses:async()=>results,resolveAddressPlaceId:async id=>{assert.equal(id,'synthetic-place-id');resolved++;return point}},'./autocab-quote':quote,'./autocab-booking':{},'./policy':policy});
+ assert.deepEqual(await guest.guestAddress('Synthetic Station Plymouth'),point);assert.equal(resolved,1);
+ results=[{fullAddress:point}];assert.deepEqual(await guest.guestAddress('Synthetic Station Plymouth'),point);
+ results=[point,{placeID:'different-unresolved-place'}];assert.equal(await guest.guestAddress('Synthetic Station Plymouth'),null);assert.equal(resolved,1);
+ assert.equal(await guest.guestAddress('Home'),null);assert.equal(f.sends,0);
+});
