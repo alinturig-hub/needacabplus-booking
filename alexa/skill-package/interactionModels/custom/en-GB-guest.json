@@ -9,7 +9,38 @@
             "book a taxi",
             "book me a taxi",
             "get me a cab",
-            "request a taxi"
+            "request a taxi",
+            "book a taxi {Journey}",
+            "book me a taxi {Journey}",
+            "get me a cab {Journey}",
+            "request a taxi {Journey}"
+          ],
+          "slots": [
+            {
+              "name": "Journey",
+              "type": "AMAZON.SearchQuery"
+            }
+          ]
+        },
+        {
+          "name": "UseLocationIntent",
+          "samples": [
+            "use my location",
+            "pick me up here",
+            "use my current location",
+            "start from here"
+          ]
+        },
+        {
+          "name": "QuickPlaceIntent",
+          "slots": [
+            {
+              "name": "Place",
+              "type": "QUICK_PLACE"
+            }
+          ],
+          "samples": [
+            "{Place}"
           ]
         },
         {
@@ -40,7 +71,9 @@
             "destination is {Address}",
             "take me to {Address}",
             "I want to go to {Address}",
-            "drop me at {Address}"
+            "drop me at {Address}",
+            "to {Address}",
+            "go to {Address}"
           ]
         },
         {
@@ -108,6 +141,60 @@
         {
           "name": "AMAZON.FallbackIntent",
           "samples": []
+        }
+      ],
+      "types": [
+        {
+          "name": "QUICK_PLACE",
+          "values": [
+            {
+              "name": {
+                "value": "train station",
+                "synonyms": [
+                  "the station",
+                  "the train station",
+                  "railway station",
+                  "the railway station"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "bus station",
+                "synonyms": [
+                  "the bus station"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "airport",
+                "synonyms": [
+                  "the airport"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "city centre",
+                "synonyms": [
+                  "the city centre",
+                  "town centre",
+                  "the town centre"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "Crowne Plaza",
+                "synonyms": [
+                  "the Crowne Plaza",
+                  "Crown Plaza",
+                  "the Crown Plaza"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

@@ -1,10 +1,11 @@
 import {SkillRequestSignatureVerifier,TimestampVerifier} from 'ask-sdk-express-adapter';
 import {z} from 'zod';
 import {boundedBody} from './body';
+import {alexaLocationContextSchema} from './location';
 import {guestConversation,guestReply} from './guest';
 const verifier=new SkillRequestSignatureVerifier(),timestamp=new TimestampVerifier(150000);
 const app=z.object({applicationId:z.string()});
-const envelope=z.object({context:z.object({System:z.object({application:app,user:z.object({userId:z.string().min(10).max(512)})})}),session:z.object({sessionId:z.string().min(10).max(512),application:app.optional()}).optional(),request:z.object({type:z.enum(['LaunchRequest','IntentRequest','SessionEndedRequest']),requestId:z.string().min(10).max(512),timestamp:z.string(),locale:z.literal('en-GB'),intent:z.object({name:z.string().max(80),slots:z.record(z.object({value:z.string().max(160).optional()}).passthrough()).optional()}).optional()})});
+const envelope=z.object({context:z.object({System:z.object({application:app,user:z.object({userId:z.string().min(10).max(512)})})}),session:z.object({sessionId:z.string().min(10).max(512),application:app.optional()}).optional(),request:z.object({type:z.enum(['LaunchRequest','IntentRequest','SessionEndedRequest']),requestId:z.string().min(10).max(512),timestamp:z.string(),locale:z.literal('en-GB'),intent:z.object({name:z.string().max(80),slots:z.record(z.object({value:z.string().max(330).optional()}).passthrough()).optional()}).optional()})});
 const headers={'Cache-Control':'no-store'};
 export function guestEndpoint(services:{signature:Pick<SkillRequestSignatureVerifier,'verify'>;time:Pick<TimestampVerifier,'verify'>;conversation:typeof guestConversation}={signature:verifier,time:timestamp,conversation:guestConversation}){
  return async function POST(request:Request){
@@ -23,8 +24,9 @@ export function guestEndpoint(services:{signature:Pick<SkillRequestSignatureVeri
   if(event.request.type==='SessionEndedRequest')return Response.json({version:'1.0',response:{shouldEndSession:true}},{headers});
   if(!event.session)return Response.json({error:'Missing voice session.'},{status:400,headers});
   try{
-   const intent=event.request.intent,field=intent?.name==='ProvideNameIntent'?'Name':intent?.name==='ProvidePhoneIntent'?'Phone':'Address';
-   return Response.json(await services.conversation({principal:event.context.System.user.userId,session:event.session.sessionId,requestId:event.request.requestId,type:event.request.type,intent:intent?.name,value:intent?.slots?.[field]?.value}),{headers});
+   const location=alexaLocationContextSchema.safeParse((payload as {context:unknown}).context);
+   const intent=event.request.intent,field=intent?.name==='QuickPlaceIntent'?'Place':intent?.name==='ProvideNameIntent'?'Name':intent?.name==='ProvidePhoneIntent'?'Phone':'Address';
+   return Response.json(await services.conversation({principal:event.context.System.user.userId,session:event.session.sessionId,requestId:event.request.requestId,type:event.request.type,intent:intent?.name,value:intent?.slots?.[field]?.value,journey:intent?.slots?.Journey?.value,...(location.success?{location:location.data}:{})}),{headers});
   }catch{return Response.json(guestReply('The taxi service is temporarily unavailable. Please try again later.',true),{headers});}
  };
 }

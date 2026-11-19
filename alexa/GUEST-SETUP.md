@@ -1,3 +1,5 @@
+For automatic pickup suggestions and single-phrase routes, follow [LOCATION-SETUP.md](LOCATION-SETUP.md).
+
 # Guest voice booking (private preview)
 
 No Need A Cab Plus account, OAuth grant, saved place, membership or card is required.

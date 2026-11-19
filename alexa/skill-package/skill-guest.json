@@ -1,0 +1,38 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-GB": {
+          "name": "Need A Cab Plus",
+          "summary": "Request a cash taxi as a guest.",
+          "description": "Private preview. Confirm your pickup from the device address or shared current location, choose a destination and hear the Autocab cash fare before confirming. No taxi is sent in test mode.",
+          "examplePhrases": [
+            "Alexa, open need a cab plus",
+            "Alexa, ask need a cab plus to book a taxi to the train station"
+          ]
+        }
+      },
+      "isAvailableWorldwide": false,
+      "distributionCountries": [
+        "GB"
+      ],
+      "category": "GETTING_AROUND"
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://webapp.needacabplus.app/api/alexa/guest"
+        }
+      }
+    },
+    "manifestVersion": "1.0",
+    "permissions": [
+      {
+        "name": "alexa::devices:all:address:full:read"
+      },
+      {
+        "name": "alexa::devices:all:geolocation:read"
+      }
+    ]
+  }
+}
