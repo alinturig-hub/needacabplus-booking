@@ -1,3 +1,6 @@
+For the current guest flow, follow [GUEST-SETUP.md](GUEST-SETUP.md).
+The steps below describe the older linked-account flow.
+
 # Current private skill
 
 Skill ID: `amzn1.ask.skill.98ba95c6-7892-4739-8faf-6a26e41cbccd`

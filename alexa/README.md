@@ -1,3 +1,6 @@
+For guest booking without account linking, use [GUEST-SETUP.md](GUEST-SETUP.md).
+The linked-account pilot below remains available on its separate endpoint.
+
 # Need A Cab Plus — private Alexa prototype (en-GB)
 
 Status: private prototype. The web backend is deployed in preview mode, with its

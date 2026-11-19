@@ -1,0 +1,94 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "need a cab plus",
+      "intents": [
+        {
+          "name": "BookTaxiIntent",
+          "samples": [
+            "book a taxi",
+            "book me a taxi",
+            "get me a cab",
+            "request a taxi"
+          ]
+        },
+        {
+          "name": "ProvidePickupIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "pickup is {Address}",
+            "pick me up from {Address}"
+          ]
+        },
+        {
+          "name": "ProvideDestinationIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "destination is {Address}",
+            "take me to {Address}"
+          ]
+        },
+        {
+          "name": "ProvideNameIntent",
+          "slots": [
+            {
+              "name": "Name",
+              "type": "AMAZON.FirstName"
+            }
+          ],
+          "samples": [
+            "my name is {Name}",
+            "passenger name is {Name}"
+          ]
+        },
+        {
+          "name": "ProvidePhoneIntent",
+          "slots": [
+            {
+              "name": "Phone",
+              "type": "AMAZON.PhoneNumber"
+            }
+          ],
+          "samples": [
+            "my phone number is {Phone}",
+            "phone number is {Phone}"
+          ]
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ]
+    }
+  }
+}
