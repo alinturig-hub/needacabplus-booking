@@ -11,9 +11,11 @@ does not install the code or interaction model in Amazon.
 
 1. Build → Interaction Model → JSON Editor: import
    `skill-package/interactionModels/custom/en-GB.json`; Save and Build Model.
-2. If this is an Alexa-hosted Node.js skill, open Code and replace the sample
-   `index.js`, `package.json` and add `skill-config.json` using `lambda/` files.
-   Save and Deploy. Keep the Amazon-managed invocation restriction for this skill.
+2. If this is an Alexa-hosted Node.js skill, build the archive with
+   `python alexa/package.py --format alexa-hosted --skill-id amzn1.ask.skill.98ba95c6-7892-4739-8faf-6a26e41cbccd --output /tmp/alexa-hosted.zip`.
+   Open Code → Import Code, select all supplied files and replace the sample.
+   Deploy and wait for success. Native HTTPS supports Node.js 16.20.2; no
+   dependencies or environment variables are needed in the hosted editor. Keep the Amazon-managed invocation restriction for this skill.
    If it is not Alexa-hosted, use the Lambda/SAM option in README instead.
 3. Build → Account Linking: select authorization code grant and use:
    - Authorization URI: `https://webapp.needacabplus.app/alexa/link`
