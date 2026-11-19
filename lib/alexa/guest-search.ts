@@ -17,14 +17,15 @@ const defaults={lookup:namedLookup,search:searchAddresses,resolve:resolveAddress
 // Read-only lookup budget stays below Alexa's response deadline. Never use this
 // timeout helper around booking creation: an interrupted send has an unknown outcome.
 async function bounded<T>(read:()=>Promise<T>,ms:number):Promise<T>{let timer:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([read(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('LOOKUP_TIMEOUT')),Math.max(1,ms));})]);}finally{clearTimeout(timer);}}
-export async function searchGuestAddresses(spoken:string,services:Partial<typeof defaults>={}):Promise<Address[]>{
+export async function searchGuestAddresses(spoken:string,services:Partial<typeof defaults>&{city?:string}={}):Promise<Address[]>{
  const query=spoken.trim();if(query.length<3||query.length>160||/^(?:my )?(home|work|house|office)$/i.test(query))return [];
- const s={...defaults,...services},deadline=Date.now()+5500;let items:z.infer<typeof suggestion>[]=[];
- try{items=await bounded(()=>s.lookup(stationSearchQuery(query)||query),2500);}catch{/* Fall back to the operator's configured address provider. */}
+ const s={...defaults,...services},city=services.city?.trim().slice(0,100)||'Plymouth',deadline=Date.now()+5500;let items:z.infer<typeof suggestion>[]=[];
+ const lookupQuery=/^(?:the\s+)?(?:(?:trains?|railway|rail)\s+)?station$/i.test(query)?city+' train station':/^(?:the\s+)?(?:bus station|airport|city cent(?:re|er))$/i.test(query)?city+' '+query:stationSearchQuery(query)||query;
+ try{items=await bounded(()=>s.lookup(lookupQuery),2500);}catch{/* Fall back to the operator's configured address provider. */}
  if(!items.length){
-  try{const raw=await bounded(()=>s.search(query,autocabSettings().companyId,50.3755,-4.1427),Math.min(2500,deadline-Date.now()));items=raw.flatMap(item=>{const parsed=suggestion.safeParse({address:item.address||item.text,fullAddress:item.fullAddress||item,placeID:item.placeID||item.placeId});return parsed.success?[parsed.data]:[];});}catch{return [];}
+  try{const raw=await bounded(()=>s.search(lookupQuery,autocabSettings().companyId,...(city.toLowerCase()==='plymouth'?[50.3755,-4.1427] as const:[undefined,undefined] as const)),Math.min(2500,deadline-Date.now()));items=raw.flatMap(item=>{const parsed=suggestion.safeParse({address:item.address||item.text,fullAddress:item.fullAddress||item,placeID:item.placeID||item.placeId});return parsed.success?[parsed.data]:[];});}catch{return [];}
  }
- const ranked=rankAddressSuggestions(items,query,'Plymouth'),unique=ranked.filter((item,index)=>ranked.findIndex(other=>other.address.toLowerCase()===item.address.toLowerCase())===index).slice(0,3);
+ const ranked=rankAddressSuggestions(items,query,city),unique=ranked.filter((item,index)=>ranked.findIndex(other=>other.address.toLowerCase()===item.address.toLowerCase())===index).slice(0,3);
  const results=await Promise.allSettled(unique.map(async item=>{
   const direct=alexaJourneySchema.shape.pickup.safeParse(item.fullAddress);
   let address:Address;

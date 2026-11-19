@@ -1,7 +1,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
 function load(file,mocks={}){const module={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>id in mocks?mocks[id]:require(id),module,module.exports);return module.exports;}
 const body=load('lib/alexa/body.ts');
-const {guestEndpoint}=load('lib/alexa/guest-endpoint.ts',{'./body':body,'./guest':{guestReply:(text,end)=>({response:{outputSpeech:{text},shouldEndSession:end}})}});
+const {z}=require('zod');const location={alexaLocationContextSchema:z.object({System:z.object({apiAccessToken:z.string().optional()}).passthrough(),Geolocation:z.unknown().optional()})};
+const {guestEndpoint}=load('lib/alexa/guest-endpoint.ts',{'./body':body,'./location':location,'./guest':{guestReply:(text,end)=>({response:{outputSpeech:{text},shouldEndSession:end}})}});
 const expected='amzn1.ask.skill.98ba95c6-7892-4739-8faf-6a26e41cbccd';
 const event=()=>({context:{System:{application:{applicationId:expected},user:{userId:'synthetic-guest-user'}}},session:{sessionId:'synthetic-session-id',application:{applicationId:expected}},request:{type:'IntentRequest',requestId:'synthetic-request-id',timestamp:new Date().toISOString(),locale:'en-GB',intent:{name:'ProvidePickupIntent',slots:{Address:{value:'67 Synthetic Road Plymouth'}}}}});
 function fixture(t){const old={...process.env};process.env.ALEXA_SKILL_ENABLED='true';delete process.env.ALEXA_SKILL_ID;t.after(()=>{for(const k of Object.keys(process.env))if(!(k in old))delete process.env[k];Object.assign(process.env,old)});let calls=0,seen='';const services={signature:{verify:async raw=>{seen=raw}},time:{verify:async()=>{}},conversation:async input=>{calls++;return {input}}};return {services,send:(value=event())=>guestEndpoint(services)(new Request('https://example.test/api/alexa/guest',{method:'POST',body:typeof value==='string'?value:JSON.stringify(value)})),get calls(){return calls},get seen(){return seen}};}
@@ -29,3 +30,5 @@ test('Amazon SHA-256 signature header reaches the real verifier and body tamperi
  const legacy=new Request('https://example.test/api/alexa/guest',{method:'POST',headers:{signature,signaturecertchainurl:headers.signaturecertchainurl},body:raw});
  assert.equal((await route(legacy)).status,400);assert.equal(f.calls,1);
 });
+
+test('signed journey and location context reach conversation without account linking',async t=>{const f=fixture(t),e=event();e.request.intent={name:'BookTaxiIntent',slots:{Journey:{value:'to the station'}}};e.context.System.apiAccessToken='synthetic-api-token';e.context.Geolocation={timestamp:new Date().toISOString()};const r=await f.send(e),data=await r.json();assert.equal(r.status,200);assert.equal(data.input.journey,'to the station');assert.equal(data.input.location.System.apiAccessToken,'synthetic-api-token');});
