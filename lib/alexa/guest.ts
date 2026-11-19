@@ -17,15 +17,17 @@ export function guestPhone(raw:string){const cleaned=raw.replace(/[ ()-]/g,'');r
 export async function guestAddress(spoken:string):Promise<Address|null>{
  if(spoken.length<5||spoken.length>160||/^(?:my )?(home|work|house|office)$/i.test(spoken.trim()))return null;
  const matches=await searchAddresses(spoken,autocabSettings().companyId,50.3755,-4.1427);
- const addresses:Address[]=[];
- // Never choose the first result from an ambiguous search. Ask for a postcode.
- for(const item of matches.slice(0,8)){
-  const parsed=alexaJourneySchema.shape.pickup.safeParse(item);
-  if(parsed.success&&!addresses.some(a=>a.text===parsed.data.text))addresses.push(parsed.data);
- }
- if(addresses.length===1)return addresses[0];
- if(!addresses.length&&matches.length===1&&typeof matches[0].placeId==='string'){
-  const parsed=alexaJourneySchema.shape.pickup.safeParse(await resolveAddressPlaceId(matches[0].placeId));return parsed.success?parsed.data:null;
+ // Search providers can return complete addresses or a placeID to resolve.
+ // Do not select a single resolved item while other unresolved candidates exist.
+ if(matches.length!==1)return null;
+ const item=matches[0],nested=item.fullAddress;
+ const source=nested&&typeof nested==='object'&&!Array.isArray(nested)?nested:item;
+ const parsed=alexaJourneySchema.shape.pickup.safeParse(source);
+ if(parsed.success)return parsed.data;
+ const placeId=item.placeID??item.placeId;
+ if(typeof placeId==='string'&&placeId.length>=3&&placeId.length<=600){
+  const resolved=alexaJourneySchema.shape.pickup.safeParse(await resolveAddressPlaceId(placeId));
+  return resolved.success?resolved.data:null;
  }
  return null;
 }
