@@ -22,7 +22,10 @@
           ],
           "samples": [
             "pickup is {Address}",
-            "pick me up from {Address}"
+            "pick me up from {Address}",
+            "pick up is {Address}",
+            "my pickup is {Address}",
+            "collect me from {Address}"
           ]
         },
         {
@@ -35,7 +38,25 @@
           ],
           "samples": [
             "destination is {Address}",
-            "take me to {Address}"
+            "take me to {Address}",
+            "I want to go to {Address}",
+            "drop me at {Address}"
+          ]
+        },
+        {
+          "name": "ProvideAddressIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "I am at {Address}",
+            "I'm at {Address}",
+            "the address is {Address}",
+            "address is {Address}",
+            "at {Address}"
           ]
         },
         {

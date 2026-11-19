@@ -1,37 +1,20 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {database,bookingAttemptDatabase} from '../database';
-import {searchAddresses,resolveAddressPlaceId} from '../autocab-api';
-import {alexaJourneySchema,autocabSettings,directAutocabQuote,sealAutocabQuote,openAutocabQuote,recheckAutocabFare} from './autocab-quote';
+import {searchGuestAddresses} from './guest-search';
+import {alexaJourneySchema,directAutocabQuote,sealAutocabQuote,openAutocabQuote,recheckAutocabFare} from './autocab-quote';
 import {directBookingBody,submitDirectAutocabBooking} from './autocab-booking';
 import {hash,fareSpeech} from './policy';
 
 type Address=z.infer<typeof alexaJourneySchema>['pickup'];
-type Details={pickup?:Address;destination?:Address;candidate?:Address;name?:string;phone?:string;quote?:string;mode?:'live'|'preview'};
+type Details={pickup?:Address;destination?:Address;candidate?:Address;alternatives?:Address[];name?:string;phone?:string;quote?:string;mode?:'live'|'preview'};
 type Row={id:string;principal:string;phase:string;details:Details;expires_at:Date};
 export type GuestInput={principal:string;session:string;requestId:string;type:string;intent?:string;value?:string};
 export type GuestReply={version:string;sessionAttributes:Record<string,never>;response:{outputSpeech:{type:string;text:string};shouldEndSession:boolean;reprompt?:{outputSpeech:{type:string;text:string}}}};
 export function guestReply(text:string,end=false):GuestReply{return {version:'1.0',sessionAttributes:{},response:{outputSpeech:{type:'PlainText',text},shouldEndSession:end,...(!end?{reprompt:{outputSpeech:{type:'PlainText',text}}}:{})}};}
-const prompts:Record<string,string>={pickup:'What is your pickup address? Say pickup is, followed by the street number, street and town.',destination:'Where are you going? Say destination is, followed by the place or full address and town.',name:'What is the passenger name? Say my name is, followed by your name.',phone:'What is your contact phone number? Say my phone number is, followed by the number.'};
+const prompts:Record<string,string>={pickup:'What is your pickup address or place? Say, pick me up from, then the place or address.',destination:'Where are you going? Say, take me to, then the place or address.',name:'What is the passenger name? Say my name is, followed by your name.',phone:'What is your contact phone number? Say my phone number is, followed by the number.'};
 export function guestPhone(raw:string){const cleaned=raw.replace(/[ ()-]/g,'');return /^(?:(?:\+44|0044)[1-9][0-9]{9}|0[1-9][0-9]{9})$/.test(cleaned)?cleaned.replace(/^0044/,'+44'):null;}
-export async function guestAddress(spoken:string):Promise<Address|null>{
- if(spoken.length<5||spoken.length>160||/^(?:my )?(home|work|house|office)$/i.test(spoken.trim()))return null;
- const matches=await searchAddresses(spoken,autocabSettings().companyId,50.3755,-4.1427);
- // Search providers can return complete addresses or a placeID to resolve.
- // Do not select a single resolved item while other unresolved candidates exist.
- if(matches.length!==1)return null;
- const item=matches[0],nested=item.fullAddress;
- const source=nested&&typeof nested==='object'&&!Array.isArray(nested)?nested:item;
- const parsed=alexaJourneySchema.shape.pickup.safeParse(source);
- if(parsed.success)return parsed.data;
- const placeId=item.placeID??item.placeId;
- if(typeof placeId==='string'&&placeId.length>=3&&placeId.length<=600){
-  const resolved=alexaJourneySchema.shape.pickup.safeParse(await resolveAddressPlaceId(placeId));
-  return resolved.success?resolved.data:null;
- }
- return null;
-}
-const deps={db:database,attempts:bookingAttemptDatabase,address:guestAddress,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking};
+const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking};
 export async function guestConversation(input:GuestInput,services:Partial<typeof deps>={}){
  const s={...deps,...services},db=s.db(),session=hash(input.session),principal=hash(input.principal),request=hash(input.requestId);
  const client=await db.connect();let transaction=false;
@@ -63,19 +46,21 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
   }
   if(intent==='AMAZON.StopIntent'||intent==='AMAZON.CancelIntent'){row.phase='ended';row.details={};return finish(guestReply('I stopped this taxi request.',true));}
   if(intent==='AMAZON.NoIntent'){
-   if(row.phase==='pickup_check'||row.phase==='destination_check'){row.phase=row.phase.replace('_check','');delete row.details.candidate;return finish(guestReply(prompts[row.phase]));}
+   if(row.phase==='pickup_check'||row.phase==='destination_check'){const next=row.details.alternatives?.shift();if(next){row.details.candidate=next;return finish(guestReply(`How about ${next.text}? Is that correct?`));}row.phase=row.phase.replace('_check','');delete row.details.candidate;delete row.details.alternatives;return finish(guestReply('Tell me a more specific place or address. '+prompts[row.phase]));}
    row.phase='ended';row.details={};return finish(guestReply('I stopped this taxi request.',true));
   }
-  if(input.type==='LaunchRequest'||intent==='BookTaxiIntent')return finish(guestReply('You can book as a guest, paying cash to the driver. '+(prompts[row.phase]||'Say yes or no to the current question.')));
+  if(input.type==='LaunchRequest'||intent==='BookTaxiIntent')return finish(guestReply((input.type==='LaunchRequest'?'Welcome. ':'')+(prompts[row.phase]||'Say yes or no to the current question.')));
   const value=input.value?.trim()||'';
-  if((intent==='ProvidePickupIntent'&&row.phase==='pickup')||(intent==='ProvideDestinationIntent'&&row.phase==='destination')){
-   const candidate=await s.address(value);
-   if(!candidate)return finish(guestReply('I could not identify one address. Please include the street number, town and postcode. '+prompts[row.phase]));
-   row.details.candidate=candidate;row.phase+='_check';return finish(guestReply(`I found ${candidate.text}. Is that correct?`));
+  const addressPhase=row.phase.replace('_check','');
+  if(((intent==='ProvidePickupIntent'||intent==='ProvideAddressIntent')&&addressPhase==='pickup')||((intent==='ProvideDestinationIntent'||intent==='ProvideAddressIntent')&&addressPhase==='destination')){
+   row.phase=addressPhase;delete row.details.candidate;delete row.details.alternatives;
+   const candidates=await s.address(value);
+   if(!candidates.length)return finish(guestReply('I could not find that place. Try the street, town or postcode.'));
+   const [candidate,...alternatives]=candidates;row.details.candidate=candidate;row.details.alternatives=alternatives;row.phase=addressPhase+'_check';return finish(guestReply(`I found ${candidate.text}. Is that correct?`));
   }
   if(intent==='AMAZON.YesIntent'&&(row.phase==='pickup_check'||row.phase==='destination_check')){
    const pickup=row.phase==='pickup_check';if(!row.details.candidate)throw Error('MISSING_CANDIDATE');
-   row.details[pickup?'pickup':'destination']=row.details.candidate;delete row.details.candidate;
+   row.details[pickup?'pickup':'destination']=row.details.candidate;delete row.details.candidate;delete row.details.alternatives;
    row.phase=pickup?'destination':'name';return finish(guestReply(prompts[row.phase]));
   }
   if(intent==='ProvideNameIntent'&&row.phase==='name'){
