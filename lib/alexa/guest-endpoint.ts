@@ -12,7 +12,7 @@ export function guestEndpoint(services:{signature:Pick<SkillRequestSignatureVeri
   let raw:string;
   try{raw=await boundedBody(request,65536);}catch{return Response.json({error:'Invalid request.'},{status:400,headers});}
   // Verify the exact bytes before parsing or using any conversational fields.
-  try{await services.signature.verify(raw,{signature:request.headers.get('signature')||'',signaturecertchainurl:request.headers.get('signaturecertchainurl')||''});await services.time.verify(raw);}catch{return Response.json({error:'Invalid Alexa signature or timestamp.'},{status:400,headers});}
+  try{await services.signature.verify(raw,{'signature-256':request.headers.get('signature-256')||'',signaturecertchainurl:request.headers.get('signaturecertchainurl')||''});await services.time.verify(raw);}catch{return Response.json({error:'Invalid Alexa signature or timestamp.'},{status:400,headers});}
   let payload:unknown;try{payload=JSON.parse(raw);}catch{return Response.json({error:'Invalid JSON.'},{status:400,headers});}
   const parsed=envelope.safeParse(payload);
   if(!parsed.success)return Response.json({error:'Invalid Alexa request.'},{status:400,headers});

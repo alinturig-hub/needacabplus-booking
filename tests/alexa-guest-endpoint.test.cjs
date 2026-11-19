@@ -10,4 +10,22 @@ test('invalid signature and foreign skill cannot reach conversation',async t=>{c
 test('missing, stale and future timestamps are rejected independently of signature verifier',async t=>{const f=fixture(t);for(const timestamp of ['', 'not-a-date',new Date(Date.now()-200000).toISOString(),new Date(Date.now()+200000).toISOString()]){const e=event();e.request.timestamp=timestamp;assert.equal((await f.send(e)).status,400)}assert.equal(f.calls,0)});
 test('malformed, oversized and missing-session requests cannot reach booking logic',async t=>{const f=fixture(t);assert.equal((await f.send('{')).status,400);assert.equal((await f.send('x'.repeat(65537))).status,400);const e=event();delete e.session;assert.equal((await f.send(e)).status,400);assert.equal(f.calls,0)});
 test('disabled skill never verifies or processes requests',async t=>{const f=fixture(t);process.env.ALEXA_SKILL_ENABLED='false';assert.equal((await f.send()).status,503);assert.equal(f.calls,0);assert.equal(f.seen,'')});
-test('actual Amazon verifier rejects unsigned and non-Amazon certificate URLs',async t=>{fixture(t);const route=guestEndpoint();for(const cert of ['', 'https://attacker.example/echo.api.pem','http://s3.amazonaws.com/echo.api/cert.pem']){const r=await route(new Request('https://example.test/api/alexa/guest',{method:'POST',headers:{signature:'synthetic',signaturecertchainurl:cert},body:JSON.stringify(event())}));assert.equal(r.status,400)}});
+test('actual Amazon verifier rejects unsigned and non-Amazon certificate URLs',async t=>{fixture(t);const route=guestEndpoint();for(const cert of ['', 'https://attacker.example/echo.api.pem','http://s3.amazonaws.com/echo.api/cert.pem']){const r=await route(new Request('https://example.test/api/alexa/guest',{method:'POST',headers:{'signature-256':'synthetic',signaturecertchainurl:cert},body:JSON.stringify(event())}));assert.equal(r.status,400)}});
+
+test('Amazon SHA-256 signature header reaches the real verifier and body tampering is rejected',async t=>{
+ const f=fixture(t),{generateKeyPairSync,createSign}=require('node:crypto');
+ const {SkillRequestSignatureVerifier}=require('ask-sdk-express-adapter');
+ const {privateKey,publicKey}=generateKeyPairSync('rsa',{modulusLength:2048});
+ const verifier=new SkillRequestSignatureVerifier();
+ // Trust-chain retrieval is isolated here; actual RSA body verification remains real.
+ verifier._validateUrlAndRetrieveCertChain=async()=>publicKey.export({type:'spki',format:'pem'});
+ f.services.signature=verifier;
+ const raw=JSON.stringify(event()),signer=createSign('RSA-SHA256');signer.update(raw);signer.end();
+ const signature=signer.sign(privateKey,'base64');
+ const headers={'signature-256':signature,signaturecertchainurl:'https://s3.amazonaws.com/echo.api/synthetic-test.pem'};
+ const route=guestEndpoint(f.services),send=body=>route(new Request('https://example.test/api/alexa/guest',{method:'POST',headers,body}));
+ assert.equal((await send(raw)).status,200);assert.equal(f.calls,1);
+ assert.equal((await send(raw.replace('67 Synthetic','68 Synthetic'))).status,400);assert.equal(f.calls,1);
+ const legacy=new Request('https://example.test/api/alexa/guest',{method:'POST',headers:{signature,signaturecertchainurl:headers.signaturecertchainurl},body:raw});
+ assert.equal((await route(legacy)).status,400);assert.equal(f.calls,1);
+});
