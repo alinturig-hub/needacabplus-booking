@@ -15,9 +15,9 @@ export type GuestReply={version:string;sessionAttributes:Record<string,never>;re
 export function guestReply(text:string,end=false):GuestReply{return {version:'1.0',sessionAttributes:{},response:{outputSpeech:{type:'PlainText',text},shouldEndSession:end,...(!end?{reprompt:{outputSpeech:{type:'PlainText',text}}}:{})}};}
 const prompts:Record<string,string>={pickup:'What is your pickup address or place? Say, pick me up from, then the place or address.',destination:'Where are you going? Say, take me to, then the place or address.',name:'What is the passenger name? Say my name is, followed by your name.',phone:'What is your contact phone number? Say my phone number is, followed by the number.'};
 export function guestPhone(raw:string){const cleaned=raw.replace(/[ ()-]/g,'');return /^(?:(?:\+44|0044)[1-9][0-9]{9}|0[1-9][0-9]{9})$/.test(cleaned)?cleaned.replace(/^0044/,'+44'):null;}
-const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking};
+const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,mode:undefined as 'live'|'preview'|undefined};
 export async function guestConversation(input:GuestInput,services:Partial<typeof deps>={}){
- const s={...deps,...services},db=s.db(),session=hash(input.session),principal=hash(input.principal),request=hash(input.requestId);
+ const s={...deps,...services},bookingMode=s.mode??(process.env.ALEXA_GUEST_BOOKING_MODE==='live'?'live':'preview'),db=s.db(),session=hash(input.session),principal=hash(input.principal),request=hash(input.requestId);
  const client=await db.connect();let transaction=false;
  try{
   await client.query('BEGIN');transaction=true;
@@ -64,7 +64,7 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
   async function quoteReply(){
    const quote=await s.quote(alexaJourneySchema.parse({pickup:current.details.pickup,destination:current.details.destination}));
    current.details.quote=sealAutocabQuote(quote);current.phase='quoted';
-   const mode=process.env.ALEXA_GUEST_BOOKING_MODE==='live'?'live':'preview';current.details.mode=mode;
+   const mode=bookingMode;current.details.mode=mode;
    return guestReply(`The passenger is ${current.details.name}. Contact number ${current.details.phone!.split('').join(' ')}. `+fareSpeech(quote.pickup,quote.destination,quote.totalPence,mode));
   }
   async function nextQuestion(){
@@ -132,7 +132,7 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
   if(intent==='AMAZON.YesIntent'&&row.phase==='quoted'){
    if(!row.details.quote)throw Error('MISSING_QUOTE');
    let quote;try{quote=openAutocabQuote(row.details.quote);}catch{row.phase='ended';row.details={};return finish(guestReply('The quote expired or changed. Please start a new taxi request.',true));}
-   if(row.details.mode!==(process.env.ALEXA_GUEST_BOOKING_MODE==='live'?'live':'preview')){row.phase='ended';row.details={};return finish(guestReply('Booking settings changed. Please ask for a new quote.',true));}
+   if(row.details.mode!==bookingMode){row.phase='ended';row.details={};return finish(guestReply('Booking settings changed. Please ask for a new quote.',true));}
    if(row.details.mode!=='live'){row.phase='preview';row.details={};return finish(guestReply('Test complete. No taxi has been booked.',true));}
    let refreshed;try{refreshed=await s.recheck(quote);}catch(error){if(error instanceof Error&&['AUTOCAB_FARE_CHANGED','ALEXA_AUTOCAB_QUOTE_CHANGED'].includes(error.message)){row.phase='ended';row.details={};return finish(guestReply('The fare changed. Please start a new taxi request so I can read you the new price.',true));}throw error;}
    const body=directBookingBody(quote,refreshed,{name:row.details.name!,telephoneNumber:row.details.phone!});
