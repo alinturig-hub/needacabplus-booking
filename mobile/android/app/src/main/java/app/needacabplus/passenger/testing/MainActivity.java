@@ -96,6 +96,7 @@ public class MainActivity extends BridgeActivity {
             }
         });
         if (NativeGoogleAuth.isReturn(returnUri)) nativeGoogle.accept(returnUri);
+        if (returnUri != null && VoiceBookingLink.accepts(returnUri.toString())) bridge.getWebView().loadUrl(VoiceBookingLink.WEB_URL);
     }
 
     @Override
@@ -106,6 +107,13 @@ public class MainActivity extends BridgeActivity {
             setIntent(sanitized);
             super.onNewIntent(sanitized); // Preserve lifecycle callbacks without exposing the grant.
             if (nativeGoogle != null) nativeGoogle.accept(returnUri);
+            return;
+        }
+        if (intent.getData() != null && VoiceBookingLink.accepts(intent.getData().toString())) {
+            Intent sanitized = new Intent(intent).setData(null).replaceExtras((Bundle) null);
+            setIntent(sanitized);
+            super.onNewIntent(sanitized);
+            bridge.getWebView().loadUrl(VoiceBookingLink.WEB_URL);
             return;
         }
         super.onNewIntent(intent);

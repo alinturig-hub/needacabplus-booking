@@ -4,4 +4,6 @@
     <string name="title_activity_main">Need A Cab Plus Test</string>
     <string name="package_name">app.needacabplus.passenger.testing</string>
     <string name="custom_url_scheme">app.needacabplus.passenger.testing</string>
+<string name="book_taxi_short">Book a taxi</string>
+    <string name="book_taxi_long">Book a taxi with Need A Cab Plus</string>
 </resources>

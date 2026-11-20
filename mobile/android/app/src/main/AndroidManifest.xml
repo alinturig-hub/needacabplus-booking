@@ -30,6 +30,13 @@
                 <data android:scheme="needacabplus-test" android:host="auth" android:path="/complete" />
             </intent-filter>
 
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="needacabplus-test" android:host="booking" android:path="/voice" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
         <provider

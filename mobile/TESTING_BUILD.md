@@ -1,3 +1,18 @@
+## 0.5.0 — assistant entry preview
+
+Long-press the app icon and choose Book a taxi. The fixed deep link
+`needacabplus-test://booking/voice` opens the preview conversation at
+`https://webapp.needacabplus.app/voice-booking`. The preview cannot dispatch a taxi.
+
+The APK declares OPEN_APP_FEATURE, not the retired CREATE_TAXI_RESERVATION BII.
+Google/Gemini voice invocation still requires platform registration/device testing;
+a sideloaded test APK does not prove Assistant voice discovery. Bixby capsule
+integration is not included. No new microphone/contact/background-location
+permissions are added; keyboard dictation can be used in the screen.
+
+The package and signing certificate match testing version 0.4.0. Compile/unit
+checks pass; installation and actual device/assistant invocation remain to test.
+
 # Android testing 0.4.0
 
 Install over the existing testing APK; same package and signing certificate, versionCode 4.

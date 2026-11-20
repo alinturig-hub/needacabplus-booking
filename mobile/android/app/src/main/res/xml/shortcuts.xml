@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="app.needacabplus.passenger.testing"
+            android:targetClass="app.needacabplus.passenger.testing.MainActivity"
+            android:data="needacabplus-test://booking/voice">
+            <parameter android:name="feature" android:key="voice_feature" />
+        </intent>
+    </capability>
+    <shortcut android:shortcutId="book_taxi"
+        android:shortcutShortLabel="@string/book_taxi_short"
+        android:shortcutLongLabel="@string/book_taxi_long"
+        android:icon="@drawable/ic_nac">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="app.needacabplus.passenger.testing"
+            android:targetClass="app.needacabplus.passenger.testing.MainActivity"
+            android:data="needacabplus-test://booking/voice" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE">
+            <parameter-binding android:key="feature" android:value="book a taxi" />
+        </capability-binding>
+    </shortcut>
+</shortcuts>
