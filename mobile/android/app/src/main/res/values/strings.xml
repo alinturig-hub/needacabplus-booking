@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Need A Cab Plus Test</string>
+    <string name="title_activity_main">Need A Cab Plus Test</string>
+    <string name="package_name">app.needacabplus.passenger.testing</string>
+    <string name="custom_url_scheme">app.needacabplus.passenger.testing</string>
+</resources>
