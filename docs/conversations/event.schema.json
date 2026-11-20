@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PROPOSED event envelope; not an installed API",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "contract_version",
+    "event_id",
+    "event_type",
+    "source",
+    "workspace_id",
+    "booking_ref",
+    "booking_revision",
+    "milestone_revision",
+    "source_event_ref",
+    "occurred_at",
+    "recorded_at",
+    "expires_at",
+    "correlation_id",
+    "causation_id",
+    "mode"
+  ],
+  "properties": {
+    "contract": {
+      "const": "nac.conversations.events"
+    },
+    "contract_version": {
+      "const": "1.0"
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "booking.confirmed",
+        "driver.assigned",
+        "driver.arrived",
+        "journey.started",
+        "journey.completed",
+        "booking.cancelled"
+      ]
+    },
+    "source": {
+      "const": "needacabplus.canonical"
+    },
+    "workspace_id": {
+      "const": "needacabplus"
+    },
+    "booking_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "external_id"
+      ],
+      "properties": {
+        "provider": {
+          "const": "AUTOCAB"
+        },
+        "external_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "booking_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "milestone_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_event_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "causation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "mode": {
+      "const": "DRY_RUN"
+    }
+  }
+}

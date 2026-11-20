@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PROPOSED action request; not executable",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "nac.conversations.actions"
+    },
+    "contract_version": {
+      "const": "1.0"
+    },
+    "action_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "workspace_id": {
+      "const": "needacabplus"
+    },
+    "flow_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "flow_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "node_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "conversation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "conversation_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "action": {
+      "enum": [
+        "address.search",
+        "fare.quote",
+        "booking.create",
+        "booking.read",
+        "booking.update",
+        "booking.cancel",
+        "booking.tracking_link"
+      ]
+    },
+    "booking_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "external_id"
+      ],
+      "properties": {
+        "provider": {
+          "const": "AUTOCAB"
+        },
+        "external_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "expected_booking_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "customer_authorization_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "confirmation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "const": "DRY_RUN"
+    },
+    "parameters": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "contract",
+    "contract_version",
+    "action_id",
+    "operation_key",
+    "workspace_id",
+    "flow_id",
+    "flow_version",
+    "run_id",
+    "node_id",
+    "conversation_id",
+    "conversation_revision",
+    "correlation_id",
+    "action",
+    "requested_at",
+    "expires_at",
+    "mode",
+    "parameters"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "address.search"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "query"
+            ],
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 160
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "fare.quote"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pickup",
+              "destination",
+              "vias",
+              "vehicle",
+              "service",
+              "scheduledAt"
+            ],
+            "properties": {
+              "pickup": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text",
+                  "coordinate",
+                  "zoneId"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 250
+                  },
+                  "coordinate": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "latitude",
+                      "longitude"
+                    ],
+                    "properties": {
+                      "latitude": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                      },
+                      "longitude": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      }
+                    }
+                  },
+                  "zoneId": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "destination": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text",
+                  "coordinate",
+                  "zoneId"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 250
+                  },
+                  "coordinate": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "latitude",
+                      "longitude"
+                    ],
+                    "properties": {
+                      "latitude": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                      },
+                      "longitude": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      }
+                    }
+                  },
+                  "zoneId": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "vias": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "text",
+                    "coordinate",
+                    "zoneId"
+                  ],
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 5,
+                      "maxLength": 250
+                    },
+                    "coordinate": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "latitude",
+                        "longitude"
+                      ],
+                      "properties": {
+                        "latitude": {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180
+                        }
+                      }
+                    },
+                    "zoneId": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "vehicle": {
+                "enum": [
+                  "saloon",
+                  "estate",
+                  "xl"
+                ]
+              },
+              "service": {
+                "enum": [
+                  "asap",
+                  "priority",
+                  "prebook",
+                  "guarantee"
+                ]
+              },
+              "paymentMethod": {
+                "enum": [
+                  "cash",
+                  "card"
+                ]
+              },
+              "scheduledAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "customer_authorization_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "booking.create"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "quote_ref",
+              "journey_digest",
+              "acknowledged"
+            ],
+            "properties": {
+              "quote_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "journey_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "acknowledged": {
+                "const": true
+              }
+            }
+          }
+        },
+        "required": [
+          "customer_authorization_ref",
+          "confirmation_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "booking.read"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "customer_authorization_ref",
+          "booking_ref",
+          "expected_booking_revision"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "booking.update"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "proposal_ref"
+            ],
+            "properties": {
+              "proposal_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            }
+          }
+        },
+        "required": [
+          "customer_authorization_ref",
+          "booking_ref",
+          "expected_booking_revision",
+          "confirmation_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "booking.cancel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "customer_authorization_ref",
+          "booking_ref",
+          "expected_booking_revision",
+          "confirmation_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "booking.tracking_link"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "customer_authorization_ref",
+          "booking_ref",
+          "expected_booking_revision"
+        ]
+      }
+    }
+  ]
+}

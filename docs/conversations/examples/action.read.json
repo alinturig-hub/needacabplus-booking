@@ -1,0 +1,25 @@
+{
+  "contract": "nac.conversations.actions",
+  "contract_version": "1.0",
+  "action_id": "00000000-0000-4000-8000-000000000200",
+  "operation_key": "synthetic-flow-run:read:1",
+  "workspace_id": "needacabplus",
+  "flow_id": "synthetic-booking-support",
+  "flow_version": 1,
+  "run_id": "00000000-0000-4000-8000-000000000300",
+  "node_id": "read-booking",
+  "conversation_id": "synthetic-conversation",
+  "conversation_revision": 2,
+  "correlation_id": "00000000-0000-4000-8000-000000000100",
+  "action": "booking.read",
+  "booking_ref": {
+    "provider": "AUTOCAB",
+    "external_id": "SYNTHETIC-FLOW-1"
+  },
+  "expected_booking_revision": 1,
+  "customer_authorization_ref": "synthetic-unresolvable-authorization",
+  "requested_at": "2026-11-05T12:00:00Z",
+  "expires_at": "2026-11-05T12:05:00Z",
+  "mode": "DRY_RUN",
+  "parameters": {}
+}
