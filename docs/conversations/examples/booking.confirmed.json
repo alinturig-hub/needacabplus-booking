@@ -1,0 +1,21 @@
+{
+  "contract": "nac.conversations.events",
+  "contract_version": "1.0",
+  "event_id": "00000000-0000-4000-8000-000000000001",
+  "event_type": "booking.confirmed",
+  "source": "needacabplus.canonical",
+  "workspace_id": "needacabplus",
+  "booking_ref": {
+    "provider": "AUTOCAB",
+    "external_id": "SYNTHETIC-FLOW-1"
+  },
+  "booking_revision": 1,
+  "milestone_revision": 1,
+  "source_event_ref": "synthetic-canonical-transition-1",
+  "occurred_at": "2026-11-05T12:00:00Z",
+  "recorded_at": "2026-11-05T12:00:01Z",
+  "expires_at": "2026-11-05T12:15:00Z",
+  "correlation_id": "00000000-0000-4000-8000-000000000100",
+  "causation_id": "synthetic-ingest-1",
+  "mode": "DRY_RUN"
+}
