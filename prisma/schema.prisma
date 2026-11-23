@@ -513,6 +513,7 @@ model WebhookEvent {
   @@index([externalBookingId])
   @@index([status])
   @@index([receivedAt])
+  @@index([status, receivedAt])
   @@index([webhookConfigurationId])
 }
 
