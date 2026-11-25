@@ -214,6 +214,22 @@
         {
           "name": "AMAZON.FallbackIntent",
           "samples": []
+        },
+        {
+          "name": "EnableTaxiUpdatesIntent",
+          "samples": [
+            "keep me updated",
+            "notify me about my taxi",
+            "enable taxi updates"
+          ]
+        },
+        {
+          "name": "DisableTaxiUpdatesIntent",
+          "samples": [
+            "stop taxi updates",
+            "disable taxi updates",
+            "stop notifications for this booking"
+          ]
         }
       ],
       "types": [

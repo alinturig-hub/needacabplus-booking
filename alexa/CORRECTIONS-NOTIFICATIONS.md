@@ -14,6 +14,12 @@ Examples:
 
 A correction clears the old quote and requires the new address and fare to be confirmed. Freephone entries are excluded. For Derriford's main reception request, the service offers the verified **Main Entrance** record using its actual name; it does not invent a Main Reception coordinate.
 
+## Confirmation and per-booking update choice
+
+After a successful live Autocab response, Alexa reads the returned booking ID as the reference number and asks whether the passenger wants updates. A second Yes opts **that booking** in; No/Stop declines updates without cancelling the taxi. An unknown/rejected response never announces a confirmed reference or enrolls the passenger. Preview still creates no booking and invents no reference.
+
+Spoken Yes and Amazon's MessageAlert subscription are both required. A permission card opens the notification setting if Amazon subscription consent is absent. `keep me updated` and `stop taxi updates` change the preference for the latest confirmed booking owned by that Alexa user. Preferences persist through restarts and are rechecked before every send.
+
 ## Status
 
 `Alexa, ask Need A Cab Plus where my taxi is` returns the latest real booking owned by that Alexa user. Confirmed Autocab webhook data supplies status, colour, make, model and registration where available. A dispatch offer is not driver acceptance. Missing or stale details are not presented as current confirmed information.
@@ -35,4 +41,4 @@ This implementation only sends to Amazon's development proactive-events endpoint
 
 ## Persistence
 
-Subscriptions and the notification outbox persist in PostgreSQL. The production process polls opted-in users every 30 seconds when development notifications are configured. Identical status/allocation updates do not generate repeated alerts. Consent revocation and replaced vehicle allocations are rechecked before sending; delivery retries use a stable event reference.
+Subscriptions and the notification outbox persist in PostgreSQL. The production process polls opted-in users every 30 seconds when development notifications are configured. The worker distinguishes accepted driver allocation, a fresh Autocab pickup ETA within two minutes, and the explicit ARRIVED status. An ETA never infers that a taxi is outside. Missing, expired or stale ETA data suppresses the two-minute update; scheduled pickup and journey duration are never used instead. Identical milestone/allocation updates do not generate repeated alerts. The pickup milestone helper is shared code for future customer-webapp delivery; this release updates Alexa only. Consent revocation and replaced vehicle allocations are rechecked before sending; delivery retries use a stable event reference.
