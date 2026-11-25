@@ -230,6 +230,15 @@
             "disable taxi updates",
             "stop notifications for this booking"
           ]
+        },
+        {
+          "name": "TestPhoneReminderIntent",
+          "samples": [
+            "send a test reminder",
+            "send me a test reminder",
+            "test a phone reminder",
+            "test my phone notifications"
+          ]
         }
       ],
       "types": [

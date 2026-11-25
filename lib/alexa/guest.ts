@@ -1,3 +1,4 @@
+import {createPhoneReminder,reminderPermission,reminderSessionReady,REMINDER_SCOPE} from './phone-reminder';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {database,bookingAttemptDatabase} from '../database';
@@ -12,14 +13,14 @@ import {directBookingBody,submitDirectAutocabBooking} from './autocab-booking';
 import {hash,fareSpeech} from './policy';
 
 type Address=z.infer<typeof alexaJourneySchema>['pickup'];
-type Details={bookingId?:string;pickup?:Address;destination?:Address;candidate?:Address;alternatives?:Address[];name?:string;phone?:string;quote?:string;mode?:'live'|'preview';pendingDestination?:string;city?:string;locationTried?:boolean;candidateSource?:'gps'|'device';candidateMeasuredAt?:number};
+type Details={reminderTestUntil?:number;bookingId?:string;pickup?:Address;destination?:Address;candidate?:Address;alternatives?:Address[];name?:string;phone?:string;quote?:string;mode?:'live'|'preview';pendingDestination?:string;city?:string;locationTried?:boolean;candidateSource?:'gps'|'device';candidateMeasuredAt?:number};
 type Row={id:string;principal:string;phase:string;details:Details;expires_at:Date};
 export type GuestInput={principal:string;session:string;requestId:string;type:string;intent?:string;value?:string;journey?:string;location?:AlexaLocationContext};
 export type GuestReply={version:string;sessionAttributes:Record<string,never>;response:{outputSpeech:{type:string;text:string};shouldEndSession:boolean;card?:{type:'AskForPermissionsConsent';permissions:string[]};reprompt?:{outputSpeech:{type:string;text:string}}}};
 export function guestReply(text:string,end=false):GuestReply{return {version:'1.0',sessionAttributes:{},response:{outputSpeech:{type:'PlainText',text},shouldEndSession:end,...(!end?{reprompt:{outputSpeech:{type:'PlainText',text}}}:{})}};}
 const prompts:Record<string,string>={pickup:'What is your pickup address or place? Say, pick me up from, then the place or address.',destination:'Where are you going? Say, take me to, then the place or address.',name:'What is the passenger name? Say my name is, followed by your name.',phone:'What is your contact phone number? Say my phone number is, followed by the number.'};
 export function guestPhone(raw:string){const cleaned=raw.replace(/[ ()-]/g,'');return /^(?:(?:\+44|0044)[1-9][0-9]{9}|0[1-9][0-9]{9})$/.test(cleaned)?cleaned.replace(/^0044/,'+44'):null;}
-const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,status:alexaTaxiStatus,updates:setBookingUpdates,mode:undefined as 'live'|'preview'|undefined};
+const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,status:alexaTaxiStatus,updates:setBookingUpdates,reminder:createPhoneReminder,mode:undefined as 'live'|'preview'|undefined};
 export async function guestConversation(input:GuestInput,services:Partial<typeof deps>={}){
  const s={...deps,...services},bookingMode=s.mode??(process.env.ALEXA_GUEST_BOOKING_MODE==='live'?'live':'preview'),db=s.db(),session=hash(input.session),principal=hash(input.principal),request=hash(input.requestId);
  const client=await db.connect();let transaction=false;
@@ -67,6 +68,29 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
    await client.query("INSERT INTO alexa_guest_sessions(id,principal,session_hash,phase,details,expires_at) VALUES($1,$2,$3,$4,'{}',$5) ON CONFLICT(principal,session_hash) DO UPDATE SET phase='pickup',details='{}',expires_at=EXCLUDED.expires_at",[row.id,principal,session,row.phase,row.expires_at]);
   }
   const current=row;
+  function reminderPermissionReply(){const reply=guestReply('To create a one-minute test reminder, enable Reminders for Need A Cab Plus in the Alexa app, then say send a test reminder again.',true);reply.response.card={type:'AskForPermissionsConsent',permissions:[REMINDER_SCOPE]};return reply;}
+  if(intent==='TestPhoneReminderIntent'){
+   if(process.env.ALEXA_NOTIFICATIONS_MODE!=='development')return finish(guestReply('The reminder test is unavailable.',true));
+   if(!['pickup','reminder_test_confirm'].includes(current.phase))return finish(guestReply('Please finish this taxi conversation first, then open the skill and say send a test reminder.',true));
+   if(!reminderPermission(input.location))return finish(reminderPermissionReply());
+   if(!reminderSessionReady(input.location))return finish(guestReply('I could not access reminders in this Alexa session. Please open the skill again.',true));
+   current.phase='reminder_test_confirm';current.details.reminderTestUntil=Date.now()+5*60000;
+   return finish(guestReply('Would you like me to create a reminder in one minute saying, this is your test reminder, with a notification in the Alexa app? Say yes or no.'));
+  }
+  if(current.phase==='reminder_test_confirm'){
+   if(['AMAZON.YesIntent','AMAZON.NoIntent','AMAZON.StopIntent','AMAZON.CancelIntent'].includes(intent||'')){
+    const valid=!!current.details.reminderTestUntil&&current.details.reminderTestUntil>Date.now();current.phase='pickup';delete current.details.reminderTestUntil;
+    if(intent!=='AMAZON.YesIntent')return finish(guestReply('Okay, I did not create a reminder.',true));
+    if(!valid)return finish(guestReply('The test request expired. Say send a test reminder to start again.',true));
+    if(!reminderPermission(input.location))return finish(reminderPermissionReply());
+    const result=await s.reminder(input.principal,input.location);
+    if(result.duplicate)return finish(guestReply('A reminder test was already attempted this hour. Check Reminders in the Alexa app before trying again.',true));
+    if(result.state==='created')return finish(guestReply('Your test reminder is set for one minute from now, saying this is your test reminder. Phone notification is enabled. Check the Alexa app.',true));
+    if(result.state==='permission_required')return finish(reminderPermissionReply());
+    return finish(guestReply(result.state==='rejected'?'Alexa did not create the test reminder. Please check Reminders permission in the Alexa app.':'I could not confirm whether the reminder was created. Check Reminders in the Alexa app before trying again.',true));
+   }
+   current.phase='pickup';delete current.details.reminderTestUntil;
+  }
   const addressSearch=(value:string)=>s.address(value,{city:current.details.city});
   function offer(kind:'pickup'|'destination',candidates:Address[],source?:'gps'|'device'){
    const [candidate,...alternatives]=candidates;
