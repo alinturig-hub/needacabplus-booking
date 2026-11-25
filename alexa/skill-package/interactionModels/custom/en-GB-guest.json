@@ -23,6 +23,79 @@
           ]
         },
         {
+          "name": "ExcludeAddressIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "I don't want {Address}",
+            "not {Address}",
+            "not the {Address}"
+          ]
+        },
+        {
+          "name": "TaxiStatusIntent",
+          "samples": [
+            "where is my taxi",
+            "where is my driver",
+            "what car is coming",
+            "what is the registration",
+            "taxi status",
+            "read my taxi update",
+            "read my messages",
+            "review",
+            "where my taxi is",
+            "for my taxi status"
+          ]
+        },
+        {
+          "name": "CorrectDestinationIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "change destination to {Address}",
+            "change my destination to {Address}",
+            "drop off should be {Address}"
+          ]
+        },
+        {
+          "name": "CorrectPickupIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "change pickup to {Address}",
+            "change my pickup to {Address}",
+            "pickup should be {Address}"
+          ]
+        },
+        {
+          "name": "RefineAddressIntent",
+          "slots": [
+            {
+              "name": "Address",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "no I want {Address}",
+            "no I want to go to {Address}",
+            "no {Address}",
+            "I meant {Address}",
+            "change it to {Address}"
+          ]
+        },
+        {
           "name": "UseLocationIntent",
           "samples": [
             "use my location",

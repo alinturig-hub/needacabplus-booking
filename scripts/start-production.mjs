@@ -124,3 +124,13 @@ if(process.env.STREET_MANAGER_COUNCIL_SYNC_ENABLED==='true'&&process.env.BOOKING
  }catch{console.error('STREET_MANAGER_SUPPLEMENTARY_SYNC_UNAVAILABLE')}finally{supplementaryBusy=false}};
  setTimeout(syncSupplementary,20000).unref();setInterval(syncSupplementary,15*60000).unref();
 }
+
+// Alexa development notifications are opt-in, persistent and isolated from dispatch.
+if(process.env.ALEXA_NOTIFICATIONS_MODE==='development'&&process.env.BOOKING_WRITER_JOB_SECRET){
+ let alexaNotificationBusy=false;
+ const pollAlexaNotifications=async()=>{if(closing||alexaNotificationBusy)return;alexaNotificationBusy=true;try{
+  const result=await fetch(`http://127.0.0.1:${process.env.PORT||'3000'}/api/internal/alexa/notifications`,{method:'POST',headers:{'x-booking-writer-secret':process.env.BOOKING_WRITER_JOB_SECRET},signal:AbortSignal.timeout(55000)});
+  if(!result.ok)console.error('ALEXA_NOTIFICATION_WORKER_UNAVAILABLE',result.status);
+ }catch{console.error('ALEXA_NOTIFICATION_WORKER_UNAVAILABLE');}finally{alexaNotificationBusy=false;}};
+ setInterval(pollAlexaNotifications,30000).unref();setTimeout(pollAlexaNotifications,15000).unref();
+}
