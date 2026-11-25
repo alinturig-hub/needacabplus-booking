@@ -1,7 +1,9 @@
+import {pickupUpdateStage} from '../booking-pickup-update';
+import {autocabIso} from '../autocab-time.mjs';
 import {bookingAttemptDatabase} from '../database';
 import {withTaxiCrmReadOnly} from '../taxicrm-database';
 import {hash} from './policy';
-export type TaxiSnapshot={externalId:string;customerName:string|null;status:string;driverId:string|null;vehicleId:string|null;registration:string|null;make:string|null;model:string|null;colour:string|null;updatedAt:Date|string};
+export type TaxiSnapshot={externalId:string;customerName:string|null;status:string;driverId:string|null;vehicleId:string|null;registration:string|null;make:string|null;model:string|null;colour:string|null;updatedAt:Date|string;estimatedPickupAt?:string|null};
 const clean=(v:string|null|undefined,max=80)=>(v||'').replace(/[\x00-\x1f\x7f]/g,' ').trim().slice(0,max);
 export const taxiState=(s:string)=>s.toUpperCase().replace(/[^A-Z]/g,'');
 export function taxiStatusSpeech(row:TaxiSnapshot,now=Date.now()){
@@ -10,7 +12,8 @@ export function taxiStatusSpeech(row:TaxiSnapshot,now=Date.now()){
  if(state==='COMPLETED')return hello+'Your journey has been completed.';
  if(!['ACCEPTED','ARRIVED','POB'].includes(state)||!row.driverId||!row.vehicleId)return hello+(state==='DISPATCHED'?'Your booking has been dispatched and is awaiting driver acceptance.':'Your booking is active. I do not have a confirmed vehicle allocation yet.');
  const age=now-new Date(row.updatedAt).getTime(),stale=!Number.isFinite(age)||age< -10000||age>180000;
- let speech=hello+(stale?'The last confirmed update says your taxi ': 'Your taxi ')+(state==='ARRIVED'?'has arrived.':state==='POB'?'has started the journey.':'has been dispatched and is on the way.');
+ let speech=hello+(stale?'The last confirmed update says your taxi ': 'Your taxi ')+(state==='ARRIVED'?'is outside at your pickup.':state==='POB'?'has started the journey.':'has been dispatched and is on the way.');
+ if(pickupUpdateStage(row,now)==='two_minutes')speech+=' Your taxi is estimated to be about two minutes away.';
  const description=[clean(row.colour).toLowerCase(),clean(row.make),clean(row.model)].filter(Boolean).join(' '),registration=clean(row.registration,20).replace(/\s/g,'');
  if(description)speech+=` Your vehicle is ${/^[aeiou]/i.test(description)?'an':'a'} ${description}.`;
  if(registration)speech+=' The registration is '+registration.split('').join(' ')+'.';
@@ -19,11 +22,12 @@ export function taxiStatusSpeech(row:TaxiSnapshot,now=Date.now()){
 }
 export async function canonicalTaxiSnapshot(bookingId:string):Promise<TaxiSnapshot|null>{
  if(!/^\d{1,20}$/.test(bookingId))return null;
- return withTaxiCrmReadOnly(async db=>(await db.query<TaxiSnapshot>(`SELECT b."externalId",b."customerName",b.status,b."driverId",b."vehicleId",b."updatedAt",
+ return withTaxiCrmReadOnly(async db=>{const row=(await db.query<TaxiSnapshot & {pickupEta?:unknown}>(`SELECT b."externalId",b."customerName",b.status,b."driverId",b."vehicleId",b."updatedAt",
+ COALESCE(b."rawPayload"->>'EstimatedPickupTime',b."rawPayload"->>'estimatedPickupTime',b."rawPayload"->>'estimated_pickup_time') "pickupEta",
  COALESCE(NULLIF(trim(b."vehicleRegistration"),''),v.registration) registration,v.make,v.model,v.colour
  FROM public."Booking" b LEFT JOIN public."Vehicle" v ON v.provider='AUTOCAB' AND v."externalId"=b."vehicleId"
  AND (NULLIF(trim(b."vehicleRegistration"),'') IS NULL OR upper(regexp_replace(b."vehicleRegistration",'\\s','','g'))=upper(regexp_replace(v.registration,'\\s','','g')))
- WHERE b.provider='AUTOCAB' AND b."externalId"=$1 LIMIT 1`,[bookingId])).rows[0]||null);
+ WHERE b.provider='AUTOCAB' AND b."externalId"=$1 LIMIT 1`,[bookingId])).rows[0];if(!row)return null;const {pickupEta,...snapshot}=row;return {...snapshot,estimatedPickupAt:autocabIso(pickupEta)};});
 }
 const defaults={attempts:bookingAttemptDatabase,snapshot:canonicalTaxiSnapshot};
 export async function alexaTaxiStatus(principal:string,services:Partial<typeof defaults>={}){

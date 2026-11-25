@@ -3,6 +3,8 @@ import {z} from 'zod';
 import {database,bookingAttemptDatabase} from '../database';
 import {searchGuestAddresses} from './guest-search';
 import {contextualPlaceQuery,normalPlace,basePlaceLabel} from './place-refinement';
+import {setBookingUpdates} from './booking-updates';
+import {NOTIFICATION_SCOPE} from './notification-consent';
 import {alexaTaxiStatus} from './status';
 import {suggestAlexaPickup,parseTaxiJourney,type AlexaLocationContext} from './location';
 import {alexaJourneySchema,directAutocabQuote,sealAutocabQuote,openAutocabQuote,recheckAutocabFare} from './autocab-quote';
@@ -10,14 +12,14 @@ import {directBookingBody,submitDirectAutocabBooking} from './autocab-booking';
 import {hash,fareSpeech} from './policy';
 
 type Address=z.infer<typeof alexaJourneySchema>['pickup'];
-type Details={pickup?:Address;destination?:Address;candidate?:Address;alternatives?:Address[];name?:string;phone?:string;quote?:string;mode?:'live'|'preview';pendingDestination?:string;city?:string;locationTried?:boolean;candidateSource?:'gps'|'device';candidateMeasuredAt?:number};
+type Details={bookingId?:string;pickup?:Address;destination?:Address;candidate?:Address;alternatives?:Address[];name?:string;phone?:string;quote?:string;mode?:'live'|'preview';pendingDestination?:string;city?:string;locationTried?:boolean;candidateSource?:'gps'|'device';candidateMeasuredAt?:number};
 type Row={id:string;principal:string;phase:string;details:Details;expires_at:Date};
 export type GuestInput={principal:string;session:string;requestId:string;type:string;intent?:string;value?:string;journey?:string;location?:AlexaLocationContext};
-export type GuestReply={version:string;sessionAttributes:Record<string,never>;response:{outputSpeech:{type:string;text:string};shouldEndSession:boolean;reprompt?:{outputSpeech:{type:string;text:string}}}};
+export type GuestReply={version:string;sessionAttributes:Record<string,never>;response:{outputSpeech:{type:string;text:string};shouldEndSession:boolean;card?:{type:'AskForPermissionsConsent';permissions:string[]};reprompt?:{outputSpeech:{type:string;text:string}}}};
 export function guestReply(text:string,end=false):GuestReply{return {version:'1.0',sessionAttributes:{},response:{outputSpeech:{type:'PlainText',text},shouldEndSession:end,...(!end?{reprompt:{outputSpeech:{type:'PlainText',text}}}:{})}};}
 const prompts:Record<string,string>={pickup:'What is your pickup address or place? Say, pick me up from, then the place or address.',destination:'Where are you going? Say, take me to, then the place or address.',name:'What is the passenger name? Say my name is, followed by your name.',phone:'What is your contact phone number? Say my phone number is, followed by the number.'};
 export function guestPhone(raw:string){const cleaned=raw.replace(/[ ()-]/g,'');return /^(?:(?:\+44|0044)[1-9][0-9]{9}|0[1-9][0-9]{9})$/.test(cleaned)?cleaned.replace(/^0044/,'+44'):null;}
-const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,status:alexaTaxiStatus,mode:undefined as 'live'|'preview'|undefined};
+const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,status:alexaTaxiStatus,updates:setBookingUpdates,mode:undefined as 'live'|'preview'|undefined};
 export async function guestConversation(input:GuestInput,services:Partial<typeof deps>={}){
  const s={...deps,...services},bookingMode=s.mode??(process.env.ALEXA_GUEST_BOOKING_MODE==='live'?'live':'preview'),db=s.db(),session=hash(input.session),principal=hash(input.principal),request=hash(input.requestId);
  const client=await db.connect();let transaction=false;
@@ -38,6 +40,22 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
    await client.query('COMMIT');transaction=false;return reply;
   }
   if(input.intent==='TaxiStatusIntent')return finish(guestReply(await s.status(input.principal),true));
+  async function updatePreference(enabled:boolean,bookingId?:string){
+   const result=await s.updates(input.principal,enabled,bookingId);
+   if(!result.saved)return guestReply('I could not save an update preference for a confirmed booking. You can still ask where is my taxi.',true);
+   if(!enabled)return guestReply('Okay, I will not send updates for this booking. Your taxi booking is unchanged. You can still ask where is my taxi.',true);
+   const reply=guestReply(result.permission?'I will notify you when your driver is on the way, when the pickup estimate is two minutes away, and when your taxi is outside. Ask where is my taxi to hear the details.':'Your update preference is saved. Enable notifications for Need A Cab Plus in the Alexa app to receive alerts. Then ask where is my taxi to hear the details.',true);
+   if(!result.permission)reply.response.card={type:'AskForPermissionsConsent',permissions:[NOTIFICATION_SCOPE]};
+   return reply;
+  }
+  if(input.intent==='EnableTaxiUpdatesIntent'||input.intent==='DisableTaxiUpdatesIntent'){if(row?.phase==='updates_offer')row.phase='confirmed';return finish(await updatePreference(input.intent==='EnableTaxiUpdatesIntent'));}
+  if(row?.phase==='updates_offer'){
+   if(['AMAZON.YesIntent','AMAZON.NoIntent','AMAZON.StopIntent','AMAZON.CancelIntent'].includes(input.intent||'')){
+    const enabled=input.intent==='AMAZON.YesIntent';row.phase='confirmed';
+    const reply=await updatePreference(enabled,row.details.bookingId);return finish(reply);
+   }
+   return finish(guestReply('Your taxi is already booked. Would you like notifications for this booking? Say yes or no.'));
+  }
   const intent=input.intent==='QuickPlaceIntent'?'ProvideAddressIntent':input.intent,cancel=['AMAZON.StopIntent','AMAZON.CancelIntent','AMAZON.NoIntent'].includes(intent||'');
   if(input.type==='SessionEndedRequest')return finish(guestReply('Goodbye.',true));
   if(row&&['confirming','unknown','confirmed'].includes(row.phase))return finish(guestReply(row.phase==='confirmed'?'Your taxi is already booked. Please contact the operator for changes.':'Your booking may be processing. Please contact the operator before making another request.',true));
@@ -152,10 +170,14 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
    const body=directBookingBody(quote,refreshed,{name:row.details.name!,telephoneNumber:row.details.phone!});
    row.phase='confirming';await client.query("UPDATE alexa_guest_sessions SET phase='confirming' WHERE id=$1",[row.id]);await client.query('COMMIT');transaction=false;
    // Durable claim above survives transport timeouts or process restarts. Never retry a send here.
-   let reply:GuestReply;
-   try{const result=await s.submit(s.attempts(),quote,'alexa-guest:'+principal,body);row.phase=result.pending?'unknown':result.rejected?'ended':'confirmed';reply=guestReply(result.pending?'The booking is awaiting confirmation. Please contact the operator before booking again.':result.rejected?'The operator did not accept this booking. No taxi was confirmed.':'Your taxi is booked. Pay cash to the driver.',true);}
+   let reply:GuestReply;let confirmedId:string|undefined;
+   try{const result=await s.submit(s.attempts(),quote,'alexa-guest:'+principal,body);const ref=result.externalBookingId;
+    confirmedId=!result.pending&&!result.rejected&&typeof ref==='string'&&/^\d{1,20}$/.test(ref)?ref:undefined;
+    row.phase=result.pending?'unknown':result.rejected?'ended':confirmedId?'updates_offer':'unknown';
+    reply=result.pending?guestReply('The booking is awaiting confirmation. Please contact the operator before booking again.',true):result.rejected?guestReply('The operator did not accept this booking. No taxi was confirmed.',true):confirmedId?guestReply(`Your taxi is booked. Your booking reference number is ${confirmedId.split('').join(' ')}. Pay cash to the driver. Would you like me to notify you when your driver is on the way, about two minutes away, and outside?`):guestReply('I could not confirm the booking reference. Please contact the operator before requesting another taxi.',true);}
+
    catch{row.phase='unknown';reply=guestReply('I could not confirm the booking outcome. Please contact the operator before requesting another taxi.',true);}
-   await db.query('UPDATE alexa_guest_sessions SET phase=$2,details=$3::jsonb WHERE id=$1',[row.id,row.phase,JSON.stringify({})]);
+   await db.query('UPDATE alexa_guest_sessions SET phase=$2,details=$3::jsonb WHERE id=$1',[row.id,row.phase,JSON.stringify(confirmedId?{bookingId:confirmedId}:{})]);
    await db.query('INSERT INTO alexa_guest_requests(principal,request_hash,response) VALUES($1,$2,$3::jsonb) ON CONFLICT DO NOTHING',[principal,request,JSON.stringify(reply)]);return reply;
   }
   const prompt=prompts[row.phase]||(row.phase.endsWith('_check')?'Is that address correct? Say yes or no.':'Say yes to confirm the quoted fare and passenger details, or no to cancel.');

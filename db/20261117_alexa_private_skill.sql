@@ -80,3 +80,12 @@ CREATE TABLE IF NOT EXISTS alexa_notification_outbox (
  last_error text
 );
 CREATE INDEX IF NOT EXISTS alexa_notifications_pending ON alexa_notification_outbox(state,next_attempt_at);
+
+-- A per-booking spoken Yes is required in addition to Amazon subscription consent.
+CREATE TABLE IF NOT EXISTS alexa_booking_updates (
+ principal text NOT NULL,
+ booking_id text NOT NULL CHECK(booking_id ~ '^[0-9]{1,20}$'),
+ opted_in boolean NOT NULL DEFAULT false,
+ decision_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(principal,booking_id)
+);
