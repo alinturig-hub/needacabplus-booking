@@ -59,3 +59,24 @@ CREATE TABLE IF NOT EXISTS alexa_guest_requests (
 
 CREATE INDEX IF NOT EXISTS alexa_guest_requests_created ON alexa_guest_requests(created_at);
 CREATE INDEX IF NOT EXISTS alexa_guest_sessions_expiry ON alexa_guest_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS alexa_notification_subscriptions (
+ principal text PRIMARY KEY,
+ user_cipher text,
+ api_origin text,
+ enabled boolean NOT NULL DEFAULT false,
+ consent_at timestamptz NOT NULL,
+ last_polled_at timestamptz
+);
+CREATE TABLE IF NOT EXISTS alexa_notification_outbox (
+ id text PRIMARY KEY,
+ principal text NOT NULL REFERENCES alexa_notification_subscriptions(principal),
+ booking_id text NOT NULL,
+ fingerprint text NOT NULL,
+ state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','sending','sent','omitted')),
+ attempts integer NOT NULL DEFAULT 0,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ next_attempt_at timestamptz NOT NULL DEFAULT now(),
+ last_error text
+);
+CREATE INDEX IF NOT EXISTS alexa_notifications_pending ON alexa_notification_outbox(state,next_attempt_at);

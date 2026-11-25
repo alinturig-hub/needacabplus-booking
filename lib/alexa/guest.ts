@@ -2,6 +2,8 @@ import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {database,bookingAttemptDatabase} from '../database';
 import {searchGuestAddresses} from './guest-search';
+import {contextualPlaceQuery,normalPlace,basePlaceLabel} from './place-refinement';
+import {alexaTaxiStatus} from './status';
 import {suggestAlexaPickup,parseTaxiJourney,type AlexaLocationContext} from './location';
 import {alexaJourneySchema,directAutocabQuote,sealAutocabQuote,openAutocabQuote,recheckAutocabFare} from './autocab-quote';
 import {directBookingBody,submitDirectAutocabBooking} from './autocab-booking';
@@ -15,7 +17,7 @@ export type GuestReply={version:string;sessionAttributes:Record<string,never>;re
 export function guestReply(text:string,end=false):GuestReply{return {version:'1.0',sessionAttributes:{},response:{outputSpeech:{type:'PlainText',text},shouldEndSession:end,...(!end?{reprompt:{outputSpeech:{type:'PlainText',text}}}:{})}};}
 const prompts:Record<string,string>={pickup:'What is your pickup address or place? Say, pick me up from, then the place or address.',destination:'Where are you going? Say, take me to, then the place or address.',name:'What is the passenger name? Say my name is, followed by your name.',phone:'What is your contact phone number? Say my phone number is, followed by the number.'};
 export function guestPhone(raw:string){const cleaned=raw.replace(/[ ()-]/g,'');return /^(?:(?:\+44|0044)[1-9][0-9]{9}|0[1-9][0-9]{9})$/.test(cleaned)?cleaned.replace(/^0044/,'+44'):null;}
-const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,mode:undefined as 'live'|'preview'|undefined};
+const deps={db:database,attempts:bookingAttemptDatabase,address:searchGuestAddresses,location:suggestAlexaPickup,quote:directAutocabQuote,recheck:recheckAutocabFare,submit:submitDirectAutocabBooking,status:alexaTaxiStatus,mode:undefined as 'live'|'preview'|undefined};
 export async function guestConversation(input:GuestInput,services:Partial<typeof deps>={}){
  const s={...deps,...services},bookingMode=s.mode??(process.env.ALEXA_GUEST_BOOKING_MODE==='live'?'live':'preview'),db=s.db(),session=hash(input.session),principal=hash(input.principal),request=hash(input.requestId);
  const client=await db.connect();let transaction=false;
@@ -35,6 +37,7 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
    await client.query('INSERT INTO alexa_guest_requests(principal,request_hash,response) VALUES($1,$2,$3::jsonb)',[principal,request,JSON.stringify(reply)]);
    await client.query('COMMIT');transaction=false;return reply;
   }
+  if(input.intent==='TaxiStatusIntent')return finish(guestReply(await s.status(input.principal),true));
   const intent=input.intent==='QuickPlaceIntent'?'ProvideAddressIntent':input.intent,cancel=['AMAZON.StopIntent','AMAZON.CancelIntent','AMAZON.NoIntent'].includes(intent||'');
   if(input.type==='SessionEndedRequest')return finish(guestReply('Goodbye.',true));
   if(row&&['confirming','unknown','confirmed'].includes(row.phase))return finish(guestReply(row.phase==='confirmed'?'Your taxi is already booked. Please contact the operator for changes.':'Your booking may be processing. Please contact the operator before making another request.',true));
@@ -76,6 +79,15 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
    current.phase=!current.details.name?'name':'phone';
    return current.details.name&&current.details.phone?quoteReply():guestReply(prompts[current.phase]);
   }
+  if(['RefineAddressIntent','ExcludeAddressIntent','CorrectPickupIntent','CorrectDestinationIntent'].includes(intent||'')){
+   const value=input.value?.trim()||'';delete current.details.quote;
+   let kind:'pickup'|'destination'|undefined=intent==='CorrectPickupIntent'?'pickup':intent==='CorrectDestinationIntent'?'destination':current.phase.startsWith('pickup')?'pickup':current.phase.startsWith('destination')?'destination':undefined;
+   if(!kind){const q=normalPlace(value),matches=(['pickup','destination'] as const).filter(k=>{const label=normalPlace(current.details[k]?.text||'');return label&&q.split(' ').filter(w=>w.length>3&&!['want','main','reception','entrance','instead'].includes(w)).some(w=>label.includes(w));});if(matches.length===1)kind=matches[0];}
+   if(!kind){current.phase='correction';return finish(guestReply('Should I change the pickup or destination? Say change pickup to, or change destination to, followed by the place.'));}
+   const label=current.phase===kind+'_check'?current.details.candidate?.text:current.details[kind]?.text;
+   const query=intent==='ExcludeAddressIntent'&&label?basePlaceLabel(label):contextualPlaceQuery(value,label);current.phase=kind;delete current.details.candidate;delete current.details.alternatives;
+   return finish(offer(kind,await s.address(query,{city:current.details.city,excluded:intent==='ExcludeAddressIntent'?[value]:[]})));
+  }
   if(intent==='AMAZON.StopIntent'||intent==='AMAZON.CancelIntent'){row.phase='ended';row.details={};return finish(guestReply('I stopped this taxi request.',true));}
   if(intent==='AMAZON.NoIntent'){
    if(row.phase==='pickup_check'||row.phase==='destination_check'){const next=row.details.alternatives?.shift();if(next){row.details.candidate=next;return finish(guestReply(`How about ${next.text}? Is that correct?`));}row.phase=row.phase.replace('_check','');delete row.details.candidate;delete row.details.alternatives;delete row.details.candidateSource;delete row.details.candidateMeasuredAt;return finish(guestReply('Tell me a more specific place or address. '+prompts[row.phase]));}
@@ -116,6 +128,7 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
    const pickup=row.phase==='pickup_check';
    if(pickup&&row.details.candidateSource==='gps'&&(!row.details.candidateMeasuredAt||Date.now()-row.details.candidateMeasuredAt>60000)){current.phase='pickup';delete current.details.candidate;return finish(await locationPickup(true)||guestReply('Your location needs updating. '+prompts.pickup));}
    if(!row.details.candidate)throw Error('MISSING_CANDIDATE');
+   if(/\bfree[ -]?phone\b/i.test(row.details.candidate.text)){const kind=pickup?'pickup':'destination';const query=contextualPlaceQuery('not freephone',row.details.candidate.text);delete current.details.quote;return finish(offer(kind,await addressSearch(query)));}
    row.details[pickup?'pickup':'destination']=row.details.candidate;delete row.details.candidate;delete row.details.alternatives;delete row.details.candidateSource;delete row.details.candidateMeasuredAt;
    if(pickup&&typeof row.details.pickup?.town==='string')row.details.city=row.details.pickup.town;
    return finish(await nextQuestion());
@@ -132,6 +145,7 @@ export async function guestConversation(input:GuestInput,services:Partial<typeof
   if(intent==='AMAZON.YesIntent'&&row.phase==='quoted'){
    if(!row.details.quote)throw Error('MISSING_QUOTE');
    let quote;try{quote=openAutocabQuote(row.details.quote);}catch{row.phase='ended';row.details={};return finish(guestReply('The quote expired or changed. Please start a new taxi request.',true));}
+   if(/\bfree[ -]?phone\b/i.test(quote.pickup+' '+quote.destination)){const kind=/\bfree[ -]?phone\b/i.test(quote.pickup)?'pickup':'destination';delete current.details.quote;return finish(offer(kind,await addressSearch(basePlaceLabel(kind==='pickup'?quote.pickup:quote.destination))));}
    if(row.details.mode!==bookingMode){row.phase='ended';row.details={};return finish(guestReply('Booking settings changed. Please ask for a new quote.',true));}
    if(row.details.mode!=='live'){row.phase='preview';row.details={};return finish(guestReply('Test complete. No taxi has been booked.',true));}
    let refreshed;try{refreshed=await s.recheck(quote);}catch(error){if(error instanceof Error&&['AUTOCAB_FARE_CHANGED','ALEXA_AUTOCAB_QUOTE_CHANGED'].includes(error.message)){row.phase='ended';row.details={};return finish(guestReply('The fare changed. Please start a new taxi request so I can read you the new price.',true));}throw error;}

@@ -36,6 +36,7 @@ test('actual development SQL: save is draft, activation separate, optimistic con
  attempts=[{user_id:'account-1'}];let result=await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers);assert.equal(result?.accountLinkVerified,false);
  account={id:'account-1'};result=await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers);assert.equal(result?.appAccountId,'account-1');assert.equal(result?.accountLinkVerified,true);assert.equal(result?.fields.track_driver_url,undefined);
  const before=accountReads;attempts=[{user_id:'guest:1'}];result=await canonicalNotificationBooking(row.externalId,'driver.dispatched',readers);assert.equal(accountReads,before);assert.equal(result?.appAccountId,null);assert.equal(result?.accountLinkVerified,true);assert.equal(result?.revision,Date.parse('2026-11-04T11:59:00Z'));
+ attempts=[{user_id:'alexa-guest:synthetic'}];result=await canonicalNotificationBooking(row.externalId,'driver.dispatched',readers);assert.equal(accountReads,before);assert.equal(result?.accountLinkVerified,false);
  attempts=[];row.ourReference='NAC-00000000-0000-4000-8000-000000000001';result=await canonicalNotificationBooking(row.externalId,'booking.confirmed',readers);assert.equal(result?.source,'webapp');assert.equal(result?.accountLinkVerified,false);
  attempts=[{user_id:'a'},{user_id:'b'}];await assert.rejects(canonicalNotificationBooking(row.externalId,'booking.confirmed',readers),/AMBIGUOUS/);
  });

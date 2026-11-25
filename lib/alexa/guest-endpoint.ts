@@ -2,19 +2,27 @@ import {SkillRequestSignatureVerifier,TimestampVerifier} from 'ask-sdk-express-a
 import {z} from 'zod';
 import {boundedBody} from './body';
 import {alexaLocationContextSchema} from './location';
+import {saveNotificationConsent,NOTIFICATION_SCOPE} from './notification-consent';
 import {guestConversation,guestReply} from './guest';
 const verifier=new SkillRequestSignatureVerifier(),timestamp=new TimestampVerifier(150000);
 const app=z.object({applicationId:z.string()});
 const envelope=z.object({context:z.object({System:z.object({application:app,user:z.object({userId:z.string().min(10).max(512)})})}),session:z.object({sessionId:z.string().min(10).max(512),application:app.optional()}).optional(),request:z.object({type:z.enum(['LaunchRequest','IntentRequest','SessionEndedRequest']),requestId:z.string().min(10).max(512),timestamp:z.string(),locale:z.literal('en-GB'),intent:z.object({name:z.string().max(80),slots:z.record(z.object({value:z.string().max(330).optional()}).passthrough()).optional()}).optional()})});
 const headers={'Cache-Control':'no-store'};
-export function guestEndpoint(services:{signature:Pick<SkillRequestSignatureVerifier,'verify'>;time:Pick<TimestampVerifier,'verify'>;conversation:typeof guestConversation}={signature:verifier,time:timestamp,conversation:guestConversation}){
+export function guestEndpoint(services:{signature:Pick<SkillRequestSignatureVerifier,'verify'>;time:Pick<TimestampVerifier,'verify'>;conversation:typeof guestConversation;consent?:typeof saveNotificationConsent}={signature:verifier,time:timestamp,conversation:guestConversation}){
  return async function POST(request:Request){
   if(process.env.ALEXA_SKILL_ENABLED!=='true')return Response.json({error:'Unavailable.'},{status:503,headers});
   let raw:string;
   try{raw=await boundedBody(request,65536);}catch{return Response.json({error:'Invalid request.'},{status:400,headers});}
   // Verify the exact bytes before parsing or using any conversational fields.
-  try{await services.signature.verify(raw,{'signature-256':request.headers.get('signature-256')||'',signaturecertchainurl:request.headers.get('signaturecertchainurl')||''});await services.time.verify(raw);}catch{return Response.json({error:'Invalid Alexa signature or timestamp.'},{status:400,headers});}
+  try{await services.signature.verify(raw,{'signature-256':request.headers.get('signature-256')||'',signaturecertchainurl:request.headers.get('signaturecertchainurl')||''});}catch{return Response.json({error:'Invalid Alexa signature or timestamp.'},{status:400,headers});}
   let payload:unknown;try{payload=JSON.parse(raw);}catch{return Response.json({error:'Invalid JSON.'},{status:400,headers});}
+  const skillEvent=z.object({context:z.object({System:z.object({application:app,user:z.object({userId:z.string().min(10).max(512)}),apiEndpoint:z.string().optional()})}),request:z.object({type:z.enum(['AlexaSkillEvent.SkillPermissionAccepted','AlexaSkillEvent.SkillPermissionChanged','AlexaSkillEvent.SkillDisabled','AlexaSkillEvent.ProactiveSubscriptionChanged']),requestId:z.string().min(10).max(512),timestamp:z.string(),eventCreationTime:z.string().optional(),body:z.object({acceptedPermissions:z.array(z.object({scope:z.string()})).max(30).optional(),subscriptions:z.array(z.object({eventName:z.string()})).max(30).optional()}).optional()})}).safeParse(payload);
+  if(skillEvent.success){
+   const e=skillEvent.data,expected=process.env.ALEXA_SKILL_ID||'amzn1.ask.skill.98ba95c6-7892-4739-8faf-6a26e41cbccd',age=Date.now()-Date.parse(e.request.timestamp),at=e.request.eventCreationTime||e.request.timestamp;
+   if(e.context.System.application.applicationId!==expected||!Number.isFinite(age)||age< -150000||age>3600000||!Number.isFinite(Date.parse(at))||Date.parse(at)>Date.now()+150000)return Response.json({error:'Invalid skill event.'},{status:400,headers});
+   try{await (services.consent||saveNotificationConsent)({userId:e.context.System.user.userId,apiOrigin:e.context.System.apiEndpoint,type:e.request.type,at,scopes:e.request.type==='AlexaSkillEvent.ProactiveSubscriptionChanged'?(e.request.body?.subscriptions?.some(p=>p.eventName==='AMAZON.MessageAlert.Activated')?[NOTIFICATION_SCOPE]:[]):e.request.body?.acceptedPermissions?.map(p=>p.scope)||[]});return Response.json({},{headers});}catch{return Response.json({error:'Permission update unavailable.'},{status:503,headers});}
+  }
+  try{await services.time.verify(raw);}catch{return Response.json({error:'Invalid Alexa timestamp.'},{status:400,headers});}
   const parsed=envelope.safeParse(payload);
   if(!parsed.success)return Response.json({error:'Invalid Alexa request.'},{status:400,headers});
   const event=parsed.data;
