@@ -10,7 +10,8 @@ export async function notificationTestStatus(services:Partial<typeof defaults>={
  const rows=(await s.db().query<{principal:string;enabled:boolean;consent_at:Date|string;last_voice_at:Date|string|null}>(`SELECT sub.principal,sub.enabled,sub.consent_at,
  (SELECT max(r.created_at) FROM alexa_guest_requests r WHERE r.principal=sub.principal AND r.response->'response'->'outputSpeech' IS NOT NULL) last_voice_at
  FROM alexa_notification_subscriptions sub ORDER BY sub.consent_at DESC LIMIT 10`)).rows;
- return {configured:configured(),subscriptions:rows.map(row=>({...row,recentVoice:!!row.last_voice_at&&s.now()-new Date(row.last_voice_at).getTime()>=0&&s.now()-new Date(row.last_voice_at).getTime()<=15*60000}))};
+ const reminderUpdates=(await s.db().query('SELECT id,principal,state,scheduled_at,updated_at,last_error FROM alexa_reminder_update_tests ORDER BY created_at DESC LIMIT 10')).rows;
+ return {configured:configured(),reminderUpdates,subscriptions:rows.map(row=>({...row,recentVoice:!!row.last_voice_at&&s.now()-new Date(row.last_voice_at).getTime()>=0&&s.now()-new Date(row.last_voice_at).getTime()<=15*60000}))};
 }
 /** Explicit operator test only; never creates a quote, booking or booking preference. */
 export async function testAlexaNotification(principal:string,services:Partial<typeof defaults>={}){

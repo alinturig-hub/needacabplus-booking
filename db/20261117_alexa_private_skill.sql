@@ -89,3 +89,19 @@ CREATE TABLE IF NOT EXISTS alexa_booking_updates (
  decision_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY(principal,booking_id)
 );
+
+CREATE TABLE IF NOT EXISTS alexa_reminder_update_tests (
+ id text PRIMARY KEY,
+ principal text NOT NULL,
+ user_cipher text NOT NULL,
+ alert_cipher text,
+ api_origin text NOT NULL,
+ state text NOT NULL CHECK(state IN ('creating','ready','queued','updating','updated','failed','unknown','expired')),
+ scheduled_at timestamptz NOT NULL,
+ send_after timestamptz NOT NULL,
+ attempts integer NOT NULL DEFAULT 0,
+ last_error text,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS alexa_reminder_update_tests_due ON alexa_reminder_update_tests(state,send_after);
